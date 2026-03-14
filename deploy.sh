@@ -41,6 +41,9 @@ fi
 echo "🐳 Building Docker image locally..."
 docker compose build
 
+echo "🚀 Stopping old standalone containers if they exist..."
+docker compose down 2>/dev/null || true
+
 echo "🚀 Deploying stack to Docker Swarm with resolved environment..."
 set -a
 source .env
@@ -53,5 +56,5 @@ docker image prune -f
 
 echo "========================================================"
 echo "✅ Deployment successful!"
-echo "📡 Check logs with: cd $PROJECT_DIR && docker compose logs -f"
+echo "📡 Check logs with: docker service logs -f renace_app"
 echo "========================================================"
