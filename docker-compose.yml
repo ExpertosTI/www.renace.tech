@@ -71,6 +71,6 @@ volumes:
 
 networks:
   renace_internal:
-    driver: bridge
+    driver: overlay
   RenaceNet:
     external: true

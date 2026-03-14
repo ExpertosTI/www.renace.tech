@@ -38,8 +38,11 @@ if [ ! -f "$PROJECT_DIR/.env" ]; then
 fi
 
 # 3. Build and deploy the stack
-echo "🐳 Building Docker images and deploying containers (detached mode)..."
-docker compose up -d --build --remove-orphans
+echo "🐳 Building Docker image locally..."
+docker compose build
+
+echo "🚀 Deploying stack to Docker Swarm..."
+docker stack deploy -c docker-compose.yml renace
 
 # 4. Clean up unused builder resources to save space
 echo "🧹 Cleaning up unused Docker images..."
