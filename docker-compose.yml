@@ -46,7 +46,8 @@ services:
         - "traefik.enable=true"
         - "traefik.http.routers.renace.rule=Host(`${APP_HOST}`)"
         - "traefik.http.routers.renace.entrypoints=websecure"
-        - "traefik.http.routers.renace.tls.certresolver=letsencrypt"
+        - "traefik.http.routers.renace.tls=true"
+        - "traefik.http.routers.renace.tls.certresolver=letsencryptresolver"
         - "traefik.http.services.renace.loadbalancer.server.port=3000"
         - "traefik.docker.network=RenaceNet"
 
