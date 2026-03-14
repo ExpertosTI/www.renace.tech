@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presta Pro - Gestión de Préstamos Inteligente</title>
+    <meta name="description" content="Presta Pro: plataforma inteligente de gestión de préstamos. Control total de cartera, cobros automáticos, reportes en tiempo real. Por RENACE.TECH">
+    <meta name="theme-color" content="#0a0e17">
+
+    <!-- OG Tags — So sharing the QR shows Presta Pro, not RENACE -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://renace.tech/PrestApp/">
+    <meta property="og:title" content="Presta Pro — Gestión de Préstamos Inteligente">
+    <meta property="og:description" content="Plataforma inteligente de gestión de préstamos: control de cartera, cobros automáticos, reportes en tiempo real. Accede ahora.">
+    <meta property="og:image" content="https://renace.tech/PrestApp/assets/logo.svg">
+    <meta property="og:site_name" content="Presta Pro by RENACE.TECH">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Presta Pro — Gestión de Préstamos Inteligente">
+    <meta name="twitter:description" content="Plataforma inteligente de gestión de préstamos: control de cartera, cobros automáticos, reportes en tiempo real.">
+    <meta name="twitter:image" content="https://renace.tech/PrestApp/assets/logo.svg">
+
+    <link rel="icon" type="image/x-icon" href="./assets/favicon.ico">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="guide.css">
+    <link rel="stylesheet" href="chat.css">
+
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body>
+    <div class="background-effects">
+        <div class="glow glow-1"></div>
+        <div class="glow glow-2"></div>
+        <div class="glow glow-3"></div>
+    </div>
+
+    <nav class="navbar">
+        <div class="container nav-container">
+            <div class="logo">
+                <div class="logo-icon">
+                    <img src="./assets/logo.svg" alt="Presta Pro Logo">
+                </div>
+                <span class="logo-text">Presta Pro</span>
+            </div>
+            <div class="nav-links">
+                <a href="#features">Características</a>
+                <a href="#pricing">Planes</a>
+                <button id="openGuideBtn" class="btn btn-secondary" style="margin-right: 0.5rem;"><i
+                        data-lucide="graduation-cap"></i> Entrenamiento</button>
+                <a href="https://prestanace.renace.tech" class="btn btn-primary">Acceder al Panel</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="hero">
+        <div class="container hero-container">
+            <div class="hero-content">
+                <div class="badge">
+                    <span class="badge-icon">✨</span>
+                    <span class="badge-text">La nueva era en gestión financiera</span>
+                </div>
+                <h1>Control total de tus préstamos con <span class="gradient-text">Inteligencia Artificial</span></h1>
+                <p>Automatiza cobros, gestiona rutas GPS en tiempo real y toma decisiones financieras con análisis
+                    predictivo. Todo en una sola plataforma.</p>
+                <div class="hero-buttons">
+                    <a href="https://prestanace.renace.tech" class="btn btn-primary btn-lg">Comenzar Gratis <i
+                            data-lucide="arrow-right"></i></a>
+                    <a href="https://wa.me/18494577463?text=Hola%20RENACE%20Tech,%20quiero%20ver%20una%20demo%20de%20Presta%20Pro"
+                        class="btn btn-secondary btn-lg" target="_blank" rel="noopener noreferrer"><i
+                            data-lucide="play-circle"></i> Ver Demo</a>
+                </div>
+
+                <div class="stats-row">
+                    <div class="stat-item">
+                        <span class="stat-number">98%</span>
+                        <span class="stat-label">Eficiencia en Cobros</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-item">
+                        <span class="stat-number">24/7</span>
+                        <span class="stat-label">Soporte IA</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-item">
+                        <span class="stat-number">5k+</span>
+                        <span class="stat-label">Usuarios Activos</span>
+                    </div>
+                </div>
+            </div>
+            <div class="hero-image">
+                <div class="glass-card main-card">
+                    <div class="card-header">
+                        <div class="card-dots">
+                            <span class="dot red"></span>
+                            <span class="dot yellow"></span>
+                            <span class="dot green"></span>
+                        </div>
+                        <span class="card-title">Dashboard</span>
+                    </div>
+                    <div class="card-body">
+                        <!-- Simulated UI Elements -->
+                        <div class="chart-area">
+                            <div class="bar bar-1"></div>
+                            <div class="bar bar-2"></div>
+                            <div class="bar bar-3"></div>
+                            <div class="bar bar-4"></div>
+                            <div class="bar bar-5"></div>
+                        </div>
+                        <div class="ui-row">
+                            <div class="ui-item"></div>
+                            <div class="ui-item"></div>
+                        </div>
+                    </div>
+
+                    <!-- Floating Elements -->
+                    <div class="glass-card float-card card-1">
+                        <div class="float-icon bg-blue"><i data-lucide="trending-up"></i></div>
+                        <div class="float-content">
+                            <span>Ingresos</span>
+                            <strong>+12.5%</strong>
+                        </div>
+                    </div>
+
+                    <div class="glass-card float-card card-2">
+                        <div class="float-icon bg-green"><i data-lucide="check-circle"></i></div>
+                        <div class="float-content">
+                            <span>Ruta Completada</span>
+                            <strong>Zona Norte</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <section id="features" class="features">
+        <div class="container">
+            <div class="section-header">
+                <h2>¿Por qué elegir Presta Pro?</h2>
+                <p>Herramientas diseñadas para escalar tu negocio de préstamos al siguiente nivel.</p>
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon bg-blue-soft">
+                        <i data-lucide="brain-circuit"></i>
+                    </div>
+                    <h3>Asistente IA</h3>
+                    <p>Obtén análisis predictivos y respuestas instantáneas sobre el estado de tu cartera con nuestra IA
+                        integrada.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon bg-purple-soft">
+                        <i data-lucide="map-pin"></i>
+                    </div>
+                    <h3>Rutas GPS Inteligentes</h3>
+                    <p>Optimiza el recorrido de tus cobradores. Seguimiento en tiempo real y asignación automática de
+                        zonas.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon bg-orange-soft">
+                        <i data-lucide="shield-check"></i>
+                    </div>
+                    <h3>Seguridad Bancaria</h3>
+                    <p>Tus datos están protegidos con encriptación de grado militar y copias de seguridad automáticas.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon bg-green-soft">
+                        <i data-lucide="smartphone"></i>
+                    </div>
+                    <h3>App Móvil Nativa</h3>
+                    <p>Administra tu negocio desde cualquier lugar. Compatible con impresoras térmicas Bluetooth.</p>
+                </div>
+            </div>
+        </div>
+        <section id="pricing" class="pricing">
+            <div class="container">
+                <div class="section-header">
+                    <h2>Elige el plan ideal para tu empresa</h2>
+                    <p>Ofrecemos paquetes con precios adaptados a tu negocio. Llámanos y descubre nuestras increíbles
+                        ofertas.</p>
+                </div>
+
+                <div class="pricing-grid">
+                    <!-- Free Plan -->
+                    <div class="pricing-card">
+                        <div class="card-header">
+                            <h3>Gratis</h3>
+                            <p class="users-limit">Ideal para empezar</p>
+                        </div>
+                        <div class="card-body">
+                            <div class="price">
+                                <span class="amount">$0</span>
+                                <span class="period">/mes</span>
+                            </div>
+                            <p class="annual-price">Siempre gratis</p>
+                            <ul class="features-list">
+                                <li><i data-lucide="check"></i> 10 Clientes</li>
+                                <li><i data-lucide="check"></i> 5 Préstamos Activos</li>
+                                <li><i data-lucide="check"></i> 1 Usuario</li>
+                                <li><i data-lucide="x" style="color: #ef4444;"></i> Sin acceso a IA</li>
+                            </ul>
+                            <a href="https://prestanace.renace.tech" class="btn btn-outline" target="_blank"
+                                rel="noopener noreferrer">Comenzar Gratis</a>
+                        </div>
+                    </div>
+
+                    <!-- Professional Plan -->
+                    <div class="pricing-card popular">
+                        <div class="popular-tag">Más Popular</div>
+                        <div class="card-header">
+                            <h3>Profesional</h3>
+                            <p class="users-limit">Para prestamistas en crecimiento</p>
+                        </div>
+                        <div class="card-body">
+                            <div class="price">
+                                <span class="amount">$15</span>
+                                <span class="period">USD/mes</span>
+                            </div>
+                            <p class="annual-price">o <strong>$119.88</strong> anual ($9.99/mes)</p>
+                            <ul class="features-list">
+                                <li><i data-lucide="check"></i> 100 Clientes</li>
+                                <li><i data-lucide="check"></i> 50 Préstamos Activos</li>
+                                <li><i data-lucide="check"></i> 5 Usuarios</li>
+                                <li><i data-lucide="check"></i> 100 Consultas IA/mes</li>
+                                <li><i data-lucide="check"></i> Rutas GPS</li>
+                            </ul>
+                            <a href="https://wa.me/18494577463?text=Hola%20RENACE%20Tech,%20quiero%20el%20Plan%20Profesional%20de%20Presta%20Pro"
+                                class="btn btn-primary" target="_blank" rel="noopener noreferrer">Contratar Ahora</a>
+                        </div>
+                    </div>
+
+                    <!-- Enterprise Plan -->
+                    <div class="pricing-card">
+                        <div class="card-header">
+                            <h3>Empresarial</h3>
+                            <p class="users-limit">Máxima potencia sin límites</p>
+                        </div>
+                        <div class="card-body">
+                            <div class="price">
+                                <span class="amount">$27</span>
+                                <span class="period">USD/mes</span>
+                            </div>
+                            <p class="annual-price">o <strong>$227.88</strong> anual ($18.99/mes)</p>
+                            <ul class="features-list">
+                                <li><i data-lucide="check"></i> Clientes Ilimitados</li>
+                                <li><i data-lucide="check"></i> Préstamos Ilimitados</li>
+                                <li><i data-lucide="check"></i> Usuarios Ilimitados</li>
+                                <li><i data-lucide="check"></i> IA Ilimitada</li>
+                                <li><i data-lucide="check"></i> Soporte Prioritario 24/7</li>
+                            </ul>
+                            <a href="https://wa.me/18494577463?text=Hola%20RENACE%20Tech,%20necesito%20el%20Plan%20Empresarial%20de%20Presta%20Pro"
+                                class="btn btn-outline" target="_blank" rel="noopener noreferrer">Contratar Ahora</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Interactive Training Modal (Hidden by default) -->
+        <div id="guideModal" class="guide-modal-overlay">
+            <div class="guide-modal-content">
+                <button id="closeGuideBtn" class="guide-close-btn"><i data-lucide="x"></i></button>
+
+                <section class="guide-section-inner">
+                    <div class="guide-intro">
+                        <h2>Centro de Entrenamiento</h2>
+                        <p style="color: var(--text-muted); margin-bottom: 2rem;">Aprende a usar Presta Pro paso a paso.
+                        </p>
+
+                        <!-- Search Bar -->
+                        <div class="guide-search-container">
+                            <i data-lucide="search" class="search-icon"></i>
+                            <input type="text" id="guideSearch"
+                                placeholder="Busca un tema... (ej: crear préstamo, mora, impresora)">
+                        </div>
+                    </div>
+
+                    <!-- Progress -->
+                    <div class="progress-container" id="guideProgress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill" style="width: 12.5%"></div>
+                        </div>
+                        <p class="progress-text"><span id="currentStep">1</span> de 8 módulos completados</p>
+                    </div>
+
+                    <!-- Steps Navigation (Hidden when searching) -->
+                    <div class="steps-nav" id="guideStepsNav">
+                        <div class="step-dot active" data-step="1" title="Bienvenida">👋</div>
+                        <div class="step-dot" data-step="2" title="Registro">📝</div>
+                        <div class="step-dot" data-step="3" title="Dashboard">📊</div>
+                        <div class="step-dot" data-step="4" title="Clientes">👥</div>
+                        <div class="step-dot" data-step="5" title="Préstamos">💵</div>
+                        <div class="step-dot" data-step="6" title="Cobros">📥</div>
+                        <div class="step-dot" data-step="7" title="Cobradores">🏃</div>
+                        <div class="step-dot" data-step="8" title="Reportes">📈</div>
+                    </div>
+
+                    <!-- Tutorial Content -->
+                    <div class="tutorial-content" id="guideContent">
+                        <!-- Search Results View (Initially hidden) -->
+                        <div id="searchResults" class="step-content" style="display: none;">
+                            <div class="step-header">
+                                <span class="step-icon"></span>
+                                <h2 class="step-title">Resultados de Búsqueda</h2>
+                            </div>
+                            <div class="tutorial-grid" id="resultsGrid">
+                                <!-- Results injected here via JS -->
+                            </div>
+                        </div>
+
+                        <!-- Step 1: Welcome -->
+                        <div class="step-content active" data-step="1">
+                            <div class="step-header">
+                                <span class="step-icon">👋</span>
+                                <h2 class="step-title">¡Bienvenido a Presta Pro!</h2>
+                            </div>
+                            <p class="step-description">
+                                Presta Pro es tu sistema integral para gestionar préstamos y cobranzas.
+                                Aprende en minutos a potenciar tu negocio.
+                            </p>
+                            <div class="tutorial-grid">
+                                <div class="tutorial-card" data-keywords="movil celular tablet computadora">
+                                    <span class="tutorial-icon">📱</span>
+                                    <h3>100% Móvil</h3>
+                                    <p>Funciona perfecto en tu celular, tablet o computadora</p>
+                                </div>
+                                <div class="tutorial-card" data-keywords="nube online seguridad">
+                                    <span class="tutorial-icon">☁️</span>
+                                    <h3>Ejecución en la Nube</h3>
+                                    <p>Tus datos siempre seguros y accesibles desde cualquier lugar</p>
+                                </div>
+                                <div class="tutorial-card" data-keywords="ia inteligencia artificial asistente ayuda">
+                                    <span class="tutorial-icon">🤖</span>
+                                    <h3>Asistente IA</h3>
+                                    <p>Pregunta lo que quieras: "¿Cuánto llevo cobrado hoy?"</p>
+                                </div>
+                                <div class="tutorial-card" data-keywords="impresora termica recibos papel">
+                                    <span class="tutorial-icon">🖨️</span>
+                                    <h3>Recibos Térmicos</h3>
+                                    <p>Imprime comprobantes en impresoras bluetooth de 80mm</p>
+                                </div>
+                            </div>
+                            <div class="tip-box">
+                                <span class="tip-title">💡 Consejo:</span>
+                                <p>Puedes navegar usando las flechas del teclado o haciendo clic en los iconos
+                                    superiores.</p>
+                            </div>
+                        </div>
+
+                        <!-- Step 2: Registration -->
+                        <div class="step-content" data-step="2">
+                            <div class="step-header">
+                                <span class="step-icon">📝</span>
+                                <h2 class="step-title">Registro y Configuración</h2>
+                            </div>
+                            <p class="step-description">
+                                Empezar es gratis y toma menos de 2 minutos.
+                            </p>
+                            <div class="tutorial-grid">
+                                <div class="tutorial-card" data-keywords="cuenta registro crear usuario">
+                                    <span class="tutorial-icon">1️⃣</span>
+                                    <h3>Crear Cuenta</h3>
+                                    <p>Ingresa tu email y nombre de empresa</p>
+                                </div>
+                                <div class="tutorial-card" data-keywords="verificar email correo confirmar">
+                                    <span class="tutorial-icon">2️⃣</span>
+                                    <h3>Verificar Email</h3>
+                                    <p>Confirma con el link que enviamos a tu correo</p>
+                                </div>
+                                <div class="tutorial-card" data-keywords="google login seguridad">
+                                    <span class="tutorial-icon">🔐</span>
+                                    <h3>Acceso Rápido</h3>
+                                    <p>Usa "Iniciar con Google" para mayor seguridad y rapidez</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 3: Dashboard -->
+                        <div class="step-content" data-step="3">
+                            <div class="step-header">
+                                <span class="step-icon">📊</span>
+                                <h2 class="step-title">Dashboard Principal</h2>
+                            </div>
+                            <p class="step-description">
+                                Tu centro de comando. Visualiza el estado de tu cartera en tiempo real.
+                            </p>
+                            <div class="tutorial-grid">
+                                <div class="tutorial-card" data-keywords="cobrar pendiente deuda">
+                                    <span class="tutorial-icon">💰</span>
+                                    <h3>Por Cobrar</h3>
+                                    <p>Monto total pendiente de cobro</p>
+                                </div>
+                                <div class="tutorial-card" data-keywords="clientes activos usuarios">
+                                    <span class="tutorial-icon">👥</span>
+                                    <h3>Clientes</h3>
+                                    <p>Total de clientes activos en cartera</p>
+                                </div>
+                                <div class="tutorial-card" data-keywords="ingresos hoy cobrado dia">
+                                    <span class="tutorial-icon">📈</span>
+                                    <h3>Ingresos Hoy</h3>
+                                    <p>Cobros realizados en tiempo real</p>
+                                </div>
+                                <div class="tutorial-card" data-keywords="mora tarde vencido">
+                                    <span class="tutorial-icon">⚠️</span>
+                                    <h3>En Mora</h3>
+                                    <p>Alertas de préstamos vencidos</p>
+                                </div>
+                            </div>
+                            <div class="tip-box">
+                                <span class="tip-title">🔔 Notificaciones:</span>
+                                <p>Haz clic en la campana para ver alertas de pagos y avisos importantes.</p>
+                            </div>
+                        </div>
+
+                        <!-- Step 4: Clients -->
+                        <div class="step-content" data-step="4">
+                            <div class="step-header">
+                                <span class="step-icon">👥</span>
+                                <h2 class="step-title">Gestión de Clientes</h2>
+                            </div>
+                            <div class="tutorial-grid">
+                                <div class="tutorial-card" data-keywords="agregar cliente nuevo crear">
+                                    <span class="tutorial-icon">➕</span>
+                                    <h3>Nuevo Cliente</h3>
+                                    <p>Botón "+ Nuevo" e ingresa sus datos básicos</p>
+                                </div>
+                                <div class="tutorial-card" data-keywords="cedula documento contrato foto">
+                                    <span class="tutorial-icon">📄</span>
+                                    <h3>Documentos</h3>
+                                    <p>Sube fotos de cédula, contrato o vivienda</p>
+                                </div>
+                                <div class="tutorial-card" data-keywords="buscar encontrar filtro">
+                                    <span class="tutorial-icon">🔍</span>
+                                    <h3>Buscador</h3>
+                                    <p>Encuentra por nombre, cédula, teléfono o apodo</p>
+                                </div>
+                                <div class="tutorial-card" data-keywords="perfil foto imagen">
+                                    <span class="tutorial-icon">📸</span>
+                                    <h3>Foto de Perfil</h3>
+                                    <p>Agrega foto para identificarlo visualmente</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 5: Loans -->
+                        <div class="step-content" data-step="5">
+                            <div class="step-header">
+                                <span class="step-icon">💵</span>
+                                <h2 class="step-title">Crear Préstamos</h2>
+                            </div>
+                            <div class="tutorial-grid">
+                                <div class="tutorial-card" data-keywords="monto capital tasa interes dinero">
+                                    <span class="tutorial-icon">💲</span>
+                                    <h3>Condiciones</h3>
+                                    <p>Define Monto, Tasa de Interés y Plazo</p>
+                                </div>
+                                <div class="tutorial-card" data-keywords="frecuencia diario semanal quincenal mensual">
+                                    <span class="tutorial-icon">�</span>
+                                    <h3>Frecuencia</h3>
+                                    <p>Diario, Semanal, Quincenal o Mensual</p>
+                                </div>
+                                <div class="tutorial-card" data-keywords="contrato legal imprimir">
+                                    <span class="tutorial-icon">�</span>
+                                    <h3>Contrato</h3>
+                                    <p>Genera e imprime el contrato legal automáticamente</p>
+                                </div>
+                            </div>
+                            <div class="tip-box">
+                                <span class="tip-title">🧮 Amortización Francesa:</span>
+                                <p>El sistema calcula automáticamente la tabla de cuotas usando el sistema francés
+                                    (cuota fija).</p>
+                            </div>
+                        </div>
+
+                        <!-- Step 6: Collections -->
+                        <div class="step-content" data-step="6">
+                            <div class="step-header">
+                                <span class="step-icon">📥</span>
+                                <h2 class="step-title">Registrar Cobros</h2>
+                            </div>
+                            <div class="tutorial-grid">
+                                <div class="tutorial-card" data-keywords="pago cobrar cuota normal">
+                                    <span class="tutorial-icon">✅</span>
+                                    <h3>Pago Rápido</h3>
+                                    <p>Un clic para registrar la cuota completa</p>
+                                </div>
+                                <div class="tutorial-card" data-keywords="mora penalidad tarde retraso">
+                                    <span class="tutorial-icon">⚠️</span>
+                                    <h3>Mora Automática</h3>
+                                    <p>El sistema sugiere penalidad si está vencido</p>
+                                </div>
+                                <div class="tutorial-card" data-keywords="parcial abono incompleto">
+                                    <span class="tutorial-icon">✂️</span>
+                                    <h3>Abonos</h3>
+                                    <p>Acepta pagos parciales si el cliente no completa</p>
+                                </div>
+                            </div>
+                            <div class="tip-box">
+                                <span class="tip-title">📱 Modo Cobrador:</span>
+                                <p>Tus empleados pueden registrar cobros desde su celular en la calle (requiere
+                                    internet).</p>
+                            </div>
+                        </div>
+
+                        <!-- Step 7: Collectors -->
+                        <div class="step-content" data-step="7">
+                            <div class="step-header">
+                                <span class="step-icon">🏃</span>
+                                <h2 class="step-title">Gestión de Cobradores</h2>
+                            </div>
+                            <div class="tutorial-grid">
+                                <div class="tutorial-card" data-keywords="cobrador empleado usuario nuevo">
+                                    <span class="tutorial-icon">➕</span>
+                                    <h3>Crear Usuario</h3>
+                                    <p>Menú → Cobradores → + Nuevo</p>
+                                </div>
+                                <div class="tutorial-card" data-keywords="asignar ruta cartera clientes">
+                                    <span class="tutorial-icon">👥</span>
+                                    <h3>Asignar Ruta</h3>
+                                    <p>Distribuye clientes específicos a cada cobrador</p>
+                                </div>
+                                <div class="tutorial-card" data-keywords="permisos seguridad acceso">
+                                    <span class="tutorial-icon">🔐</span>
+                                    <h3>Privacidad</h3>
+                                    <p>Cada cobrador ve SOLO sus clientes asignados</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 8: Reports -->
+                        <div class="step-content" data-step="8">
+                            <div class="step-header">
+                                <span class="step-icon">📈</span>
+                                <h2 class="step-title">Reportes y Configuración</h2>
+                            </div>
+                            <div class="tutorial-grid">
+                                <div class="tutorial-card" data-keywords="reporte ingresos gastos ganancia">
+                                    <span class="tutorial-icon">📊</span>
+                                    <h3>Reportes</h3>
+                                    <p>Detalle de ingresos diarios, semanales y mensuales</p>
+                                </div>
+                                <div class="tutorial-card" data-keywords="configuracion logo tema ajustes">
+                                    <span class="tutorial-icon">⚙️</span>
+                                    <h3>Personalización</h3>
+                                    <p>Sube tu Logo y ajusta el tema de la app</p>
+                                </div>
+                                <div class="tutorial-card" data-keywords="plan suscripcion actualizar precio">
+                                    <span class="tutorial-icon">💳</span>
+                                    <h3>Suscripción</h3>
+                                    <p>Cambia o actualiza tu plan cuando quieras</p>
+                                </div>
+                            </div>
+
+                            <div class="tip-box">
+                                <span class="tip-title">📊 Exportar PDF:</span>
+                                <p>Todos los reportes se pueden descargar en PDF para imprimir o compartir.</p>
+                            </div>
+                        </div>
+
+                        <!-- Step 9: Routes (GPS) [NEW] -->
+                        <div class="step-content" data-step="9">
+                            <div class="step-header">
+                                <span class="step-icon">🗺️</span>
+                                <h2 class="step-title">Rutas Inteligentes (GPS)</h2>
+                            </div>
+                            <p class="step-description">
+                                Organiza tu cobro diario automáticamente con rutas optimizadas.
+                            </p>
+                            <div class="tutorial-grid">
+                                <div class="tutorial-card" data-keywords="ruta mapa gps ubicacion">
+                                    <span class="tutorial-icon">📍</span>
+                                    <h3>Optimización GPS</h3>
+                                    <p>Ordena los clientes por cercanía automáticamente</p>
+                                </div>
+                                <div class="tutorial-card" data-keywords="cuadre caja dinero efectivo">
+                                    <span class="tutorial-icon">💵</span>
+                                    <h3>Cuadre de Caja</h3>
+                                    <p>Cierre de ruta individual por cobrador</p>
+                                </div>
+                                <div class="tutorial-card" data-keywords="limpiar ruta reiniciar dia">
+                                    <span class="tutorial-icon">🔄</span>
+                                    <h3>Reinicio Diario</h3>
+                                    <p>Limpia la ruta al final del día con un clic</p>
+                                </div>
+                            </div>
+                            <div class="tip-box">
+                                <span class="tip-title">⚡ Tip Pro:</span>
+                                <p>Usa el filtro de "Cobrador" para ver solo la ruta de un empleado específico y
+                                    cuadrar su caja.</p>
+                            </div>
+                        </div>
+
+                        <!-- Step 10: Tools & Expenses [NEW] -->
+                        <div class="step-content" data-step="10">
+                            <div class="step-header">
+                                <span class="step-icon">🧰</span>
+                                <h2 class="step-title">Herramientas y Finanzas</h2>
+                            </div>
+                            <div class="tutorial-grid">
+                                <div class="tutorial-card" data-keywords="simulador calculadora cuota prestamo">
+                                    <span class="tutorial-icon">🔢</span>
+                                    <h3>Simulador</h3>
+                                    <p>Calcula cuotas y amortización antes de prestar</p>
+                                </div>
+                                <div class="tutorial-card" data-keywords="gastos dinero salidas compras">
+                                    <span class="tutorial-icon">📉</span>
+                                    <h3>Control de Gastos</h3>
+                                    <p>Registra salidas de efectivo (combustible, comida)</p>
+                                </div>
+                                <div class="tutorial-card" data-keywords="ganancia utilidad rentabilidad">
+                                    <span class="tutorial-icon">📈</span>
+                                    <h3>Rentabilidad</h3>
+                                    <p>Visualiza tu ganancia real (Intereses - Gastos)</p>
+                                </div>
+                            </div>
+                            <div style="text-align: center; margin-top: 2rem;">
+                                <a href="https://prestanace.renace.tech" class="btn btn-secondary"
+                                    style="width: 100%; justify-content: center; padding: 1.5rem;">
+                                    🚀 ¡Empezar a Usar Presta Pro!
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Navigation Buttons (Hidden in search mode) -->
+                        <div class="nav-buttons" id="guideNavBtns">
+                            <button class="btn btn-secondary" id="prevBtn" disabled>← Anterior</button>
+                            <button class="btn btn-primary" id="nextBtn">Siguiente →</button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <!-- Completion Modal -->
+        <div class="modal-overlay" id="completionModal">
+            <div class="modal">
+                <div style="font-size: 4rem; margin-bottom: 1rem;">🎉</div>
+                <h3 style="color: white; margin-bottom: 1rem;">¡Tutorial Completado!</h3>
+                <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Ya conoces todas las funcionalidades de
+                    Presta Pro.</p>
+                <a href="https://prestanace.renace.tech" class="btn btn-primary"
+                    style="width: 100%; justify-content: center;">
+                    Iniciar Ahora
+                </a>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <div class="container footer-content">
+                <div class="footer-col">
+                    <div class="logo">
+                        <span class="logo-text">Presta Pro</span>
+                    </div>
+                    <p>La solución integral para prestamistas modernos.</p>
+                </div>
+                <div class="footer-col">
+                    <h4>Producto</h4>
+                    <a href="#features">Características</a>
+                    <a href="#pricing">Precios</a>
+                    <a href="../index.html#documentos">API</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Compañía</h4>
+                    <a href="../index.html#inicio">Sobre Nosotros</a>
+                    <a href="../index.html#documentos">Blog</a>
+                    <a href="../index.html#contacto">Contacto</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Legal</h4>
+                    <a href="../terminos.html">Privacidad</a>
+                    <a href="../terminos.html">Términos</a>
+                </div>
+            </div>
+            <div class="container copyright">
+                <p>&copy; 2024 Presta Pro. Todos los derechos reservados.</p>
+            </div>
+        </footer>
+
+        <div class="rg-chat-root" aria-live="polite" role="complementary" aria-label="Asistente virtual RENACE">
+            <button class="rg-chat-toggle" type="button" aria-label="Abrir chat con RENACE">
+                <img src="../images/support.png" alt="Soporte RENACE" class="rg-chat-toggle-icon" />
+            </button>
+            <section id="rg-chat-window" class="rg-chat-window" aria-label="Chat con RENACE" aria-hidden="true"
+                role="dialog" aria-modal="false">
+                <header class="rg-chat-header">
+                    <div class="rg-chat-header-main">
+                        <div class="rg-chat-avatar">
+                            <img src="../images/support.png" alt="Soporte RENACE" class="rg-chat-avatar-icon" />
+                        </div>
+                        <div class="rg-chat-heading">
+                            <h2>Chat RENACE</h2>
+                            <p>Conecta con nuestro equipo asistido por IA.</p>
+                        </div>
+                    </div>
+                    <button class="rg-chat-close" type="button" aria-label="Cerrar chat">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </header>
+                <div class="rg-chat-body">
+                    <ul id="rg-chat-messages" class="rg-chat-messages" role="log" aria-live="polite"
+                        aria-relevant="additions" aria-label="Mensajes del chat"></ul>
+                </div>
+                <div class="rg-chat-input">
+                    <textarea id="rg-chat-input" rows="1" placeholder="Escribe tu mensaje..."></textarea>
+                    <button id="rg-chat-send" type="button" aria-label="Enviar mensaje">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </section>
+        </div>
+
+        <script src="../js/script.js"></script>
+
+        <script>
+            // Training Center Modal Logic (Complete & Verified)
+            document.addEventListener('DOMContentLoaded', () => {
+                // DOM Elements
+                const openGuideBtn = document.getElementById('openGuideBtn');
+                const closeGuideBtn = document.getElementById('closeGuideBtn');
+                const guideModal = document.getElementById('guideModal');
+                const guideSearch = document.getElementById('guideSearch');
+                const searchResults = document.getElementById('searchResults');
+                const resultsGrid = document.getElementById('resultsGrid');
+                const guideStepsNav = document.getElementById('guideStepsNav');
+                const guideNavBtns = document.getElementById('guideNavBtns');
+                const guideProgress = document.getElementById('guideProgress');
+
+                // Tutorial Navigation Elements
+                let currentStep = 1;
+                const stepDots = document.querySelectorAll('.step-dot');
+                const stepContents = document.querySelectorAll('.step-content');
+                const totalSteps = stepContents.length;
+                const prevBtn = document.getElementById('prevBtn');
+                const nextBtn = document.getElementById('nextBtn');
+                const progressFill = document.getElementById('progressFill');
+                const currentStepText = document.getElementById('currentStep');
+
+                // Modal Functions
+                function openModal() {
+                    if (guideModal) {
+                        guideModal.classList.add('active');
+                        document.body.style.overflow = 'hidden';
+                    }
+                }
+
+                function closeModal() {
+                    if (guideModal) {
+                        guideModal.classList.remove('active');
+                        document.body.style.overflow = '';
+                    }
+                }
+
+                if (openGuideBtn) {
+                    openGuideBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        openModal();
+                    });
+                }
+
+                if (closeGuideBtn) {
+                    closeGuideBtn.addEventListener('click', closeModal);
+                }
+
+                // Close on click outside
+                if (guideModal) {
+                    guideModal.addEventListener('click', (e) => {
+                        if (e.target === guideModal) closeModal();
+                    });
+                }
+
+                // Search Logic
+                function performSearch(query) {
+                    const normalizedQuery = query.toLowerCase().trim();
+                    if (resultsGrid) resultsGrid.innerHTML = '';
+
+                    if (normalizedQuery.length < 2) {
+                        // Exit search mode
+                        if (searchResults) searchResults.style.display = 'none';
+                        if (guideStepsNav) guideStepsNav.style.display = 'flex';
+                        if (guideNavBtns) guideNavBtns.style.display = 'flex';
+                        if (guideProgress) guideProgress.style.display = 'block';
+
+                        // Show current step content again
+                        stepContents.forEach(c => {
+                            if (c.id !== 'searchResults') {
+                                c.style.display = 'none';
+                                c.classList.remove('active');
+                                if (parseInt(c.dataset.step) === currentStep) {
+                                    c.style.display = 'block';
+                                    c.classList.add('active');
+                                }
+                            }
+                        });
+                        return;
+                    }
+
+                    // Enter search mode
+                    if (guideStepsNav) guideStepsNav.style.display = 'none';
+                    if (guideNavBtns) guideNavBtns.style.display = 'none';
+                    if (guideProgress) guideProgress.style.display = 'none';
+
+                    stepContents.forEach(c => {
+                        c.style.display = 'none';
+                        c.classList.remove('active');
+                    });
+
+                    if (searchResults) {
+                        searchResults.style.display = 'block';
+                        searchResults.classList.add('active');
+                    }
+
+                    // Find matching cards
+                    const allCards = document.querySelectorAll('.step-content:not(#searchResults) .tutorial-card');
+                    let matchesFound = false;
+
+                    allCards.forEach(card => {
+                        const title = card.querySelector('h3')?.textContent.toLowerCase() || '';
+                        const desc = card.querySelector('p')?.textContent.toLowerCase() || '';
+                        const keywords = card.getAttribute('data-keywords') || '';
+
+                        if (title.includes(normalizedQuery) || descriptionMatches(desc, normalizedQuery) || keywords.includes(normalizedQuery)) {
+                            const clone = card.cloneNode(true);
+                            if (resultsGrid) resultsGrid.appendChild(clone);
+                            matchesFound = true;
+                        }
+                    });
+
+                    function descriptionMatches(text, query) {
+                        return text.includes(query);
+                    }
+
+                    if (!matchesFound && resultsGrid) {
+                        resultsGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 2rem; color: var(--text-muted);">No se encontraron resultados para "' + query + '"</div>';
+                    }
+                }
+
+                if (guideSearch) {
+                    guideSearch.addEventListener('input', (e) => {
+                        performSearch(e.target.value);
+                    });
+                }
+
+                // Step Navigation Logic
+                function updateStep(step) {
+                    // Don't update if searching
+                    if (guideSearch && guideSearch.value.length >= 2) return;
+
+                    currentStep = step;
+
+                    stepDots.forEach((dot, index) => {
+                        dot.classList.remove('active');
+                        if (index + 1 < step) dot.classList.add('completed');
+                        else dot.classList.remove('completed');
+                        if (index + 1 === step) dot.classList.add('active');
+                    });
+
+                    stepContents.forEach(content => {
+                        if (content.id === 'searchResults') return;
+
+                        content.classList.remove('active');
+                        content.style.display = 'none';
+
+                        if (parseInt(content.dataset.step) === step) {
+                            content.classList.add('active');
+                            content.style.display = 'block';
+                        }
+                    });
+
+                    if (prevBtn) prevBtn.disabled = step === 1;
+                    if (nextBtn) nextBtn.textContent = step === totalSteps ? 'Finalizar' : 'Siguiente →';
+
+                    if (progressFill) progressFill.style.width = (step / totalSteps) * 100 + '%';
+                    if (currentStepText) currentStepText.textContent = step;
+                }
+
+                stepDots.forEach(dot => {
+                    dot.addEventListener('click', () => {
+                        if (guideSearch) guideSearch.value = '';
+                        performSearch('');
+                        updateStep(parseInt(dot.dataset.step));
+                    });
+                });
+
+                if (prevBtn) prevBtn.addEventListener('click', () => {
+                    if (currentStep > 1) updateStep(currentStep - 1);
+                });
+
+                if (nextBtn) nextBtn.addEventListener('click', () => {
+                    if (currentStep < totalSteps) {
+                        updateStep(currentStep + 1);
+                    } else {
+                        closeModal(); // Close on finish
+                    }
+                });
+
+                // Initialize
+                if (stepContents.length > 0) updateStep(1);
+            });
+        </script>
+
+        <script>
+            lucide.createIcons();
+        </script>
+</body>
+
+</html>

@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Renace Analytics</title>
+    <!-- Estilos: Pico CSS + FontAwesome -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #3b82f6; /* Azul moderno */
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --border: #334155;
+            --text-muted: #94a3b8;
+        }
+        body { background-color: var(--bg-dark); padding: 1.5rem; font-family: system-ui, -apple-system, sans-serif; }
+        
+        /* Navbar Simple */
+        nav { border-bottom: 1px solid var(--border); padding-bottom: 1rem; margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;}
+        .brand { font-size: 1.4rem; font-weight: 800; color: #fff; text-decoration: none; display: flex; align-items: center; gap: 10px;}
+        .brand span { color: var(--primary); }
+
+        /* Grid de KPIs (Tarjetas Superiores) */
+        .stats-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); 
+            gap: 1.5rem; 
+            margin-bottom: 2rem; 
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            position: relative;
+        }
+        
+        .stat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+        .stat-title { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        .stat-icon { color: var(--primary); font-size: 1.1rem; opacity: 0.9; }
+
+        .stat-value { font-size: 2.8rem; font-weight: 700; color: #fff; line-height: 1.1; margin: 0.5rem 0; }
+        
+        /* Footer de la tarjeta (Datos de 7 días) */
+        .stat-footer { 
+            font-size: 0.8rem; 
+            color: var(--text-muted); 
+            background: rgba(255,255,255,0.03);
+            padding: 6px 10px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 5px;
+        }
+        .badge-week { background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.7rem; }
+
+        /* Grid de Tablas */
+        .tables-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem; }
+        
+        .table-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 0; overflow: hidden; }
+        .table-header { padding: 1rem; border-bottom: 1px solid var(--border); font-weight: 600; color: #fff; background: rgba(0,0,0,0.2); }
+        .table-header i { margin-right: 8px; color: var(--primary); }
+
+        .table-responsive { overflow-x: auto; }
+        table { margin: 0; width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th { text-align: left; color: var(--text-muted); padding: 0.8rem 1rem; border-bottom: 1px solid var(--border); font-weight: 600; white-space: nowrap;}
+        td { padding: 0.8rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.05); color: #e2e8f0; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(255,255,255,0.02); }
+
+        /* Utilidades */
+        .text-right { text-align: right; }
+        .loader { width: 18px; height: 18px; border: 2px solid #555; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        details summary { cursor: pointer; color: var(--primary); font-size: 0.75rem; list-style: none; outline: none;}
+        pre.json { background: #0b0f19; padding: 8px; border-radius: 4px; overflow-x: auto; font-size: 0.7rem; color: #a5b4fc; margin-top: 5px; border: 1px solid #333; }
+    </style>
+</head>
+<body>
+
+    <main>
+        <!-- Navbar -->
+        <nav>
+            <a href="#" class="brand"><i class="fa-solid fa-layer-group"></i> Renace<span>Stats</span></a>
+            <div style="display:flex; gap: 15px; align-items:center;">
+                <small id="last-update" style="color: var(--text-muted); font-size: 0.8rem;">Esperando datos...</small>
+                <button onclick="cargarMetricas()" class="outline contrast" style="padding: 6px 16px; font-size: 0.9rem;">
+                    <i class="fa-solid fa-rotate"></i>
+                </button>
+            </div>
+        </nav>
+
+        <!-- KPI Grid (3 Tarjetas Principales) -->
+        <div class="stats-grid">
+            
+            <!-- 1. Actividad Total -->
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-title">Actividad Total</span>
+                    <i class="fa-solid fa-chart-column stat-icon"></i>
+                </div>
+                <!-- Dato Grande: 24h -->
+                <div class="stat-value" id="val-eventos-24h"><div class="loader"></div></div>
+                <!-- Dato Pequeño: 7d -->
+                <div class="stat-footer">
+                    <span class="badge-week">7 DÍAS</span>
+                    <span id="val-eventos-7d">...</span> eventos totales
+                </div>
+            </div>
+
+            <!-- 2. Usuarios Únicos -->
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-title">Usuarios Únicos</span>
+                    <i class="fa-solid fa-users stat-icon"></i>
+                </div>
+                <div class="stat-value" id="val-usuarios-24h"><div class="loader"></div></div>
+                <div class="stat-footer">
+                    <span class="badge-week">7 DÍAS</span>
+                    <span id="val-usuarios-7d">...</span> sesiones distintas
+                </div>
+            </div>
+
+            <!-- 3. Interacciones (Clics) -->
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-title">Interacciones</span>
+                    <i class="fa-solid fa-hand-pointer stat-icon"></i>
+                </div>
+                <div class="stat-value" id="val-clics-24h"><div class="loader"></div></div>
+                <div class="stat-footer">
+                    <span class="badge-week">7 DÍAS</span>
+                    <span id="val-clics-7d">...</span> clics registrados
+                </div>
+            </div>
+        </div>
+
+        <!-- Tablas: Páginas y Referrers -->
+        <div class="tables-grid">
+            <div class="table-card">
+                <div class="table-header"><i class="fa-solid fa-file-lines"></i> Páginas más vistas (7 días)</div>
+                <div class="table-responsive">
+                    <table id="table-paginas"><tbody><tr><td style="text-align:center">Cargando...</td></tr></tbody></table>
+                </div>
+            </div>
+            
+            <div class="table-card">
+                <div class="table-header"><i class="fa-solid fa-link"></i> Origen del tráfico (7 días)</div>
+                <div class="table-responsive">
+                    <table id="table-referrers"><tbody><tr><td style="text-align:center">Cargando...</td></tr></tbody></table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla: Log en vivo -->
+        <div class="table-card" style="margin-top: 1.5rem;">
+            <div class="table-header"><i class="fa-solid fa-terminal"></i> Log en vivo (Reciente)</div>
+            <div class="table-responsive">
+                <table id="table-log"><tbody><tr><td style="text-align:center">Cargando...</td></tr></tbody></table>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        const PIN = '131415';
+        const AUTH_KEY = 'renace_metrics_auth_v1';
+        const API_URL = 'https://ai.renace.tech/webhook/6a27d02f-7cee-49ba-bf7a-0b62fb136b60'; 
+
+        // --- Autenticación ---
+        (function () {
+            if (typeof window === 'undefined' || typeof document === 'undefined') {
+                throw new Error('Browser environment required');
+            }
+
+            const hostname = window.location && window.location.hostname;
+            const allowedHosts = ['renace.tech', 'www.renace.tech', 'localhost', '127.0.0.1'];
+            if (hostname && !allowedHosts.includes(hostname)) {
+                document.body.innerHTML = '<div style="height:100vh; display:flex; align-items:center; justify-content:center; color:#ef4444;"><h1>🔒 Acceso restringido</h1></div>';
+                throw new Error('Host no autorizado');
+            }
+
+            if (typeof sessionStorage === 'undefined') {
+                document.body.innerHTML = '<div style="height:100vh; display:flex; align-items:center; justify-content:center; color:#ef4444;"><h1>🔒 Navegador no soportado</h1></div>';
+                throw new Error('sessionStorage no disponible');
+            }
+
+            if (sessionStorage.getItem(AUTH_KEY) === 'ok') return;
+
+            let attempts = 0;
+            const maxAttempts = 3;
+
+            while (attempts < maxAttempts) {
+                const input = window.prompt('PIN de acceso:');
+
+                if (input === null) {
+                    document.body.innerHTML = '<div style="height:100vh; display:flex; align-items:center; justify-content:center; color:#ef4444;"><h1>🔒 Acceso cancelado</h1></div>';
+                    throw new Error('Auth cancelada por el usuario');
+                }
+
+                if (input === PIN) {
+                    sessionStorage.setItem(AUTH_KEY, 'ok');
+                    return;
+                }
+
+                attempts++;
+            }
+
+            document.body.innerHTML = '<div style="height:100vh; display:flex; align-items:center; justify-content:center; color:#ef4444;"><h1>🔒 Acceso Denegado</h1></div>';
+            throw new Error('Auth failed - demasiados intentos');
+        })();
+
+        // --- Lógica Principal ---
+        async function cargarMetricas() {
+            const timeLabel = document.getElementById('last-update');
+            timeLabel.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Cargando...';
+
+            try {
+                const response = await fetch(API_URL);
+                if (!response.ok) throw new Error('Error de red');
+                
+                const rawData = await response.json();
+                console.log('Datos recibidos:', rawData);
+
+                // n8n puede devolver un array o un objeto único. Aseguramos que sea objeto.
+                const data = Array.isArray(rawData) ? rawData[0] : rawData;
+
+                if (!data) throw new Error('No hay datos');
+
+                // --- Helper para extraer números ---
+                // Postgres a veces devuelve cadenas o arrays. Esto lo limpia.
+                const getNum = (key) => {
+                    const val = data[key];
+                    if (Array.isArray(val) && val.length > 0) return Number(val[0][key] || 0);
+                    return Number(val || 0);
+                };
+
+                // --- 1. Asignar Valores a las Tarjetas ---
+                // HOY (Grande)
+                document.getElementById('val-eventos-24h').innerText = getNum('eventos_24h');
+                document.getElementById('val-usuarios-24h').innerText = getNum('usuarios_24h');
+                document.getElementById('val-clics-24h').innerText = getNum('clics_24h');
+
+                // SEMANA (Pequeño)
+                document.getElementById('val-eventos-7d').innerText = getNum('eventos_7d');
+                document.getElementById('val-usuarios-7d').innerText = getNum('usuarios_7d');
+                document.getElementById('val-clics-7d').innerText = getNum('clics_7d');
+
+
+                // --- 2. Asignar Tablas ---
+                // Helper para parsear JSON de forma segura
+                const safeParse = (str) => {
+                    if (!str) return [];
+                    if (typeof str === 'object') return str; // Ya es objeto
+                    try { return JSON.parse(str); } catch { return []; }
+                };
+
+                const paginas = safeParse(data.top_paginas);
+                const referrers = safeParse(data.top_referrers);
+                const log = safeParse(data.log_reciente);
+
+                renderTable('table-paginas', ['Ruta', 'Vistas'], paginas, ['path', 'views']);
+                renderTable('table-referrers', ['Origen', 'Visitas'], referrers, ['referrer', 'visits']);
+                renderTable('table-log', ['Hora', 'Evento', 'Ruta', 'Detalle'], log, ['created_at', 'event_type', 'path', 'detalle']);
+
+                // Actualizar hora
+                timeLabel.innerText = 'Act: ' + new Date().toLocaleTimeString();
+
+            } catch (error) {
+                console.error(error);
+                timeLabel.innerText = 'Error de conexión';
+                // Poner guiones si falla
+                document.querySelectorAll('.stat-value').forEach(el => el.innerText = '-');
+            }
+        }
+
+        function renderTable(id, headers, rows, keys) {
+            const tbody = document.createElement('tbody');
+            const table = document.getElementById(id);
+            table.innerHTML = ''; // Limpiar tabla
+
+            // Crear Header
+            const thead = document.createElement('thead');
+            thead.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+            table.appendChild(thead);
+
+            if (!rows || rows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="${headers.length}" style="text-align:center; color:#555; padding: 2rem;">Sin datos registrados</td></tr>`;
+            } else {
+                rows.forEach(row => {
+                    const tr = document.createElement('tr');
+                    let html = '';
+                    keys.forEach(k => {
+                        let val = row[k];
+                        
+                        // Formateos especiales
+                        if (k === 'created_at') {
+                            val = new Date(val).toLocaleTimeString();
+                        } else if (k === 'path' && val && val.length > 35) {
+                            val = `<span title="${val}">${val.substring(0, 35)}...</span>`;
+                        } else if (k === 'detalle') {
+                            // Mostrar JSON colapsado
+                            if (val && val !== '{}' && val !== 'null') {
+                                const jsonStr = typeof val === 'object' ? JSON.stringify(val, null, 2) : val;
+                                val = `<details><summary>Ver Info</summary><pre class="json">${jsonStr}</pre></details>`;
+                            } else {
+                                val = '-';
+                            }
+                        }
+                        
+                        html += `<td>${val ?? '-'}</td>`;
+                    });
+                    tr.innerHTML = html;
+                    tbody.appendChild(tr);
+                });
+            }
+            table.appendChild(tbody);
+        }
+
+        // Auto-inicio
+        cargarMetricas();
+        setInterval(cargarMetricas, 60000); // 60 segundos
+    </script>
+</body>
+</html>

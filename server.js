@@ -1,0 +1,360 @@
+/**
+ * RENACE.TECH — Express Server (Production-Hardened)
+ * Security: helmet, rate-limiting, input sanitization, CORS
+ * Serves static files + provides API endpoints for:
+ * - File upload/download (stored in PostgreSQL)
+ * - Contact form (SMTP)
+ * - Document listing
+ */
+
+require('dotenv').config();
+const express = require('express');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const multer = require('multer');
+const { Pool } = require('pg');
+const nodemailer = require('nodemailer');
+const path = require('path');
+const fs = require('fs');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+const isProd = process.env.NODE_ENV === 'production';
+
+// ── Security Headers (Helmet) ──
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://cdnjs.cloudflare.com", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "https://ai.renace.tech"],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      scriptSrcAttr: ["'unsafe-inline'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false, // Allow external fonts/icons
+  hsts: isProd ? { maxAge: 63072000, includeSubDomains: true, preload: true } : false,
+}));
+
+// ── Rate Limiting ──
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 min
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiadas solicitudes, intenta más tarde.' },
+});
+
+const contactLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
+  message: { error: 'Límite de mensajes alcanzado. Intenta más tarde.' },
+});
+
+const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: 'Demasiadas subidas, intenta más tarde.' },
+});
+
+// ── Database ──
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  // Connection pool security
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+});
+
+async function initDB() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS documents (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        type VARCHAR(50),
+        size VARCHAR(50),
+        mime_type VARCHAR(100),
+        data BYTEA,
+        category VARCHAR(50) DEFAULT 'other',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS contact_messages (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255),
+        email VARCHAR(255),
+        message TEXT,
+        ip_address VARCHAR(45),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('✓ Database tables ready');
+  } catch (err) {
+    console.warn('⚠ Database not available, running in static mode');
+  }
+}
+
+// ── SMTP ──
+let transporter = null;
+if (process.env.SMTP_HOST) {
+  transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: parseInt(process.env.SMTP_PORT || '587') === 465,
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
+  });
+}
+
+// ── Middleware ──
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+
+// Disable X-Powered-By (helmet does this, but belt-and-suspenders)
+app.disable('x-powered-by');
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024, files: 10 },
+  fileFilter: (req, file, cb) => {
+    // Block dangerous extensions
+    const blocked = /\.(exe|bat|cmd|sh|ps1|vbs|wsf|cpl|scr|pif)$/i;
+    if (blocked.test(file.originalname)) {
+      return cb(new Error('Tipo de archivo no permitido'), false);
+    }
+    cb(null, true);
+  },
+});
+
+// ── Static Files ──
+app.use(express.static(path.join(__dirname), {
+  index: 'index.html',
+  extensions: ['html'],
+  dotfiles: 'deny',          // Block .env, .git, etc.
+  setHeaders: (res, filePath) => {
+    // Cache static assets
+    if (/\.(js|css|svg|png|jpg|webp|woff2?)$/i.test(filePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=2592000, immutable'); // 30 days
+    }
+    // Prevent MIME sniffing (belt-and-suspenders with helmet)
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+  },
+}));
+
+// ── Sanitization ──
+function sanitizeText(str) {
+  if (typeof str !== 'string') return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .trim()
+    .slice(0, 5000); // Max 5000 chars
+}
+
+function sanitizeFilename(name) {
+  return String(name || 'file')
+    .replace(/[^\w.\-() ]/g, '_')
+    .replace(/\.{2,}/g, '.')
+    .slice(0, 200);
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254;
+}
+
+// ── API: List Documents ──
+app.get('/api/documents', apiLimiter, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, name, type, size, mime_type, category, created_at FROM documents ORDER BY created_at DESC'
+    );
+    const docs = result.rows.map(row => ({
+      name: row.name,
+      type: row.type,
+      size: row.size,
+      file: `/api/documents/${row.id}/download`,
+      category: row.category,
+    }));
+    res.json(docs);
+  } catch {
+    // Fallback to static documents.json
+    const jsonPath = path.join(__dirname, 'data', 'documents.json');
+    if (fs.existsSync(jsonPath)) {
+      res.sendFile(jsonPath);
+    } else {
+      res.json([]);
+    }
+  }
+});
+
+// ── API: Download Document ──
+app.get('/api/documents/:id/download', apiLimiter, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id) || id < 1) return res.status(400).json({ error: 'ID inválido' });
+
+  try {
+    const result = await pool.query('SELECT name, mime_type, data FROM documents WHERE id = $1', [id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Documento no encontrado' });
+
+    const doc = result.rows[0];
+    const safeName = sanitizeFilename(doc.name);
+    res.setHeader('Content-Type', doc.mime_type || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.send(doc.data);
+  } catch {
+    res.status(500).json({ error: 'Error al descargar' });
+  }
+});
+
+// ── API: Upload Document (Admin-only) ──
+app.post('/api/documents', uploadLimiter, upload.array('files', 10), async (req, res) => {
+  const adminPin = req.headers['x-admin-pin'] || req.body.pin;
+  if (!process.env.ADMIN_ACCESS_PASSWORD || adminPin !== process.env.ADMIN_ACCESS_PASSWORD) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
+
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ error: 'No se proporcionaron archivos' });
+  }
+
+  try {
+    const inserted = [];
+    for (const file of req.files) {
+      const ext = path.extname(file.originalname).replace('.', '').toUpperCase();
+      const sizeLabel = file.size > 1024 * 1024
+        ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+        : `${(file.size / 1024).toFixed(1)} KB`;
+
+      const result = await pool.query(
+        'INSERT INTO documents (name, type, size, mime_type, data, category) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name',
+        [sanitizeFilename(file.originalname), ext, sizeLabel, file.mimetype, file.buffer, getCategory(ext)]
+      );
+      inserted.push(result.rows[0]);
+    }
+    res.json({ message: `${inserted.length} archivo(s) subidos correctamente`, files: inserted });
+  } catch {
+    res.status(500).json({ error: 'Error al subir archivos' });
+  }
+});
+
+// ── API: Delete Document (Admin-only) ──
+app.delete('/api/documents/:id', apiLimiter, async (req, res) => {
+  const adminPin = req.headers['x-admin-pin'];
+  if (!process.env.ADMIN_ACCESS_PASSWORD || adminPin !== process.env.ADMIN_ACCESS_PASSWORD) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
+
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id) || id < 1) return res.status(400).json({ error: 'ID inválido' });
+
+  try {
+    const result = await pool.query('DELETE FROM documents WHERE id = $1 RETURNING id', [id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: 'No encontrado' });
+    res.json({ message: 'Eliminado' });
+  } catch {
+    res.status(500).json({ error: 'Error al eliminar' });
+  }
+});
+
+// ── API: Contact Form ──
+app.post('/api/contact', contactLimiter, async (req, res) => {
+  const { name, email, message, website } = req.body;
+
+  // Honeypot field — bots fill this
+  if (website) {
+    return res.json({ status: 'success', message: '¡Mensaje recibido!' });
+  }
+
+  if (!name || !email || !message) {
+    return res.status(400).json({ error: 'Todos los campos son obligatorios' });
+  }
+
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ error: 'Email inválido' });
+  }
+
+  const safeName = sanitizeText(name).slice(0, 100);
+  const safeEmail = sanitizeText(email).slice(0, 254);
+  const safeMessage = sanitizeText(message).slice(0, 5000);
+
+  // Store in DB
+  try {
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
+    await pool.query(
+      'INSERT INTO contact_messages (name, email, message, ip_address) VALUES ($1, $2, $3, $4)',
+      [safeName, safeEmail, safeMessage, clientIp]
+    );
+  } catch {
+    // DB not available, continue to email
+  }
+
+  // Send email
+  if (transporter) {
+    try {
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || 'noreply@renace.tech',
+        to: process.env.SMTP_USER || 'info@renace.tech',
+        subject: `Contacto de ${safeName} — renace.tech`,
+        text: `Nombre: ${safeName}\nEmail: ${safeEmail}\n\n${safeMessage}`,
+        html: `<h3>Nuevo contacto desde renace.tech</h3>
+          <p><strong>Nombre:</strong> ${safeName}</p>
+          <p><strong>Email:</strong> ${safeEmail}</p>
+          <p>${safeMessage.replace(/\n/g, '<br>')}</p>`,
+      });
+    } catch (err) {
+      console.warn('Email send failed:', err.message);
+    }
+  }
+
+  res.json({ status: 'success', message: '¡Mensaje recibido! Te contactaremos pronto.' });
+});
+
+// ── Helper ──
+function getCategory(ext) {
+  const cats = {
+    image: ['JPG', 'JPEG', 'PNG', 'GIF', 'BMP', 'SVG', 'WEBP'],
+    video: ['MP4', 'MOV', 'AVI', 'MKV', 'WEBM'],
+    audio: ['MP3', 'WAV', 'OGG', 'AAC', 'FLAC'],
+    archive: ['ZIP', 'RAR', '7Z', 'TAR', 'GZ'],
+    document: ['PDF', 'DOC', 'DOCX', 'XLS', 'XLSX', 'PPT', 'PPTX', 'TXT', 'CSV'],
+  };
+  for (const [cat, exts] of Object.entries(cats)) {
+    if (exts.includes(ext)) return cat;
+  }
+  return 'other';
+}
+
+// ── Global Error Handler ──
+app.use((err, req, res, _next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ error: 'Archivo demasiado grande (máx 20MB)' });
+    }
+    return res.status(400).json({ error: 'Error en la subida de archivos' });
+  }
+  console.error('Server error:', err.message);
+  res.status(500).json({ error: 'Error interno del servidor' });
+});
+
+// ── Catch-all (SPA fallback) ──
+app.use((req, res) => {
+  // Don't serve index.html for API routes
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ error: 'Endpoint no encontrado' });
+  }
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// ── Start ──
+app.listen(PORT, async () => {
+  console.log(`🚀 RENACE.TECH running on port ${PORT} (${isProd ? 'production' : 'development'})`);
+  await initDB();
+});

@@ -1,0 +1,210 @@
+/* [RECURSIVE DEBUG] Cloning PrestApp Modern Pricing Style */
+
+:root {
+    --bg-card-prestapp: rgba(30, 41, 59, 0.5);
+    /* Dark slate with transparency */
+    --border-prestapp: rgba(148, 163, 184, 0.1);
+    /* Subtle border */
+    --primary-prestapp: #3b82f6;
+    --text-muted-prestapp: #94a3b8;
+}
+
+.pricing-premium-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+    max-width: 1100px;
+    margin: 4rem auto;
+    align-items: center;
+    /* Crucial for uneven sizing effect */
+    padding: 0 1rem;
+}
+
+/* Base Card Style matching PrestApp */
+.pricing-card-premium {
+    background: #111827;
+    /* Darker Solid base */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 1.5rem;
+    /* 24px rounded corners */
+    padding: 2.5rem;
+    position: relative;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+}
+
+.pricing-card-premium:hover {
+    transform: translateY(-5px);
+    border-color: rgba(59, 130, 246, 0.5);
+    /* Blue hover border */
+}
+
+/* "Popular" Card - The "PrestApp" Look */
+.pricing-card-premium.featured {
+    background: linear-gradient(145deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    /* Visible Blue Border */
+    box-shadow: 0 0 40px rgba(59, 130, 246, 0.15);
+    /* Soft blue glow */
+    transform: scale(1.08);
+    /* Permanently larger */
+    z-index: 10;
+}
+
+.pricing-card-premium.featured:hover {
+    transform: scale(1.08) translateY(-5px);
+    box-shadow: 0 20px 40px -10px rgba(59, 130, 246, 0.4);
+}
+
+/* Badge Style */
+.featured-badge {
+    position: absolute;
+    top: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    padding: 0.5rem 1.5rem;
+    border-radius: 2rem;
+    /* Pill shape */
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: white;
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+/* Header & Typography */
+.premium-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 1.5rem;
+}
+
+.premium-plan-name {
+    font-size: 1.5rem;
+    color: white;
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+.premium-price {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    color: white;
+    margin-bottom: 0.5rem;
+}
+
+.premium-currency {
+    font-size: 1.5rem;
+    margin-top: 0.5rem;
+    font-weight: 500;
+}
+
+.premium-amount {
+    font-size: 3.5rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.premium-period {
+    display: block;
+    color: #94a3b8;
+    font-size: 0.9rem;
+}
+
+.premium-subtitle {
+    display: block;
+    color: #64748b;
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+}
+
+/* Features List */
+.premium-features {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 2rem 0;
+    flex-grow: 1;
+    text-align: left;
+}
+
+.premium-features li {
+    padding: 0.8rem 0;
+    color: #cbd5e1;
+    /* Text Muted */
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.95rem;
+}
+
+.premium-features i {
+    color: #3b82f6;
+    /* Primary Blue Tick */
+    background: rgba(59, 130, 246, 0.1);
+    /* Circle bg for tick */
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 0.75rem;
+}
+
+/* Buttons */
+.btn-premium {
+    width: 100%;
+    padding: 1rem;
+    border-radius: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.btn-premium.glow {
+    background: #3b82f6;
+    color: white;
+    box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.5);
+}
+
+.btn-premium.glow:hover {
+    background: #2563eb;
+    box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.6);
+}
+
+.btn-premium.outline {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+.btn-premium.outline:hover {
+    border-color: white;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .pricing-premium-container {
+        grid-template-columns: 1fr;
+        max-width: 450px;
+        align-items: stretch;
+    }
+
+    .pricing-card-premium.featured {
+        transform: scale(1);
+        margin: 1rem 0;
+    }
+
+    .pricing-card-premium.featured:hover {
+        transform: translateY(-5px);
+    }
+}

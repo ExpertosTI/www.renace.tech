@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RENACE.TECH | Analytics Dashboard v1.10</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    },
+                    colors: {
+                        tech: {
+                            bg: '#05070A',
+                            card: '#0F1219',
+                            border: '#1E293B'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            background-color: #05070A;
+            color: #E2E8F0;
+        }
+
+        .cyber-card {
+            background: #0F1219;
+            border: 1px solid #1E293B;
+            border-radius: 1rem;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen p-6 md:p-12">
+
+    <header class="max-w-7xl mx-auto mb-12 flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-white mb-2">
+                <span class="text-cyan-400">DATA</span> ANALYSIS
+            </h1>
+            <p class="text-gray-400 text-sm">Visualización de resultados en tiempo real</p>
+        </div>
+        <a href="../form/index.html" class="text-sm text-gray-500 hover:text-white transition">
+            <i class="fa-solid fa-arrow-left"></i> Volver al Formulario
+        </a>
+    </header>
+
+    <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+        <!-- Stats Overview -->
+        <div class="lg:col-span-1 space-y-6">
+            <div class="cyber-card p-6 text-center">
+                <h3 class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">Total Evaluaciones</h3>
+                <div id="total-count" class="text-5xl font-mono font-bold text-cyan-400">0</div>
+            </div>
+
+            <div class="cyber-card p-6">
+                <h3 class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-4">Ganador Proyectado</h3>
+                <div id="winner-prediction" class="text-2xl font-bold text-white mb-1">-</div>
+                <div id="winner-percent" class="text-sm text-green-400 font-mono">0% del total</div>
+            </div>
+
+            <div class="cyber-card p-6">
+                <h3 class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-4">Distribución por Roles</h3>
+                <canvas id="rolesChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Main Vote Chart -->
+        <div class="lg:col-span-2 space-y-8">
+            <div class="cyber-card p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-lg font-bold text-white">Votos por Opción</h3>
+                    <span class="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded">Live Data</span>
+                </div>
+                <div class="h-64">
+                    <canvas id="votesChart"></canvas>
+                </div>
+            </div>
+
+            <div class="cyber-card p-6">
+                <h3 class="text-lg font-bold text-white mb-6">Matriz de Calidad (Promedios)</h3>
+                <div class="h-64">
+                    <canvas id="qualityChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comments Feed -->
+        <div class="lg:col-span-3">
+            <div class="cyber-card p-6">
+                <h3 class="text-lg font-bold text-white mb-6">Feed de Comentarios</h3>
+                <div id="comments-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- JS populated -->
+                    <div class="text-gray-500 italic text-sm">Cargando comentarios...</div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // Configuración Global de Chart.js
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.borderColor = '#1e293b';
+        Chart.defaults.font.family = "'Inter', sans-serif";
+
+        async function loadData() {
+            let entries = [];
+
+            // 1. Intentar cargar del servidor (PHP)
+            try {
+                if (window.location.protocol !== 'file:') {
+                    const response = await fetch('../form/guardar.php');
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (Array.isArray(data)) entries = data;
+                    }
+                }
+            } catch (err) {
+                console.log("Server load failed, checking local storage");
+            }
+
+            // 2. Fusionar con LocalStorage (para pruebas locales)
+            try {
+                const localData = JSON.parse(localStorage.getItem('renace_form_data') || '[]');
+                if (Array.isArray(localData)) {
+                    // Evitar duplicados si el servidor ya los tiene (simple check por ID si existe)
+                    const serverIds = new Set(entries.map(e => e.id));
+                    const newLocal = localData.filter(e => !serverIds.has(e.id));
+                    entries = [...entries, ...newLocal];
+                }
+            } catch (e) {
+                console.error("Local storage error:", e);
+            }
+
+            processData(entries);
+        }
+
+        function processData(entries) {
+            // 1. Basic Stats
+            document.getElementById('total-count').innerText = entries.length;
+
+            // 2. Count Votes
+            const votes = {};
+            const roles = {};
+            const scores = {
+                RenKredit: { trust: 0, modern: 0, count: 0 },
+                KreditoR: { trust: 0, modern: 0, count: 0 },
+                PrestaK: { trust: 0, modern: 0, count: 0 },
+                RenKred: { trust: 0, modern: 0, count: 0 }
+            };
+
+            entries.forEach(entry => {
+                // Votes
+                const winner = entry.winner || 'Voto Nulo';
+                votes[winner] = (votes[winner] || 0) + 1;
+
+                // Roles
+                const role = entry.evaluator?.role || 'Desconocido';
+                roles[role] = (roles[role] || 0) + 1;
+
+                // Scores
+                if (entry.scores) {
+                    for (const [key, val] of Object.entries(entry.scores)) {
+                        if (scores[key]) {
+                            scores[key].trust += parseInt(val.trust || 0);
+                            scores[key].modern += parseInt(val.modern || 0);
+                            scores[key].count++;
+                        }
+                    }
+                }
+            });
+
+            // Calculate Averages
+            const avgScores = {};
+            for (const key of Object.keys(scores)) {
+                if (scores[key].count > 0) {
+                    avgScores[key] = {
+                        trust: (scores[key].trust / scores[key].count).toFixed(1),
+                        modern: (scores[key].modern / scores[key].count).toFixed(1)
+                    };
+                } else {
+                    avgScores[key] = { trust: 0, modern: 0 };
+                }
+            }
+
+            // Determine Winner
+            let maxVotes = 0;
+            let topWinner = 'N/A';
+            for (const [key, val] of Object.entries(votes)) {
+                if (val > maxVotes) {
+                    maxVotes = val;
+                    topWinner = key;
+                }
+            }
+            document.getElementById('winner-prediction').innerText = topWinner;
+            if (entries.length > 0) {
+                document.getElementById('winner-percent').innerText = Math.round((maxVotes / entries.length) * 100) + '% del total';
+            }
+
+            // Render Charts
+            renderVotesChart(votes);
+            renderRolesChart(roles);
+            renderQualityChart(avgScores);
+            renderComments(entries);
+        }
+
+        function renderVotesChart(votes) {
+            const ctx = document.getElementById('votesChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(votes),
+                    datasets: [{
+                        label: 'Votos',
+                        data: Object.values(votes),
+                        backgroundColor: '#06b6d4',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { padding: 10 } } }
+                }
+            });
+        }
+
+        function renderRolesChart(roles) {
+            const ctx = document.getElementById('rolesChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(roles),
+                    datasets: [{
+                        data: Object.values(roles),
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 10, padding: 20 } }
+                    }
+                }
+            });
+        }
+
+        function renderQualityChart(avgScores) {
+            const ctx = document.getElementById('qualityChart').getContext('2d');
+            const labels = Object.keys(avgScores);
+
+            new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Confianza',
+                            data: labels.map(l => avgScores[l].trust),
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        },
+                        {
+                            label: 'Modernidad',
+                            data: labels.map(l => avgScores[l].modern),
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            min: 0, max: 5,
+                            grid: { color: '#1e293b' },
+                            angleLines: { color: '#1e293b' },
+                            pointLabels: { color: '#e2e8f0' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderComments(entries) {
+            const container = document.getElementById('comments-list');
+            container.innerHTML = '';
+
+            const comments = entries.filter(e => e.comments && e.comments.length > 2).reverse();
+
+            if (comments.length === 0) {
+                container.innerHTML = '<div class="text-gray-500 text-sm italic">No hay comentarios aún.</div>';
+                return;
+            }
+
+            comments.forEach(c => {
+                const el = document.createElement('div');
+                el.className = 'bg-black/30 p-4 rounded-lg border border-gray-800';
+                el.innerHTML = `
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-bold text-cyan-400 text-xs">${c.evaluator.name}</span>
+                        <span class="text-gray-600 text-[10px]">${c.evaluator.role}</span>
+                    </div>
+                    <p class="text-gray-300 text-sm">"${c.comments}"</p>
+                    <div class="mt-2 text-right">
+                        <span class="text-xs bg-gray-800 px-2 py-1 rounded text-gray-400">Votó: ${c.winner}</span>
+                    </div>
+                `;
+                container.appendChild(el);
+            });
+        }
+
+        // Init
+        loadData();
+        // Auto refresh every 30s
+        setInterval(loadData, 30000);
+
+    </script>
+</body>
+
+</html>

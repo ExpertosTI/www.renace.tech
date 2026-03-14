@@ -1,0 +1,9 @@
+# RENACE.TECH — robots.txt
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /data/
+Disallow: /.env
+Disallow: /node_modules/
+
+Sitemap: https://renace.tech/sitemap.xml

@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Equipo RENACE - Contacto Oficial</title>
+    <meta name="description"
+        content="Contacta con el equipo de RENACE Tech. Guarda nuestros contactos oficiales y conecta directamente con nosotros." />
+
+    <meta name="author" content="RENACE Tech" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://renace.tech/team.html" />
+
+    <!-- Open Graph tags -->
+    <meta property="og:type" content="profile" />
+    <meta property="og:url" content="https://renace.tech/team.html" />
+    <meta property="og:title" content="Equipo RENACE - Contacto Oficial" />
+    <meta property="og:image" content="https://renace.tech/images/adderly_card.png" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap"
+        rel="stylesheet" />
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+
+    <!-- EasyQRCodeJS for Logo Support -->
+    <script src="https://cdn.jsdelivr.net/npm/easyqrcodejs@4.5.0/dist/easy.qrcode.min.js"></script>
+
+    <link rel="stylesheet" href="css/styles.css" />
+
+    <link rel="icon" href="/images/logo.svg" type="image/svg+xml" />
+    <link rel="icon" href="/images/icon-192.png" sizes="192x192" type="image/png" />
+
+    <style>
+        :root {
+            --neon-blue: #0ea5e9;
+            --neon-purple: #8b5cf6;
+            --neon-green: #22c55e;
+            --dark-bg: #020617;
+            --card-bg: rgba(15, 23, 42, 0.9);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--dark-bg);
+            color: #e5e7eb;
+            padding: 2rem 1rem;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Matrix Canvas */
+        #matrix-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.15;
+            /* Increased slightly for visibility */
+            pointer-events: none;
+        }
+
+        .team-container {
+            width: 100%;
+            max-width: 900px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 2rem;
+            align-items: start;
+            z-index: 1;
+            perspective: 1200px;
+            /* Enhanced perspective */
+            padding-bottom: 2rem;
+        }
+
+        .profile-card {
+            position: relative;
+            background: var(--card-bg);
+            border-radius: 1.5rem;
+            padding: 0;
+            overflow: hidden;
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            box-shadow:
+                0 0 20px rgba(14, 165, 233, 0.1),
+                0 0 0 1px rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(16px);
+            transition: transform 0.1s ease-out, box-shadow 0.3s ease;
+            /* Smoother tilt */
+            opacity: 0;
+            /* Animated in */
+            animation: cardFadeIn 0.8s forwards;
+
+            /* 3D Transform Properties */
+            transform-style: preserve-3d;
+            will-change: transform;
+        }
+
+        @keyframes cardFadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .profile-card:hover,
+        .profile-card.highlighted {
+            box-shadow: 0 0 40px rgba(14, 165, 233, 0.3);
+            border-color: var(--neon-blue);
+            z-index: 10;
+        }
+
+        .profile-card.highlighted::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 1.5rem;
+            box-shadow: inset 0 0 30px rgba(14, 165, 233, 0.5);
+            pointer-events: none;
+            animation: pulse-highlight 2s infinite;
+        }
+
+        @keyframes pulse-highlight {
+            0% {
+                box-shadow: inset 0 0 30px rgba(14, 165, 233, 0.3);
+            }
+
+            50% {
+                box-shadow: inset 0 0 50px rgba(14, 165, 233, 0.6);
+            }
+
+            100% {
+                box-shadow: inset 0 0 30px rgba(14, 165, 233, 0.3);
+            }
+        }
+
+        .card-name {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #fff;
+            margin: 0 0 0.5rem;
+            letter-spacing: -0.02em;
+            height: 2.2rem;
+            /* Fixed height to prevent layout jump while typing */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .typing-cursor {
+            display: inline-block;
+            width: 3px;
+            height: 1.2em;
+            background-color: var(--neon-blue);
+            margin-left: 4px;
+            animation: blink 1s step-end infinite;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0;
+            }
+        }
+
+        /* Terminal Style Banner */
+        .card-banner {
+            height: 120px;
+            background: linear-gradient(180deg, rgba(14, 165, 233, 0.15) 0%, rgba(2, 6, 23, 0) 100%);
+            position: relative;
+            overflow: hidden;
+            border-bottom: 1px solid rgba(56, 189, 248, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card-banner::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(14, 165, 233, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(14, 165, 233, 0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+            mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+        }
+
+        .terminal-text {
+            font-family: 'Fira Code', monospace;
+            color: var(--neon-blue);
+            font-size: 0.8rem;
+            background: rgba(2, 6, 23, 0.8);
+            padding: 4px 12px;
+            border-radius: 4px;
+            border: 1px solid rgba(14, 165, 233, 0.3);
+            z-index: 1;
+        }
+
+        /* Avatar */
+        .card-avatar-container {
+            width: 140px;
+            height: 140px;
+            margin: -70px auto 1rem;
+            position: relative;
+            z-index: 10;
+            transform: translateZ(20px);
+            /* Pop out in 3D */
+        }
+
+        .card-avatar {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--neon-blue);
+            box-shadow: 0 0 20px rgba(14, 165, 233, 0.4);
+            background: #020617;
+            padding: 5px;
+            transition: transform 0.5s ease;
+        }
+
+        .profile-card:hover .card-avatar {
+            transform: scale(1.05) rotate(5deg);
+        }
+
+        /* Content */
+        .card-content {
+            padding: 0 2rem 2.5rem;
+            text-align: center;
+            transform: translateZ(10px);
+            /* 3D Depth */
+        }
+
+        .card-title {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            color: var(--neon-blue);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .card-company {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+            display: block;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .card-company:hover {
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        /* Buttons */
+        .action-grid {
+            display: grid;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .btn-action {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            border: 1px solid transparent;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.9rem;
+            position: relative;
+            overflow: hidden;
+            min-height: 48px;
+        }
+
+        .btn-action::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: 0.5s;
+        }
+
+        .btn-action:hover::before {
+            left: 100%;
+        }
+
+        .btn-action:active {
+            transform: scale(0.96);
+        }
+
+        .btn-primary {
+            background: rgba(14, 165, 233, 0.1);
+            color: var(--neon-blue);
+            border-color: rgba(14, 165, 233, 0.4);
+            box-shadow: 0 0 15px rgba(14, 165, 233, 0.15);
+        }
+
+        .btn-primary:hover {
+            background: rgba(14, 165, 233, 0.2);
+            box-shadow: 0 0 25px rgba(14, 165, 233, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.03);
+            color: #cbd5e1;
+            border-color: rgba(148, 163, 184, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: #e2e8f0;
+            color: white;
+        }
+
+        .btn-whatsapp {
+            background: rgba(34, 197, 94, 0.08);
+            color: #4ade80;
+            border-color: rgba(34, 197, 94, 0.3);
+        }
+
+        .btn-whatsapp:hover {
+            background: rgba(34, 197, 94, 0.15);
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.25);
+        }
+
+        /* QR Section */
+        .qr-section {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .qr-container {
+            background: white;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            display: none;
+            box-shadow: 0 0 30px rgba(14, 165, 233, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .qr-toggle-btn {
+            background: none;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 8px 16px;
+            border-radius: 20px;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            transition: all 0.3s;
+        }
+
+        .qr-toggle-btn:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Visual Card */
+        .visual-card-wrapper {
+            margin-bottom: 2rem;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.4s ease;
+            background: #000;
+            position: relative;
+            transform: translateZ(15px);
+            /* Pop out in 3D */
+        }
+
+        .visual-card-wrapper:hover {
+            box-shadow: 0 20px 50px rgba(14, 165, 233, 0.3);
+            border-color: rgba(14, 165, 233, 0.3);
+        }
+
+        .visual-card-img {
+            width: 100%;
+            display: block;
+        }
+
+        /* Home Button Styles */
+        .home-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            color: var(--neon-blue);
+            padding: 10px 20px;
+            border-radius: 30px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .home-btn:hover {
+            background: rgba(14, 165, 233, 0.15);
+            border-color: var(--neon-blue);
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px rgba(14, 165, 233, 0.3);
+            color: #fff;
+        }
+
+        .home-btn i {
+            font-size: 1.1rem;
+        }
+
+        @media (max-width: 600px) {
+            .team-container {
+                grid-template-columns: 1fr;
+            }
+
+            .home-btn {
+                top: 15px;
+                left: 15px;
+                padding: 8px 16px;
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="matrix-canvas"></canvas>
+
+    <!-- Home Button -->
+    <a href="/" class="home-btn">
+        <i class="fas fa-arrow-left"></i>
+        <span>RENACE.TECH</span>
+    </a>
+
+    <div class="team-container">
+        <!-- Adderly Marte Card -->
+        <article class="profile-card" id="adderly">
+            <div class="card-banner">
+                <span class="terminal-text">&lt;System.Architect /&gt;</span>
+            </div>
+            <div class="card-avatar-container">
+                <img src="images/logo.svg" alt="Adderly Marte" class="card-avatar">
+            </div>
+
+            <div class="card-content">
+                <h1 class="card-name" id="name-adderly" data-text="Adderly Marte"></h1>
+                <p class="card-title">Arquitecto de Sistemas</p>
+                <a href="https://renace.tech" class="card-company">RENACE.TECH</a>
+
+                <div class="visual-card-wrapper">
+                    <img src="images/adderly_card.png" alt="Tarjeta de Presentación Adderly" class="visual-card-img">
+                </div>
+
+                <div class="action-grid">
+                    <button class="btn-action btn-primary" id="save-adderly">
+                        <i class="fas fa-save"></i> Guardar Contacto
+                    </button>
+
+                    <a href="https://wa.me/18494577463" target="_blank" class="btn-action btn-whatsapp">
+                        <i class="fab fa-whatsapp"></i> WhatsApp
+                    </a>
+
+                    <a href="mailto:adderlymarte@renace.tech" class="btn-action btn-secondary">
+                        <i class="fas fa-envelope"></i> Email
+                    </a>
+                </div>
+
+                <div class="qr-section">
+                    <div id="qrcode-adderly" class="qr-container"></div>
+                    <button class="qr-toggle-btn" onclick="toggleQR('qrcode-adderly', 'adderly')">
+                        <i class="fas fa-qrcode"></i> Ver Código QR
+                    </button>
+                </div>
+            </div>
+        </article>
+
+        <!-- Renso Cepeda Card -->
+        <article class="profile-card" id="renso">
+            <div class="card-banner">
+                <span class="terminal-text">&lt;Co-Founder /&gt;</span>
+            </div>
+            <div class="card-avatar-container">
+                <img src="images/logo.svg" alt="Renso Cepeda" class="card-avatar">
+            </div>
+
+            <div class="card-content">
+                <h1 class="card-name" id="name-renso" data-text="Renso Cepeda"></h1>
+                <p class="card-title">Co-Founder & Developer</p>
+                <a href="https://renace.tech" class="card-company">RENACE.TECH</a>
+
+                <div class="visual-card-wrapper">
+                    <img src="images/renso-card.png" alt="Tarjeta de Presentación Renso" class="visual-card-img">
+                </div>
+
+                <div class="action-grid">
+                    <button class="btn-action btn-primary" id="save-renso">
+                        <i class="fas fa-save"></i> Guardar Contacto
+                    </button>
+
+                    <a href="https://wa.me/18099152622" target="_blank" class="btn-action btn-whatsapp">
+                        <i class="fab fa-whatsapp"></i> WhatsApp
+                    </a>
+
+                    <a href="mailto:renso@renace.tech" class="btn-action btn-secondary">
+                        <i class="fas fa-envelope"></i> Email
+                    </a>
+                </div>
+
+                <div class="qr-section">
+                    <div id="qrcode-renso" class="qr-container"></div>
+                    <button class="qr-toggle-btn" onclick="toggleQR('qrcode-renso', 'renso')">
+                        <i class="fas fa-qrcode"></i> Ver Código QR
+                    </button>
+                </div>
+            </div>
+        </article>
+    </div>
+
+    <!-- Matrix Rain -->
+    <script>
+        const canvas = document.getElementById('matrix-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Initial sizing
+        const resizeCanvas = () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        };
+        resizeCanvas();
+
+        const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&*X01';
+        // Adjust font size based on screen width
+        const fontSize = window.innerWidth < 600 ? 12 : 14;
+        const columns = canvas.width / fontSize;
+        const rainDrops = Array(Math.ceil(columns)).fill(1);
+
+        const draw = () => {
+            ctx.fillStyle = 'rgba(2, 6, 23, 0.08)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#0ea5e9';
+            ctx.font = `${fontSize}px monospace`;
+
+            for (let i = 0; i < rainDrops.length; i++) {
+                const text = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+                // Random glitch highlight
+                if (Math.random() > 0.98) {
+                    ctx.fillStyle = '#fff';
+                } else {
+                    ctx.fillStyle = '#0ea5e9';
+                }
+
+                ctx.fillText(text, i * fontSize, rainDrops[i] * fontSize);
+
+                if (rainDrops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                    rainDrops[i] = 0;
+                }
+                rainDrops[i]++;
+            }
+        };
+
+        // 3D Tilt Effect - Desktop & Mobile
+        document.addEventListener('mousemove', (e) => {
+            const cards = document.querySelectorAll('.profile-card');
+            // Desktop: Tone down the effect significantly
+            // Divisor 100 instead of 50 for smoother/subtler deskop feel
+            const x = (window.innerWidth / 2 - e.pageX) / 100;
+            const y = (window.innerHeight / 2 - e.pageY) / 100;
+
+            cards.forEach(card => {
+                card.style.transform = `rotateY(${x}deg) rotateX(${y}deg)`;
+            });
+        });
+
+        // Mobile Gyroscope
+        if (window.DeviceOrientationEvent) {
+            window.addEventListener("deviceorientation", function (event) {
+                const cards = document.querySelectorAll('.profile-card');
+                const tiltX = (event.gamma) / 5;
+                const tiltY = (event.beta) / 5;
+
+                const safeX = Math.max(Math.min(tiltX, 15), -15);
+                const safeY = Math.max(Math.min(tiltY, 15), -15);
+
+                cards.forEach(card => {
+                    card.style.transform = `rotateY(${safeX}deg) rotateX(${-safeY}deg)`;
+                });
+            }, true);
+        }
+
+        setInterval(draw, 40);
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+        });
+    </script>
+
+    <!-- AI Typing Effect & Deep Linking Logic -->
+    <script>
+        // AI Typing Effect
+        async function typeText(elementId, text, speed = 80) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = '<span class="typing-cursor"></span>';
+            const cursor = element.querySelector('.typing-cursor');
+
+            await new Promise(r => setTimeout(r, Math.random() * 500 + 200));
+
+            for (let i = 0; i < text.length; i++) {
+                const char = text.charAt(i);
+                cursor.before(char);
+                await new Promise(r => setTimeout(r, speed + Math.random() * 30));
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            typeText('name-adderly', 'Adderly Marte');
+            typeText('name-renso', 'Renso Cepeda');
+
+            const hash = window.location.hash.substring(1);
+            if (hash) {
+                const targetCard = document.getElementById(hash);
+                if (targetCard) {
+                    setTimeout(() => {
+                        targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        targetCard.classList.add('highlighted');
+                    }, 500);
+                }
+            }
+        });
+
+        // QR Code with Unique URL and Logo
+        function toggleQR(containerId, profileId) {
+            const el = document.getElementById(containerId);
+            const isHidden = getComputedStyle(el).display === 'none';
+
+            if (!isHidden) {
+                el.style.display = 'none';
+                return;
+            }
+
+            el.style.display = 'block';
+
+            // Generate if empty
+            if (el.innerHTML.trim() === '') {
+                const uniqueUrl = `${window.location.origin}${window.location.pathname}#${profileId}`;
+
+                // Use EasyQRCodeJS
+                new QRCode(el, {
+                    text: uniqueUrl,
+                    width: 200,
+                    height: 200,
+                    colorDark: "#020617",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H,
+
+                    // Logo Options
+                    logo: "images/renace-qr-logo.svg",
+                    logoWidth: 60,
+                    logoHeight: 60,
+                    logoBackgroundTransparent: true,
+
+                    quietZone: 10,
+                    quietZoneColor: "transparent"
+                });
+            }
+        }
+    </script>
+
+    <script src="js/vcard.js"></script>
+</body>
+
+</html>

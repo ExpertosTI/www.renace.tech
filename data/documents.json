@@ -1,0 +1,26 @@
+[ 
+  {
+    "name": "VC_redist.x64.exe",
+    "file": "docs/VC_redist.x64.exe",
+    "type": "EXE",
+    "size": "17.7 MB"
+  },
+  {
+    "name": "initPos.zip",
+    "file": "docs/initPos.zip",
+    "type": "ZIP",
+    "size": "1.7 KB"
+  },
+  {
+    "name": "Rufus 4.11",
+    "file": "docs/rufus-4.11.exe",
+    "type": "EXE",
+    "size": "1.8 MB"
+  },
+  {
+    "name": "POS Agent Windows 64 bits",
+    "file": "docs/posagent-win64.exe",
+    "type": "EXE",
+    "size": "N/A"
+  }
+]
