@@ -42,7 +42,10 @@ echo "🐳 Building Docker image locally..."
 docker compose build
 
 echo "🚀 Deploying stack to Docker Swarm with resolved environment..."
-docker compose config | docker stack deploy -c - renace
+set -a
+source .env
+set +a
+docker stack deploy -c docker-compose.yml renace
 
 # 4. Clean up unused builder resources to save space
 echo "🧹 Cleaning up unused Docker images..."
