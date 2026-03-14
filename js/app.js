@@ -708,7 +708,7 @@ function initRgChat() {
     showTyping();
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 60000);
+      const timeout = setTimeout(() => controller.abort(), 120000); // 120 seconds timeout for Odoo APIs
 
       const response = await fetch(CONFIG.chatWebhook, {
         method: 'POST',
@@ -731,6 +731,11 @@ function initRgChat() {
 
       const reply = normalizeReply(data, rawText);
       addMessage('bot', reply || 'El asistente respondió sin contenido.');
+
+      if (data && typeof data === 'object' && Array.isArray(data.options)) {
+        const optionsHtml = data.options.map(opt => `<button class="rg-chat-option-btn" style="display:inline-block; background:rgba(0,180,216,0.2); color:white; border:1px solid rgba(0,180,216,0.6); padding:8px 14px; border-radius:20px; margin:4px; font-size:0.85rem; cursor:pointer">${utils.escapeHtml(opt)}</button>`).join('');
+        addHtmlMessage(`<div class="rg-chat-options" style="display:flex; flex-wrap:wrap; gap:5px; margin-top:5px;">${optionsHtml}</div>`);
+      }
     } catch (err) {
       removeTyping();
       let msg = 'Hubo un problema de conexión.';
@@ -785,6 +790,13 @@ function initRgChat() {
   input.addEventListener('keydown', function (e) {
     if ((e.key === 'Enter') && !e.shiftKey && !e.isComposing) {
       e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  messagesEl.addEventListener('click', (e) => {
+    if (e.target.classList.contains('rg-chat-option-btn')) {
+      input.value = e.target.textContent;
       sendMessage();
     }
   });
