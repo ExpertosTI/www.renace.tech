@@ -136,10 +136,10 @@ app.use(express.static(path.join(__dirname), {
   extensions: ['html'],
   dotfiles: 'deny',          // Block .env, .git, etc.
   setHeaders: (res, filePath) => {
-    // Cache static assets
-    if (/\.(js|css|svg|png|jpg|webp|woff2?)$/i.test(filePath)) {
-      res.setHeader('Cache-Control', 'public, max-age=2592000, immutable'); // 30 days
-    }
+    // Disable caching to prevent clients from getting stuck on old JS/HTML
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     // Prevent MIME sniffing (belt-and-suspenders with helmet)
     res.setHeader('X-Content-Type-Options', 'nosniff');
   },
@@ -350,6 +350,10 @@ app.use((req, res) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ error: 'Endpoint no encontrado' });
   }
+  // Disable caching for the HTML fallback to immediately deploy UI changes
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
