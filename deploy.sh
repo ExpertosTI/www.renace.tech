@@ -19,7 +19,7 @@ if [ -d "$PROJECT_DIR" ]; then
     echo "📁 Directory $PROJECT_DIR exists. Pulling latest changes..."
     cd $PROJECT_DIR
     git reset --hard
-    git clean -fd
+    git clean -fd -e .env
     git pull origin main
 else
     echo "📥 Directory does not exist. Cloning repository to $PROJECT_DIR..."
