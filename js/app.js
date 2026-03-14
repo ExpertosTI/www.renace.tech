@@ -40,6 +40,9 @@ const utils = {
     if (text == null) return '';
     let s = utils.escapeHtml(text);
     s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    // Add support for Markdown links -> Clickable options/links
+    s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:var(--primary); text-decoration:underline; font-weight:600;">$1</a>');
     s = s.replace(/\n/g, '<br>');
     return s;
   },
@@ -93,12 +96,16 @@ function initNavigation() {
   // Smooth scroll for anchor links
   document.querySelectorAll('a[href^="#"]').forEach(a => {
     a.addEventListener('click', (e) => {
+      const href = a.getAttribute('href');
+      if (!href || href === '#') return; // Prevent empty selector error
       e.preventDefault();
-      const target = document.querySelector(a.getAttribute('href'));
-      if (target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        if (navLinks) navLinks.classList.remove('active');
-      }
+      try {
+        const target = document.querySelector(href);
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          if (navLinks) navLinks.classList.remove('active');
+        }
+      } catch (err) {}
     });
   });
 
@@ -388,7 +395,7 @@ function loadDocuments() {
     return;
   }
 
-  fetch('documents.php', { cache: 'no-store' })
+  fetch('/api/documents', { cache: 'no-store' })
     .then(r => { if (!r.ok) throw new Error(); return r.json(); })
     .then(data => { DOCUMENTS_DATA = Array.isArray(data) ? data : []; initDocumentsList(); })
     .catch(() => {
@@ -541,7 +548,7 @@ function initDocumentsUpload() {
       const formData = new FormData();
       files.forEach(f => formData.append('files[]', f));
 
-      fetch('upload.php', { method: 'POST', body: formData })
+      fetch('/api/documents', { method: 'POST', body: formData })
         .then(async r => {
           if (!r.ok) {
             const d = await r.json().catch(() => ({}));
@@ -701,7 +708,7 @@ function initRgChat() {
     showTyping();
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30000);
+      const timeout = setTimeout(() => controller.abort(), 60000);
 
       const response = await fetch(CONFIG.chatWebhook, {
         method: 'POST',
