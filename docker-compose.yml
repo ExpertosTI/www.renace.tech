@@ -17,11 +17,11 @@ services:
         condition: on-failure
       resources:
         limits:
-          cpus: '0.50'
-          memory: 512M
+          cpus: '0.40'
+          memory: 350M
         reservations:
-          cpus: '0.10'
-          memory: 128M
+          cpus: '0.01'
+          memory: 64M
 
   app:
     image: renace-app:latest
@@ -51,11 +51,11 @@ services:
         condition: on-failure
       resources:
         limits:
-          cpus: '0.80'
-          memory: 512M
+          cpus: '0.60'
+          memory: 400M
         reservations:
-          cpus: '0.25'
-          memory: 256M
+          cpus: '0.01'
+          memory: 128M
       labels:
         - "traefik.enable=true"
         - "traefik.http.routers.renace.rule=Host(`${APP_HOST}`)"
