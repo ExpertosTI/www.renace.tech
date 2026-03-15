@@ -1273,3 +1273,18 @@ window.addEventListener('error', (event) => {
   if (!event?.error) return;
   console.error('Global error:', event.error.message);
 });
+
+// ═══════════════════════════════════════════════════════════════
+// GLOBAL CHAT TOGGLE (For external Call-To-Action buttons)
+// ═══════════════════════════════════════════════════════════════
+window.openChat = function() {
+  const toggle = document.querySelector('.rg-chat-toggle');
+  const widget = document.querySelector('.rg-chat-widget');
+  const input = document.getElementById('rg-chat-input');
+  
+  if (widget && !widget.classList.contains('active')) {
+    if (toggle) toggle.click(); // simulate click on toggle to open
+  } else if (input) {
+    input.focus(); // already open, just focus input
+  }
+};
