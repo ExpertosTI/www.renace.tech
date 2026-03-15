@@ -58,7 +58,7 @@ services:
           memory: 128M
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.renace.rule=Host(`renace.tech`)"
+        - "traefik.http.routers.renace.rule=Host(`${APP_HOST}`)"
         - "traefik.http.routers.renace.entrypoints=websecure"
         - "traefik.http.routers.renace.tls=true"
         - "traefik.http.routers.renace.tls.certresolver=letsencryptresolver"

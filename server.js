@@ -350,6 +350,10 @@ app.use((req, res) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ error: 'Endpoint no encontrado' });
   }
+  // Prevent serving index.html for static files that don't exist (like manifest.json)
+  if (req.path.match(/\.[a-zA-Z0-9]+$/)) {
+    return res.status(404).end();
+  }
   // Disable caching for the HTML fallback to immediately deploy UI changes
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
