@@ -21,6 +21,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const isProd = process.env.NODE_ENV === 'production';
 
+// Enable trust proxy for rate limiting behind Traefik
+if (isProd) {
+  app.set('trust proxy', 1);
+}
+
 // ── Security Headers (Helmet) ──
 app.use(helmet({
   contentSecurityPolicy: {
