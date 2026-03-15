@@ -1279,12 +1279,17 @@ window.addEventListener('error', (event) => {
 // ═══════════════════════════════════════════════════════════════
 window.openChat = function() {
   const toggle = document.querySelector('.rg-chat-toggle');
-  const widget = document.querySelector('.rg-chat-widget');
-  const input = document.getElementById('rg-chat-input');
+  const windowEl = document.querySelector('.rg-chat-window') || document.getElementById('rg-chat-window');
   
-  if (widget && !widget.classList.contains('active')) {
-    if (toggle) toggle.click(); // simulate click on toggle to open
-  } else if (input) {
-    input.focus(); // already open, just focus input
+  if (windowEl) {
+    if (!windowEl.classList.contains('active') && toggle) {
+      toggle.click();
+    }
+    
+    // Focus input after a short delay to allow transition
+    setTimeout(() => {
+      const input = document.getElementById('rg-chat-input');
+      if (input) input.focus();
+    }, 300);
   }
 };
