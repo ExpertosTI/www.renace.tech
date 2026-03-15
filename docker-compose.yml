@@ -15,13 +15,7 @@ services:
       replicas: 1
       restart_policy:
         condition: on-failure
-      resources:
-        limits:
-          cpus: '0.40'
-          memory: 350M
-        reservations:
-          cpus: '0.01'
-          memory: 64M
+
 
   app:
     image: renace-app:latest
@@ -49,18 +43,11 @@ services:
       replicas: 1
       restart_policy:
         condition: on-failure
-      resources:
-        limits:
-          cpus: '0.60'
-          memory: 400M
-        reservations:
-          cpus: '0.01'
-          memory: 128M
+
       labels:
         - "traefik.enable=true"
         - "traefik.http.routers.renace.rule=Host(`${APP_HOST}`)"
         - "traefik.http.routers.renace.entrypoints=websecure"
-        - "traefik.http.routers.renace.tls=true"
         - "traefik.http.routers.renace.tls.certresolver=letsencrypt"
         - "traefik.http.services.renace.loadbalancer.server.port=3000"
         - "traefik.docker.network=RenaceNet"
