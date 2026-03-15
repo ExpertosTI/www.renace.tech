@@ -50,6 +50,11 @@ source .env
 set +a
 docker stack deploy -c docker-compose.yml renace
 
+# For local Swarm without a registry, Swarm ignores the newly built 'latest' image
+# if the tag hasn't changed. We MUST force the service to restart to pick up the new code.
+echo "🔄 Forcing Swarm to restart the app and pick up the new local image..."
+docker service update --force renace_app 2>/dev/null || true
+
 # 4. Clean up unused builder resources to save space
 echo "🧹 Cleaning up unused Docker images..."
 docker image prune -f
