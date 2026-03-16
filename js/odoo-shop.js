@@ -38,6 +38,24 @@
     emit() { this._listeners.forEach(fn => fn(this)); },
   };
 
+  function loadCustomerMemory() {
+    try {
+      const raw = localStorage.getItem('renace_cust');
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed?.name || !parsed?.email) return null;
+      return parsed;
+    } catch { return null; }
+  }
+
+  function saveCustomerMemory(data) {
+    try {
+      if (!data?.name || !data?.email) return;
+      const payload = { name: data.name, email: data.email, phone: data.phone || '' };
+      localStorage.setItem('renace_cust', JSON.stringify(payload));
+    } catch { /* ignore */ }
+  }
+
   window.renaceCart = cart;
 
   /* ─── Format price ───────────────────────────────────────────── */
@@ -190,7 +208,8 @@
 
     start() {
       this.state = 'name';
-      this.data = {};
+      const saved = loadCustomerMemory();
+      this.data = saved ? { ...saved, note: '' } : {};
       addBotMsg('¡Perfecto! Te voy a crear la cotización ahora mismo. ✨\n\n¿Me das tu nombre completo?');
     },
 
@@ -248,12 +267,14 @@
 
         case 'note':
           this.data.note = /^(listo|no|ninguno?|skip|\.|-+)$/i.test(text) ? '' : text;
+          saveCustomerMemory(this.data);
           this.state = 'confirm';
           this._showConfirmation();
           break;
 
         case 'confirm':
           if (/^(s[\u00ed]|si|confirm|ok|listo|crea|envi|dale|correcto|exacto|s)/i.test(text)) {
+            saveCustomerMemory(this.data);
             this._submit();
           } else if (/^(cancel|no|salir|atrás|atras)/i.test(text)) {
             this.state = 'idle';
@@ -305,6 +326,7 @@
         // Success — show receipt
         const receiptHtml = buildReceiptHTML(data.orderRef, data.total, cart.items, this.data.email);
         addBotHtml(receiptHtml);
+        saveCustomerMemory(this.data);
         cart.clear();
         updateCartBadge();
         this.state = 'idle';
@@ -339,8 +361,9 @@
   /* ─── Build receipt / ticket card HTML ─────────────────── */
   function buildReceiptHTML(orderRef, total, items, email) {
     const rows = items.map(i => {
-      const thumb = i.id
-        ? `<img class="qt-item-thumb" src="/api/odoo/image/${i.id}" alt="" loading="lazy">`
+      const src = i.image || getImgSrc(i) || (i.id ? `/api/odoo/image/${i.id}` : '');
+      const thumb = src
+        ? `<img class="qt-item-thumb" src="${src}" alt="" loading="lazy" onerror="this.outerHTML='<div class=qt-item-thumb qt-item-thumb--empty><i class=fas.fa-box></i></div>'">`
         : `<div class="qt-item-thumb qt-item-thumb--empty"><i class="fas fa-box"></i></div>`;
       return `
       <div class="qt-item">
