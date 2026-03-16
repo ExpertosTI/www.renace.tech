@@ -158,7 +158,8 @@ app.disable('x-powered-by');
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 20 * 1024 * 1024, files: 10 },
+  // Allow files up to 400MB
+  limits: { fileSize: 400 * 1024 * 1024, files: 10 },
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).replace('.', '').toLowerCase();
     const allowedMimeTypes = allowedUploadTypes[ext];
