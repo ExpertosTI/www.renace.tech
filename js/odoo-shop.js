@@ -202,7 +202,14 @@
           }
           this.data.email = text;
           this.state = 'phone';
-          addBotMsg('¡Listo! Y para coordinar la entrega, ¿me das tu número de WhatsApp o teléfono? (Escribe “omitir” si prefieres no darlo)');
+          addBotMsg('¡Listo! Y para coordinar la entrega, ¿me das tu número de WhatsApp o teléfono?');
+          addBotHtml('<div style="margin-top:4px;"><button id="qf-skip-phone" style="background:rgba(100,116,139,0.15);color:#94a3b8;border:1px solid rgba(100,116,139,0.3);padding:5px 14px;border-radius:20px;cursor:pointer;font-size:0.78rem;"><i class="fas fa-forward"></i> Omitir este paso</button></div>');
+          setTimeout(() => {
+            document.getElementById('qf-skip-phone')?.addEventListener('click', () => {
+              document.getElementById('qf-skip-phone')?.closest('li')?.remove();
+              quoteFlow.handle('omitir');
+            });
+          }, 50);
           break;
 
         case 'phone':
@@ -251,10 +258,12 @@
         });
         const data = await res.json();
         if (data.success) {
-          addBotMsg(`✅ ¡Cotización **${data.orderRef}** creada con éxito!\n\n💰 Total: **${fmt(data.total)}**\n\nTe contactaremos pronto al email **${this.data.email}**. ¡Gracias por confiar en RENACE! 🚀`);
+          const savedEmail = this.data.email;
+          const savedItems = cart.items.map(i => ({ ...i }));
           cart.clear();
           this.state = 'idle';
           this.data = {};
+          addBotHtml(buildReceiptHTML(data.orderRef, data.total, savedItems, savedEmail));
         } else {
           throw new Error(data.error || 'Error desconocido');
         }
@@ -269,6 +278,108 @@
   function escHtml(s) {
     return String(s ?? '').replace(/[&<>"']/g, c =>
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  /* ─── Build receipt / ticket card HTML ─────────────────── */
+  function buildReceiptHTML(orderRef, total, items, email) {
+    const rows = items.map(i => `
+      <div class="qt-item">
+        <span class="qt-item-name">${escHtml((i.qty > 1 ? i.qty + '× ' : '') + i.name)}</span>
+        <span class="qt-item-price">${fmt(i.price * i.qty)}</span>
+      </div>`).join('');
+    return `
+      <div class="quote-ticket">
+        <div class="qt-header">
+          <div class="qt-check-icon"><i class="fas fa-check-circle"></i></div>
+          <div class="qt-h-title">¡Cotización Creada!</div>
+          <div class="qt-h-ref">${escHtml(orderRef)}</div>
+        </div>
+        <div class="qt-divider-dashed"></div>
+        <div class="qt-body">${rows}</div>
+        <div class="qt-divider-dashed"></div>
+        <div class="qt-total-row">
+          <span>Total</span>
+          <strong>${fmt(total)}</strong>
+        </div>
+        <div class="qt-contact-row">
+          <i class="fas fa-envelope"></i> ${escHtml(email)}<br>
+          <small>Te contactaremos pronto • RENACE Tech</small>
+        </div>
+      </div>`;
+  }
+
+  /* ─── Update cart badge ───────────────────────────────── */
+  function updateCartBadge() {
+    const badge = document.getElementById('rg-cart-badge');
+    if (!badge) return;
+    const n = cart.count();
+    badge.textContent = n;
+    badge.style.display = n > 0 ? 'inline-flex' : 'none';
+    if (n > 0) {
+      badge.classList.remove('rg-cart-badge--pulse');
+      void badge.offsetWidth;
+      badge.classList.add('rg-cart-badge--pulse');
+    }
+  }
+
+  /* ─── Cart command superpowers ─────────────────────────── */
+  const CART_CMD_PATTERN = /\b(?:agreg[ae]r?|añad[ei]r?|mete?r?|pon[ge]r?|incluye?r?|quit[ae]r?|elimin[ae]r?|borr[ae]r?|sacar?|remueve?r?)\b/i;
+
+  async function handleCartCommand(text) {
+    const t = text.trim();
+
+    // ─ Remove from cart
+    const removeM = t.match(/(?:quit[ae]r?|elimin[ae]r?|borr[ae]r?|sacar?|remueve?r?)\s+(?:el?\s+|la\s+|los?\s+|las?\s+)?(.+?)[?!.]*$/i);
+    if (removeM) {
+      const q = removeM[1].toLowerCase().trim();
+      const found = cart.items.find(i => i.name.toLowerCase().includes(q));
+      if (!found) {
+        addBotMsg(`No tengo **"${removeM[1]}"** en tu carrito. ¿Quieres ver lo que tienes?`);
+        addBotHtml('<div style="margin-top:4px;"><button id="cc-view-cart" style="background:rgba(129,140,248,0.12);color:#818cf8;border:1px solid rgba(129,140,248,0.35);padding:5px 14px;border-radius:20px;cursor:pointer;font-size:0.78rem;"><i class="fas fa-shopping-cart"></i> Ver carrito</button></div>');
+        setTimeout(() => document.getElementById('cc-view-cart')?.addEventListener('click', renderCartPanel), 50);
+      } else {
+        cart.remove(found.id);
+        addBotMsg(`✅ **${found.name}** eliminado del carrito.`);
+      }
+      return;
+    }
+
+    // ─ Add to cart
+    const addM = t.match(/(?:agreg[ae]r?|añad[ei]r?|mete?r?|pon[ge]r?|incluye?r?)\s+(?:(?:un[ao]?\s+|otra?\s+|má?s?\s+|(\d+)\s+)(?:de\s+)?)?(.+?)[?!.]*$/i);
+    if (addM) {
+      const qty   = addM[1] ? parseInt(addM[1]) : 1;
+      const query = addM[2].trim();
+
+      // Already in cart by name? Just increment qty
+      const inCart = cart.items.find(i => i.name.toLowerCase().includes(query.toLowerCase()));
+      if (inCart) {
+        cart.updateQty(inCart.id, inCart.qty + qty);
+        addBotMsg(`✅ Actualizado: **${inCart.qty}× ${inCart.name}** en tu carrito.\n\n💰 Total: **${fmt(cart.total())}**`);
+        return;
+      }
+
+      addBotMsg(`Buscando **"${query}"** en el catálogo…`);
+      try {
+        const res      = await fetch(`/api/odoo/products?q=${encodeURIComponent(query)}`);
+        const products = await res.json();
+        if (!Array.isArray(products) || products.length === 0) {
+          addBotMsg(`No encontré **"${query}"** disponible. ¿Quieres ver todo el catálogo?`);
+          addBotHtml('<div style="margin-top:4px;"><button id="cc-show-all" style="background:rgba(56,189,248,0.12);color:#38bdf8;border:1px solid rgba(56,189,248,0.35);padding:5px 14px;border-radius:20px;cursor:pointer;font-size:0.78rem;"><i class="fas fa-store"></i> Ver catálogo</button></div>');
+          setTimeout(() => document.getElementById('cc-show-all')?.addEventListener('click', () => fetchAndShowProducts(null)), 50);
+          return;
+        }
+        if (products.length === 1) {
+          const p = products[0];
+          for (let n = 0; n < qty; n++) cart.add({ id: p.id, name: p.name, price: p.list_price, image: p.image_128 });
+          addBotMsg(`✅ ${qty > 1 ? qty + '× ' : ''}**${p.name}** agregado al carrito! 🛒\n\n💰 Total: **${fmt(cart.total())}**`);
+        } else {
+          addBotMsg(`Encontré ${products.length} coincidencias para **"${query}"**. ¿Cuál quieres agregar?`);
+          addBotHtml(buildProductsGrid(products.slice(0, 6), query));
+        }
+      } catch (err) {
+        addBotMsg('Hubo un error al buscar el producto. Intenta de nuevo.');
+      }
+    }
   }
 
   /* ─── Render cart panel — in-place update if already open ─── */
@@ -557,6 +668,10 @@
     isInQuoteFlow:    ()     => quoteFlow.isActive(),
     handleQuoteInput: (text) => quoteFlow.handle(text),
     startQuoteFlow:   ()     => quoteFlow.start(),
+
+    // Cart command superpowers
+    isCartCommand:    (text) => CART_CMD_PATTERN.test(text),
+    handleCartCommand:(text) => handleCartCommand(text),
   };
 
   /* ─── Typing indicator helpers ───────────────────────────────── */
