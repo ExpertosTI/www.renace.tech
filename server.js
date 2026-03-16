@@ -866,7 +866,6 @@ app.post('/api/odoo/quote', apiLimiter, async (req, res) => {
         price_unit: priceMap[item.id].price,  // server-side price
         name: priceMap[item.id].name,         // server-side name
       }]),
-      partner_lang: DEFAULT_LANG,
     };
 
     // Use legacy explicitly to avoid JSON-2 language issues
