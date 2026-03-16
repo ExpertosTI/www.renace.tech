@@ -727,7 +727,7 @@ async function odooExecute(model, method, args = [], kwargs = {}) {
   // Try JSON-2 unless already confirmed legacy
   if (_odooApiMode !== 'legacy') {
     // Translate to JSON-2 flat body: kwargs keys become top-level, ids = args[0]
-    const body = { context: { lang: 'es_419' }, ...kwargs };
+    const body = { context: { lang: 'es_ES' }, ...kwargs };
     if (args.length && Array.isArray(args[0])) body.domain = args[0]; // search/search_read
     else if (args.length)                       body.ids    = args[0]; // read/write/unlink
     try {
@@ -880,6 +880,7 @@ app.post('/api/odoo/quote', apiLimiter, async (req, res) => {
         price_unit: priceMap[item.id].price,  // server-side price
         name: priceMap[item.id].name,         // server-side name
       }]),
+      partner_lang: 'es_ES',
     };
 
     const created = await odooExecute('sale.order', 'create', [orderVals]);
