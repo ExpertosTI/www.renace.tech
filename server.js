@@ -186,6 +186,7 @@ async function sendDocumentsList(res) {
       'SELECT id, name, type, size, mime_type, category, created_at FROM documents ORDER BY created_at DESC'
     );
     const docs = result.rows.map(row => ({
+      id: row.id,
       name: row.name,
       type: row.type,
       size: row.size,
