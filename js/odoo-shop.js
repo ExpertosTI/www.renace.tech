@@ -649,9 +649,14 @@
   // Detects: "busca impresoras", "muéstrame solo laptops", "ver teclados", etc.
   const SEARCH_PATTERN = /^(?:busca|buscar|muéstrame|mostrame|mostrar|ver|quiero ver|muestra(?:me)?|filtrar|dame|necesito|tienes?|hay\s)\s+(?:solo\s+|las?\s+|los?\s+|un(?:as?)?\s+|alguna?s?\s+)?(.{2,60})$/i;
 
+  // Words that mean "show everything" — not product search terms
+  const META_QUERY = /^(cat[aá]logos?|todo(\s+el\s+cat[aá]logo)?|tienda|listado|productos?(\s+disponibles?)?|servicios?(\s+disponibles?)?|ofertas?|todo|all)$/i;
+
   function extractSearchQuery(text) {
     const m = text.trim().match(SEARCH_PATTERN);
-    return m ? m[1].replace(/\?|\.$/g, '').trim() : null;
+    if (!m) return null;
+    const q = m[1].replace(/\?|\.$/g, '').trim();
+    return META_QUERY.test(q) ? null : q;
   }
 
   /* ─── Expand chat to shop mode ──────────────────────────── */
