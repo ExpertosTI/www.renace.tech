@@ -20,6 +20,27 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const isProd = process.env.NODE_ENV === 'production';
+const FORM_DATA_PATH = path.join(__dirname, 'form', 'data.json');
+const allowedUploadTypes = {
+  pdf: ['application/pdf', 'application/octet-stream'],
+  doc: ['application/msword', 'application/octet-stream'],
+  docx: ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/octet-stream'],
+  xls: ['application/vnd.ms-excel', 'application/octet-stream'],
+  xlsx: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/octet-stream'],
+  ppt: ['application/vnd.ms-powerpoint', 'application/octet-stream'],
+  pptx: ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/octet-stream'],
+  txt: ['text/plain', 'application/octet-stream'],
+  csv: ['text/csv', 'application/csv', 'application/vnd.ms-excel', 'text/plain', 'application/octet-stream'],
+  jpg: ['image/jpeg', 'application/octet-stream'],
+  jpeg: ['image/jpeg', 'application/octet-stream'],
+  png: ['image/png', 'application/octet-stream'],
+  gif: ['image/gif', 'application/octet-stream'],
+  svg: ['image/svg+xml', 'text/plain', 'application/octet-stream'],
+  zip: ['application/zip', 'application/x-zip-compressed', 'multipart/x-zip', 'application/octet-stream'],
+  rar: ['application/vnd.rar', 'application/x-rar-compressed', 'application/octet-stream'],
+  '7z': ['application/x-7z-compressed', 'application/octet-stream'],
+};
+const blockedStaticPathPattern = /(?:^\/(?:server\.js|package(?:-lock)?\.json|docker-compose\.yml|Dockerfile|deploy\.sh)$|\.(?:php|env|yml|yaml|sh|sql|log|bak|md)$)/i;
 
 // Enable trust proxy for rate limiting behind Traefik
 if (isProd) {
@@ -126,13 +147,219 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024, files: 10 },
   fileFilter: (req, file, cb) => {
-    // Block dangerous extensions
-    const blocked = /\.(exe|bat|cmd|sh|ps1|vbs|wsf|cpl|scr|pif)$/i;
-    if (blocked.test(file.originalname)) {
+    const ext = path.extname(file.originalname).replace('.', '').toLowerCase();
+    const allowedMimeTypes = allowedUploadTypes[ext];
+    if (!allowedMimeTypes) {
+      return cb(new Error('Tipo de archivo no permitido'), false);
+    }
+    if (!allowedMimeTypes.includes(file.mimetype)) {
       return cb(new Error('Tipo de archivo no permitido'), false);
     }
     cb(null, true);
   },
+});
+const documentUpload = upload.fields([
+  { name: 'files', maxCount: 10 },
+  { name: 'files[]', maxCount: 10 },
+]);
+
+function getUploadedFiles(req) {
+  if (!req.files || typeof req.files !== 'object') return [];
+  const directFiles = Array.isArray(req.files.files) ? req.files.files : [];
+  const bracketFiles = Array.isArray(req.files['files[]']) ? req.files['files[]'] : [];
+  return [...directFiles, ...bracketFiles];
+}
+
+function getAdminCredential(req) {
+  const headerValue = typeof req.headers['x-admin-pin'] === 'string' ? req.headers['x-admin-pin'] : '';
+  const bodyValue = typeof req.body?.pin === 'string' ? req.body.pin : '';
+  return (headerValue || bodyValue).trim();
+}
+
+function getRequestClientIp(req) {
+  return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
+}
+
+async function sendDocumentsList(res) {
+  try {
+    const result = await pool.query(
+      'SELECT id, name, type, size, mime_type, category, created_at FROM documents ORDER BY created_at DESC'
+    );
+    const docs = result.rows.map(row => ({
+      name: row.name,
+      type: row.type,
+      size: row.size,
+      file: `/api/documents/${row.id}/download`,
+      category: row.category,
+    }));
+    return res.json(docs);
+  } catch {
+    const jsonPath = path.join(__dirname, 'data', 'documents.json');
+    if (fs.existsSync(jsonPath)) {
+      return res.sendFile(jsonPath);
+    }
+    return res.json([]);
+  }
+}
+
+async function handleDocumentUpload(req, res) {
+  const adminPin = getAdminCredential(req);
+  if (!process.env.ADMIN_ACCESS_PASSWORD || adminPin !== process.env.ADMIN_ACCESS_PASSWORD) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
+
+  const files = getUploadedFiles(req);
+  if (files.length === 0) {
+    return res.status(400).json({ error: 'No se proporcionaron archivos' });
+  }
+
+  try {
+    const inserted = [];
+    for (const file of files) {
+      const ext = path.extname(file.originalname).replace('.', '').toUpperCase();
+      const sizeLabel = file.size > 1024 * 1024
+        ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+        : `${(file.size / 1024).toFixed(1)} KB`;
+
+      const result = await pool.query(
+        'INSERT INTO documents (name, type, size, mime_type, data, category) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name',
+        [sanitizeFilename(file.originalname), ext, sizeLabel, file.mimetype, file.buffer, getCategory(ext)]
+      );
+      inserted.push(result.rows[0]);
+    }
+
+    return res.json({
+      message: `${inserted.length} archivo(s) subidos correctamente`,
+      files: inserted,
+      subidos: inserted.map(file => file.name),
+      errores: [],
+    });
+  } catch {
+    return res.status(500).json({ error: 'Error al subir archivos' });
+  }
+}
+
+async function handleContactSubmission(req, res) {
+  const { name, email, message, website } = req.body || {};
+
+  if (website) {
+    return res.json({ status: 'success', message: '¡Mensaje recibido!' });
+  }
+
+  if (!name || !email || !message) {
+    return res.status(400).json({ error: 'Todos los campos son obligatorios' });
+  }
+
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ error: 'Email inválido' });
+  }
+
+  const safeName = sanitizeText(name).slice(0, 100);
+  const safeEmail = sanitizeText(email).slice(0, 254);
+  const safeMessage = sanitizeText(message).slice(0, 5000);
+
+  try {
+    await pool.query(
+      'INSERT INTO contact_messages (name, email, message, ip_address) VALUES ($1, $2, $3, $4)',
+      [safeName, safeEmail, safeMessage, getRequestClientIp(req)]
+    );
+  } catch {}
+
+  if (transporter) {
+    try {
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || 'noreply@renace.tech',
+        to: process.env.SMTP_USER || 'info@renace.tech',
+        subject: `Contacto de ${safeName} — renace.tech`,
+        text: `Nombre: ${safeName}\nEmail: ${safeEmail}\n\n${safeMessage}`,
+        html: `<h3>Nuevo contacto desde renace.tech</h3>
+          <p><strong>Nombre:</strong> ${safeName}</p>
+          <p><strong>Email:</strong> ${safeEmail}</p>
+          <p>${safeMessage.replace(/\n/g, '<br>')}</p>`,
+      });
+    } catch (err) {
+      console.warn('Email send failed:', err.message);
+    }
+  }
+
+  return res.json({ status: 'success', message: '¡Mensaje recibido! Te contactaremos pronto.' });
+}
+
+async function readFormEntries() {
+  try {
+    const raw = await fs.promises.readFile(FORM_DATA_PATH, 'utf8');
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      await fs.promises.writeFile(FORM_DATA_PATH, '[]\n', 'utf8');
+      return [];
+    }
+    throw err;
+  }
+}
+
+async function writeFormEntries(entries) {
+  await fs.promises.writeFile(FORM_DATA_PATH, `${JSON.stringify(entries, null, 2)}\n`, 'utf8');
+}
+
+app.get('/api/health', async (req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ status: 'ok', database: 'up' });
+  } catch {
+    res.status(503).json({ status: 'degraded', database: 'down' });
+  }
+});
+
+app.get('/api/health/live', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
+app.get('/documents.php', apiLimiter, async (req, res) => sendDocumentsList(res));
+app.post('/upload.php', uploadLimiter, documentUpload, async (req, res) => handleDocumentUpload(req, res));
+app.post('/contact.php', contactLimiter, upload.none(), async (req, res) => handleContactSubmission(req, res));
+app.get('/form/guardar.php', apiLimiter, async (req, res) => {
+  try {
+    res.json(await readFormEntries());
+  } catch {
+    res.status(500).json([]);
+  }
+});
+app.post('/form/guardar.php', apiLimiter, async (req, res) => {
+  const payload = req.body;
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return res.status(400).json({ status: 'error', message: 'JSON inválido' });
+  }
+
+  try {
+    const entries = await readFormEntries();
+    const nextEntry = {
+      id: `entry_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+      timestamp: new Date().toISOString(),
+      evaluator: payload.evaluator ?? { name: 'Anónimo', role: 'Usuario' },
+      winner: payload.winner ?? 'N/A',
+      comments: payload.comments ?? '',
+      scores: payload.scores ?? {},
+      ip: getRequestClientIp(req),
+      user_agent: req.headers['user-agent'] ?? 'Unknown',
+    };
+    entries.push(nextEntry);
+    await writeFormEntries(entries);
+    return res.json({
+      status: 'success',
+      message: 'Datos guardados correctamente',
+      entry_id: nextEntry.id,
+    });
+  } catch {
+    return res.status(500).json({ status: 'error', message: 'No se pudo escribir el archivo' });
+  }
+});
+app.use((req, res, next) => {
+  if (blockedStaticPathPattern.test(req.path)) {
+    return res.status(404).end();
+  }
+  return next();
 });
 
 // ── Static Files ──
@@ -176,27 +403,7 @@ function isValidEmail(email) {
 
 // ── API: List Documents ──
 app.get('/api/documents', apiLimiter, async (req, res) => {
-  try {
-    const result = await pool.query(
-      'SELECT id, name, type, size, mime_type, category, created_at FROM documents ORDER BY created_at DESC'
-    );
-    const docs = result.rows.map(row => ({
-      name: row.name,
-      type: row.type,
-      size: row.size,
-      file: `/api/documents/${row.id}/download`,
-      category: row.category,
-    }));
-    res.json(docs);
-  } catch {
-    // Fallback to static documents.json
-    const jsonPath = path.join(__dirname, 'data', 'documents.json');
-    if (fs.existsSync(jsonPath)) {
-      res.sendFile(jsonPath);
-    } else {
-      res.json([]);
-    }
-  }
+  return sendDocumentsList(res);
 });
 
 // ── API: Download Document ──
@@ -220,39 +427,11 @@ app.get('/api/documents/:id/download', apiLimiter, async (req, res) => {
 });
 
 // ── API: Upload Document (Admin-only) ──
-app.post('/api/documents', uploadLimiter, upload.array('files', 10), async (req, res) => {
-  const adminPin = req.headers['x-admin-pin'] || req.body.pin;
-  if (!process.env.ADMIN_ACCESS_PASSWORD || adminPin !== process.env.ADMIN_ACCESS_PASSWORD) {
-    return res.status(403).json({ error: 'No autorizado' });
-  }
-
-  if (!req.files || req.files.length === 0) {
-    return res.status(400).json({ error: 'No se proporcionaron archivos' });
-  }
-
-  try {
-    const inserted = [];
-    for (const file of req.files) {
-      const ext = path.extname(file.originalname).replace('.', '').toUpperCase();
-      const sizeLabel = file.size > 1024 * 1024
-        ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
-        : `${(file.size / 1024).toFixed(1)} KB`;
-
-      const result = await pool.query(
-        'INSERT INTO documents (name, type, size, mime_type, data, category) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name',
-        [sanitizeFilename(file.originalname), ext, sizeLabel, file.mimetype, file.buffer, getCategory(ext)]
-      );
-      inserted.push(result.rows[0]);
-    }
-    res.json({ message: `${inserted.length} archivo(s) subidos correctamente`, files: inserted });
-  } catch {
-    res.status(500).json({ error: 'Error al subir archivos' });
-  }
-});
+app.post('/api/documents', uploadLimiter, documentUpload, async (req, res) => handleDocumentUpload(req, res));
 
 // ── API: Delete Document (Admin-only) ──
 app.delete('/api/documents/:id', apiLimiter, async (req, res) => {
-  const adminPin = req.headers['x-admin-pin'];
+  const adminPin = getAdminCredential(req);
   if (!process.env.ADMIN_ACCESS_PASSWORD || adminPin !== process.env.ADMIN_ACCESS_PASSWORD) {
     return res.status(403).json({ error: 'No autorizado' });
   }
@@ -270,57 +449,7 @@ app.delete('/api/documents/:id', apiLimiter, async (req, res) => {
 });
 
 // ── API: Contact Form ──
-app.post('/api/contact', contactLimiter, async (req, res) => {
-  const { name, email, message, website } = req.body;
-
-  // Honeypot field — bots fill this
-  if (website) {
-    return res.json({ status: 'success', message: '¡Mensaje recibido!' });
-  }
-
-  if (!name || !email || !message) {
-    return res.status(400).json({ error: 'Todos los campos son obligatorios' });
-  }
-
-  if (!isValidEmail(email)) {
-    return res.status(400).json({ error: 'Email inválido' });
-  }
-
-  const safeName = sanitizeText(name).slice(0, 100);
-  const safeEmail = sanitizeText(email).slice(0, 254);
-  const safeMessage = sanitizeText(message).slice(0, 5000);
-
-  // Store in DB
-  try {
-    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
-    await pool.query(
-      'INSERT INTO contact_messages (name, email, message, ip_address) VALUES ($1, $2, $3, $4)',
-      [safeName, safeEmail, safeMessage, clientIp]
-    );
-  } catch {
-    // DB not available, continue to email
-  }
-
-  // Send email
-  if (transporter) {
-    try {
-      await transporter.sendMail({
-        from: process.env.SMTP_FROM || 'noreply@renace.tech',
-        to: process.env.SMTP_USER || 'info@renace.tech',
-        subject: `Contacto de ${safeName} — renace.tech`,
-        text: `Nombre: ${safeName}\nEmail: ${safeEmail}\n\n${safeMessage}`,
-        html: `<h3>Nuevo contacto desde renace.tech</h3>
-          <p><strong>Nombre:</strong> ${safeName}</p>
-          <p><strong>Email:</strong> ${safeEmail}</p>
-          <p>${safeMessage.replace(/\n/g, '<br>')}</p>`,
-      });
-    } catch (err) {
-      console.warn('Email send failed:', err.message);
-    }
-  }
-
-  res.json({ status: 'success', message: '¡Mensaje recibido! Te contactaremos pronto.' });
-});
+app.post('/api/contact', contactLimiter, async (req, res) => handleContactSubmission(req, res));
 
 // ── Helper ──
 function getCategory(ext) {

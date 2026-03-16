@@ -426,9 +426,11 @@ const forms = {
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
 
             const formData = new FormData(form);
-            const response = await fetch('contact.php', {
+            const payload = Object.fromEntries(formData.entries());
+            const response = await fetch('/api/contact', {
                 method: 'POST',
-                body: formData
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
             });
 
             const result = await response.json();
@@ -437,7 +439,7 @@ const forms = {
                 this.showNotification(result.message || 'Mensaje enviado con éxito', 'success');
                 form.reset();
             } else {
-                throw new Error(result.message || 'Error al enviar el mensaje');
+                throw new Error(result.error || result.message || 'Error al enviar el mensaje');
             }
         } catch (error) {
             console.error('Error sending form:', error);
@@ -1981,11 +1983,10 @@ function loadDocuments() {
             });
     };
 
-    // Intentar primero un listado dinámico desde documents.php (escanea la carpeta docs en el servidor)
-    fetch('documents.php', { cache: 'no-store' })
+    fetch('/api/documents', { cache: 'no-store' })
         .then(response => {
             if (!response.ok) {
-                throw new Error('No se pudo cargar documents.php');
+                throw new Error('No se pudo cargar /api/documents');
             }
             return response.json();
         })
@@ -1998,7 +1999,7 @@ function loadDocuments() {
             initDocumentsList();
         })
         .catch(error => {
-            console.warn('Error cargando documentos desde documents.php, intentando fallback JSON:', error);
+            console.warn('Error cargando documentos desde /api/documents, intentando fallback JSON:', error);
             loadFromJson();
         });
 }
@@ -2011,8 +2012,8 @@ function initDocumentsUpload() {
     const lockBtn = document.querySelector('.finder-lock-btn');
     const dropzone = document.getElementById('documents-dropzone');
     const lockBackBtn = document.getElementById('documents-lock-btn');
-    const ADMIN_PIN = '101284';
     let adminUnlocked = false;
+    let adminCredential = '';
 
     if (lockBtn && adminSection) {
         const finderWindow = document.querySelector('.finder-window');
@@ -2056,15 +2057,13 @@ function initDocumentsUpload() {
 
         const unlockAdmin = () => {
             setAdminUnlocked(true);
-            if (pinInput) {
-                pinInput.value = ADMIN_PIN;
-            }
             setAdminVisibility(true);
-            showNotification('Acceso de administrador concedido para documentos.', 'success');
+            showNotification('Credencial cargada. Se validará al subir.', 'success');
         };
 
         const lockAdmin = (notify = true) => {
             setAdminUnlocked(false);
+            adminCredential = '';
             if (pinInput) {
                 pinInput.value = '';
             }
@@ -2096,10 +2095,12 @@ function initDocumentsUpload() {
 
         if (unlockBtn && pinInput) {
             unlockBtn.addEventListener('click', () => {
-                if (pinInput.value === ADMIN_PIN) {
+                const nextCredential = pinInput.value.trim();
+                if (nextCredential) {
+                    adminCredential = nextCredential;
                     unlockAdmin();
                 } else {
-                    showNotification('PIN incorrecto para documentos.', 'error');
+                    showNotification('Ingresa tu credencial de administrador.', 'error');
                     adminUnlocked = false;
                 }
             });
@@ -2181,13 +2182,19 @@ function initDocumentsUpload() {
             showNotification('Selecciona al menos un archivo para subir.', 'error');
             return;
         }
+        if (!adminCredential) {
+            e.preventDefault();
+            showNotification('Ingresa tu credencial de administrador.', 'error');
+            return;
+        }
         e.preventDefault();
 
         const formData = new FormData();
-        files.forEach(f => formData.append('files[]', f));
+        files.forEach(f => formData.append('files', f));
 
-        fetch('upload.php', {
+        fetch('/api/documents', {
             method: 'POST',
+            headers: { 'x-admin-pin': adminCredential },
             body: formData,
         })
             .then(async (response) => {
@@ -2205,6 +2212,15 @@ function initDocumentsUpload() {
                 loadDocuments();
             })
             .catch((error) => {
+                if ((error.message || '').toLowerCase().includes('no autorizado')) {
+                    adminCredential = '';
+                    setAdminUnlocked(false);
+                    if (pinInput) {
+                        pinInput.value = '';
+                        pinInput.disabled = false;
+                        pinInput.focus();
+                    }
+                }
                 showNotification(error.message || 'No se pudieron subir los archivos.', 'error');
             });
     });

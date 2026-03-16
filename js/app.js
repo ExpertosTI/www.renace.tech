@@ -446,11 +446,8 @@ function initDocumentsUpload() {
   const finderWindow = document.querySelector('.finder-window');
   const uploadNavBtn = document.querySelector('.finder-nav-btn[data-view="upload"]');
   const submitBtn = form?.querySelector('button[type="submit"]');
-
-  // Admin PIN is validated server-side via ADMIN_ACCESS_PASSWORD env var
-  // For static fallback, use this PIN (should be overridden in production)
-  const ADMIN_PIN = '101284';
   let adminUnlocked = false;
+  let adminCredential = '';
 
   function setAdminVisibility(visible) {
     if (uploadNavBtn) uploadNavBtn.style.display = visible ? 'inline-flex' : 'none';
@@ -492,19 +489,21 @@ function initDocumentsUpload() {
 
   if (unlockBtn && pinInput) {
     unlockBtn.addEventListener('click', () => {
-      if (pinInput.value === ADMIN_PIN) {
+      const nextCredential = pinInput.value.trim();
+      if (nextCredential) {
+        adminCredential = nextCredential;
         setAdminUnlocked(true);
-        pinInput.value = ADMIN_PIN;
         setAdminVisibility(true);
-        showNotification('Acceso de administrador concedido.', 'success');
+        showNotification('Credencial cargada. Se validará al subir.', 'success');
       } else {
-        showNotification('PIN incorrecto.', 'error');
+        showNotification('Ingresa tu credencial de administrador.', 'error');
       }
     });
   }
 
   if (lockBackBtn) {
     lockBackBtn.addEventListener('click', () => {
+      adminCredential = '';
       setAdminUnlocked(false);
       if (pinInput) pinInput.value = '';
       setAdminVisibility(false);
@@ -544,11 +543,16 @@ function initDocumentsUpload() {
       if (!adminUnlocked) { showNotification('Desbloquea con el PIN primero.', 'error'); return; }
       const files = Array.from(input.files || []);
       if (!files.length) { showNotification('Selecciona al menos un archivo.', 'error'); return; }
+      if (!adminCredential) { showNotification('Ingresa tu credencial de administrador.', 'error'); return; }
 
       const formData = new FormData();
-      files.forEach(f => formData.append('files[]', f));
+      files.forEach(f => formData.append('files', f));
 
-      fetch('/api/documents', { method: 'POST', body: formData })
+      fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'x-admin-pin': adminCredential },
+        body: formData
+      })
         .then(async r => {
           if (!r.ok) {
             const d = await r.json().catch(() => ({}));
@@ -561,7 +565,18 @@ function initDocumentsUpload() {
           input.value = '';
           loadDocuments();
         })
-        .catch(err => showNotification(err.message || 'Error subiendo archivos.', 'error'));
+        .catch(err => {
+          if ((err.message || '').toLowerCase().includes('no autorizado')) {
+            adminCredential = '';
+            setAdminUnlocked(false);
+            if (pinInput) {
+              pinInput.value = '';
+              pinInput.disabled = false;
+              pinInput.focus();
+            }
+          }
+          showNotification(err.message || 'Error subiendo archivos.', 'error');
+        });
     });
   }
 }

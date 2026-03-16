@@ -7,6 +7,12 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     volumes:
       - renace_db_data:/var/lib/postgresql/data
     networks:
@@ -34,6 +40,12 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       SMTP_FROM: ${SMTP_FROM}
       NODE_ENV: production
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:3000/api/health/live >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     depends_on:
       - db
     networks:
@@ -46,11 +58,23 @@ services:
 
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.renace-web.rule=Host(`${APP_HOST}`)"
-        - "traefik.http.routers.renace-web.entrypoints=websecure"
-        - "traefik.http.routers.renace-web.tls=true"
-        - "traefik.http.routers.renace-web.tls.certresolver=letsencryptresolver"
-        - "traefik.http.services.renace-web.loadbalancer.server.port=3000"
+        - "traefik.http.routers.renace-tech-http.rule=Host(`renace.tech`) || Host(`www.renace.tech`)"
+        - "traefik.http.routers.renace-tech-http.entrypoints=web"
+        - "traefik.http.routers.renace-tech-http.middlewares=renace-tech-redirect-https"
+        - "traefik.http.routers.renace-tech-http.service=renace-tech-svc"
+        - "traefik.http.routers.renace-tech-https.rule=Host(`renace.tech`) || Host(`www.renace.tech`)"
+        - "traefik.http.routers.renace-tech-https.entrypoints=websecure"
+        - "traefik.http.routers.renace-tech-https.tls=true"
+        - "traefik.http.routers.renace-tech-https.tls.certresolver=letsencryptresolver"
+        - "traefik.http.routers.renace-tech-https.tls.domains[0].main=renace.tech"
+        - "traefik.http.routers.renace-tech-https.tls.domains[0].sans=www.renace.tech"
+        - "traefik.http.routers.renace-tech-https.middlewares=renace-tech-canonical"
+        - "traefik.http.routers.renace-tech-https.service=renace-tech-svc"
+        - "traefik.http.middlewares.renace-tech-redirect-https.redirectscheme.scheme=https"
+        - "traefik.http.middlewares.renace-tech-canonical.redirectregex.regex=^https://www\\.renace\\.tech/(.*)"
+        - "traefik.http.middlewares.renace-tech-canonical.redirectregex.replacement=https://renace.tech/$${1}"
+        - "traefik.http.middlewares.renace-tech-canonical.redirectregex.permanent=true"
+        - "traefik.http.services.renace-tech-svc.loadbalancer.server.port=3000"
         - "traefik.docker.network=RenaceNet"
 
 volumes:
