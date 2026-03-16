@@ -16,6 +16,9 @@ const { Pool } = require('pg');
 const nodemailer = require('nodemailer');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
+const https = require('https');
+const { URL } = require('url');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -48,24 +51,27 @@ if (isProd) {
 }
 
 // ── Security Headers (Helmet) ──
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://cdnjs.cloudflare.com", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https://ai.renace.tech"],
-      frameSrc: ["'none'"],
-      objectSrc: ["'none'"],
-      baseUri: ["'self'"],
-      scriptSrcAttr: ["'unsafe-inline'"],
+app.use((req, res, next) => {
+  if (req.path.startsWith('/odoo')) return next();
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://cdnjs.cloudflare.com", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", "https://ai.renace.tech"],
+        frameSrc: ["'none'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        scriptSrcAttr: ["'unsafe-inline'"],
+      },
     },
-  },
-  crossOriginEmbedderPolicy: false, // Allow external fonts/icons
-  hsts: isProd ? { maxAge: 63072000, includeSubDomains: true, preload: true } : false,
-}));
+    crossOriginEmbedderPolicy: false,
+    hsts: isProd ? { maxAge: 63072000, includeSubDomains: true, preload: true } : false,
+  })(req, res, next);
+});
 
 // ── Rate Limiting ──
 const apiLimiter = rateLimit({
@@ -137,8 +143,15 @@ if (process.env.SMTP_HOST) {
 }
 
 // ── Middleware ──
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+// Skip body parsing for Odoo proxy routes (stream must be unparsed)
+app.use((req, res, next) => {
+  if (req.path.startsWith('/odoo')) return next();
+  express.json({ limit: '1mb' })(req, res, next);
+});
+app.use((req, res, next) => {
+  if (req.path.startsWith('/odoo')) return next();
+  express.urlencoded({ extended: true, limit: '1mb' })(req, res, next);
+});
 
 // Disable X-Powered-By (helmet does this, but belt-and-suspenders)
 app.disable('x-powered-by');
@@ -467,6 +480,97 @@ function getCategory(ext) {
   return 'other';
 }
 
+// ── Odoo Reverse Proxy ──────────────────────────────────────────
+// Best practices: proxy_mode=True in odoo.conf (already set),
+// strip /odoo prefix, forward real IP/proto headers, rewrite redirects.
+const ODOO_URL        = process.env.ODOO_URL         || 'http://host.docker.internal:7015';
+const ODOO_LONGPOLL_URL = process.env.ODOO_LONGPOLL_URL || 'http://host.docker.internal:7018';
+const HOP_BY_HOP = new Set([
+  'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
+  'te', 'trailers', 'transfer-encoding', 'upgrade',
+]);
+
+function buildOdooProxyHeaders(req) {
+  const headers = {};
+  for (const [k, v] of Object.entries(req.headers)) {
+    if (!HOP_BY_HOP.has(k.toLowerCase())) headers[k] = v;
+  }
+  const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress;
+  headers['x-forwarded-for']   = clientIp;
+  headers['x-forwarded-proto'] = 'https';
+  headers['x-forwarded-host']  = 'renace.tech';
+  headers['x-real-ip']         = clientIp;
+  return headers;
+}
+
+function rewriteOdooLocation(location) {
+  if (!location) return location;
+  // Strip internal scheme+host and re-root under /odoo
+  return location
+    .replace(/^https?:\/\/[^/]+(\/|$)/, (_, slash) => `https://renace.tech/odoo${slash === '/' ? '/' : ''}`)
+    .replace(/^\/(?!odoo)/, '/odoo/');
+}
+
+function odooProxy(req, res, targetBase, stripPrefix) {
+  const target = new URL(targetBase);
+  const lib    = target.protocol === 'https:' ? https : http;
+
+  // Strip the matched prefix from the path
+  const upstreamPath = req.url.startsWith(stripPrefix)
+    ? req.url.slice(stripPrefix.length) || '/'
+    : req.url;
+
+  const options = {
+    hostname: target.hostname,
+    port:     target.port || (target.protocol === 'https:' ? 443 : 80),
+    path:     upstreamPath,
+    method:   req.method,
+    headers:  { ...buildOdooProxyHeaders(req), host: target.host },
+  };
+
+  const proxyReq = lib.request(options, (proxyRes) => {
+    const outHeaders = {};
+    for (const [k, v] of Object.entries(proxyRes.headers)) {
+      if (HOP_BY_HOP.has(k.toLowerCase())) continue;
+      outHeaders[k] = k.toLowerCase() === 'location'
+        ? rewriteOdooLocation(Array.isArray(v) ? v[0] : v)
+        : v;
+    }
+    // Disable caching for dynamic Odoo content
+    outHeaders['cache-control'] = outHeaders['cache-control'] || 'no-store';
+    res.writeHead(proxyRes.statusCode, outHeaders);
+    proxyRes.pipe(res, { end: true });
+  });
+
+  proxyReq.on('error', (err) => {
+    console.error('[Odoo proxy]', err.message);
+    if (!res.headersSent) {
+      res.status(502).send(`
+        <html><body style="font:1rem monospace;background:#0d1117;color:#e6edf3;padding:2rem">
+          <h2>⚡ Odoo no disponible</h2>
+          <p>El servicio en ${targetBase} no responde.<br>
+          Verifica que Odoo esté activo: <code>sudo systemctl status renace-server</code></p>
+        </body></html>`);
+    }
+  });
+
+  // Stream body (POST/PUT/PATCH)
+  if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+    req.pipe(proxyReq, { end: true });
+  } else {
+    proxyReq.end();
+  }
+}
+
+// Longpolling (gevent port 7018) — must be before the generic /odoo route
+app.use('/odoo/longpolling', (req, res) => odooProxy(req, res, ODOO_LONGPOLL_URL, '/odoo/longpolling'));
+
+// Redirect bare /odoo → /odoo/web
+app.get('/odoo', (req, res) => res.redirect(301, '/odoo/web'));
+
+// All other /odoo/** → Odoo HTTP port 7015
+app.use('/odoo', (req, res) => odooProxy(req, res, ODOO_URL, '/odoo'));
+
 // ── Global Error Handler ──
 app.use((err, req, res, _next) => {
   if (err instanceof multer.MulterError) {
@@ -496,8 +600,49 @@ app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// ── Start ──
-app.listen(PORT, async () => {
+// ── Start ── (raw http.Server for WebSocket upgrade support)
+const rawServer = http.createServer(app);
+
+// WebSocket tunnel for Odoo bus / longpolling (no external deps)
+rawServer.on('upgrade', (req, socket, head) => {
+  const isOdooWs = req.url.startsWith('/odoo/longpolling') ||
+                   req.url.startsWith('/odoo/websocket')  ||
+                   req.url.startsWith('/odoo/bus');
+  if (!isOdooWs) { socket.destroy(); return; }
+
+  const target = new URL(ODOO_LONGPOLL_URL);
+  const upstream = http.request({
+    hostname: target.hostname,
+    port: target.port || 80,
+    path: req.url.replace(/^\/odoo/, '') || '/',
+    method: 'GET',
+    headers: {
+      ...req.headers,
+      host: target.host,
+      'x-forwarded-for': req.socket.remoteAddress,
+      'x-forwarded-proto': 'https',
+      'x-forwarded-host': 'renace.tech',
+    },
+  });
+
+  upstream.on('upgrade', (upRes, upSocket, upHead) => {
+    socket.write(
+      'HTTP/1.1 101 Switching Protocols\r\n' +
+      Object.entries(upRes.headers).map(([k, v]) => `${k}: ${v}`).join('\r\n') +
+      '\r\n\r\n'
+    );
+    if (upHead?.length) upSocket.unshift(upHead);
+    upSocket.pipe(socket);
+    socket.pipe(upSocket);
+    socket.on('error', () => upSocket.destroy());
+    upSocket.on('error', () => socket.destroy());
+  });
+
+  upstream.on('error', () => socket.destroy());
+  upstream.end();
+});
+
+rawServer.listen(PORT, async () => {
   console.log(`🚀 RENACE.TECH running on port ${PORT} (${isProd ? 'production' : 'development'})`);
   await initDB();
 });
