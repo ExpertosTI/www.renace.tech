@@ -717,13 +717,26 @@ async function odooExecute(model, method, args = [], kwargs = {}) {
   return odooLegacyExecute(model, method, args, kwargs, db, uid, apikey);
 }
 
-// GET /api/odoo/products
+// GET /api/odoo/products[?q=search&categ=name&limit=24]
 app.get('/api/odoo/products', apiLimiter, async (req, res) => {
   try {
+    // Sanitize query params
+    const q      = String(req.query.q || '').trim().replace(/[<>"']/g, '').substring(0, 80);
+    const categ  = String(req.query.categ || '').trim().replace(/[<>"']/g, '').substring(0, 50);
+    const limit  = Math.min(Math.max(parseInt(req.query.limit) || 24, 1), 48);
+
+    const domain = [['sale_ok', '=', true], ['active', '=', true]];
+    if (q) {
+      domain.push('|');
+      domain.push(['name', 'ilike', q]);
+      domain.push(['description_sale', 'ilike', q]);
+    }
+    if (categ) domain.push(['categ_id.name', 'ilike', categ]);
+
     const products = await odooExecute(
       'product.template', 'search_read',
-      [[['sale_ok', '=', true], ['active', '=', true]]],
-      { fields: ['id', 'name', 'list_price', 'description_sale', 'image_128', 'categ_id', 'type'], limit: 24, order: 'name asc' }
+      [domain],
+      { fields: ['id', 'name', 'list_price', 'description_sale', 'image_128', 'categ_id', 'type'], limit, order: 'name asc' }
     );
     res.json(products || []);
   } catch (e) {
@@ -735,36 +748,65 @@ app.get('/api/odoo/products', apiLimiter, async (req, res) => {
 // POST /api/odoo/quote
 app.post('/api/odoo/quote', apiLimiter, async (req, res) => {
   const { items, customer } = req.body || {};
-  if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'Items requeridos' });
+  if (!Array.isArray(items) || !items.length || items.length > 30)
+    return res.status(400).json({ error: 'Items requeridos (máximo 30)' });
+
+  // Validate item structure
+  for (const it of items) {
+    if (!Number.isInteger(it.id) || it.id < 1) return res.status(400).json({ error: 'ID de producto inválido' });
+    if (!Number.isInteger(it.qty) && typeof it.qty !== 'number') it.qty = 1;
+    it.qty = Math.min(Math.max(Math.round(Number(it.qty) || 1), 1), 999);
+  }
+
+  // Sanitize customer input
+  const name    = String(customer?.name    || '').replace(/[<>]/g, '').substring(0, 100);
+  const email   = String(customer?.email   || '').replace(/[<>]/g, '').substring(0, 120);
+  const phone   = String(customer?.phone   || '').replace(/[<>]/g, '').substring(0, 30);
+  const message = String(customer?.message || '').replace(/[<>]/g, '').substring(0, 500);
+
   try {
+    // ── SECURITY: Fetch real prices from Odoo — never trust client-provided prices ──
+    const productIds = [...new Set(items.map(i => i.id))];
+    const realProducts = await odooExecute('product.template', 'search_read',
+      [[['id', 'in', productIds], ['sale_ok', '=', true], ['active', '=', true]]],
+      { fields: ['id', 'name', 'list_price'], limit: productIds.length });
+
+    if (!realProducts?.length) return res.status(400).json({ error: 'Productos no encontrados o no disponibles para venta' });
+    const priceMap = Object.fromEntries(realProducts.map(p => [p.id, { price: p.list_price, name: p.name }]));
+
+    // Only include items that actually exist in Odoo
+    const validItems = items.filter(i => priceMap[i.id]);
+    if (!validItems.length) return res.status(400).json({ error: 'Ningún producto válido en el pedido' });
+
+    // ── Partner lookup / creation ──
     let partnerId = parseInt(process.env.ODOO_DEFAULT_PARTNER || '3', 10);
-    if (customer?.email) {
+    if (email) {
       const existing = await odooExecute('res.partner', 'search_read',
-        [[['email', '=', customer.email]]],
-        { fields: ['id'], limit: 1 });
+        [[['email', '=', email]]], { fields: ['id'], limit: 1 });
       if (existing?.length) {
         partnerId = existing[0].id;
       } else {
         const created = await odooExecute('res.partner', 'create',
-          [{ name: customer.name || customer.email, email: customer.email, phone: customer.phone || '' }]);
+          [{ name: name || email, email, phone }]);
         partnerId = Array.isArray(created) ? created[0] : created;
       }
     }
+
     const orderVals = {
       partner_id: partnerId,
-      note: customer?.message || 'Cotización creada desde web chat RENACE.TECH',
-      order_line: items.map(item => [0, 0, {
+      note: (message || 'Cotización creada desde web chat RENACE.TECH').substring(0, 500),
+      order_line: validItems.map(item => [0, 0, {
         product_id: item.id,
-        product_uom_qty: item.qty || 1,
-        price_unit: item.price,
-        name: item.name,
+        product_uom_qty: item.qty,
+        price_unit: priceMap[item.id].price,  // server-side price
+        name: priceMap[item.id].name,         // server-side name
       }]),
     };
+
     const created = await odooExecute('sale.order', 'create', [orderVals]);
     const orderId = Array.isArray(created) ? created[0] : created;
-    const order = await odooExecute('sale.order', 'search_read',
-      [[['id', '=', orderId]]],
-      { fields: ['name', 'amount_total'], limit: 1 });
+    const order   = await odooExecute('sale.order', 'search_read',
+      [[['id', '=', orderId]]], { fields: ['name', 'amount_total'], limit: 1 });
     res.json({ success: true, orderId, orderRef: order?.[0]?.name || `SO-${orderId}`, total: order?.[0]?.amount_total || 0 });
   } catch (e) {
     console.error('[Odoo quote]', e.message);

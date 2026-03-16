@@ -77,16 +77,24 @@
   }
 
   /* ─── Build products grid message HTML ──────────────────────── */
-  function buildProductsGrid(products) {
+  function buildProductsGrid(products, query) {
+    const label = query ? `Resultados para “${escHtml(query)}”` : 'Catálogo RENACE';
+    const icon  = query ? 'fa-search' : 'fa-store';
     if (!products.length) {
-      return `<div class="shop-empty"><i class="fas fa-box-open"></i><p>No hay productos disponibles.</p></div>`;
+      return `<div class="shop-empty">
+        <i class="fas fa-box-open"></i>
+        <p>No encontré productos${query ? ` para <strong>${escHtml(query)}</strong>` : ''}.</p>
+        <button class="rg-chat-option-btn shop-show-all-btn" style="margin-top:0.75rem;background:rgba(56,189,248,0.15);color:#38bdf8;border:1px solid rgba(56,189,248,0.3);padding:6px 14px;border-radius:20px;cursor:pointer;font-size:0.8rem">
+          <i class="fas fa-th"></i> Ver todo el catálogo
+        </button>
+      </div>`;
     }
     return `
       <div class="shop-grid-wrapper">
         <div class="shop-grid-header">
-          <i class="fas fa-store"></i>
-          <span>Catálogo RENACE</span>
-          <span class="shop-grid-count">${products.length} productos</span>
+          <i class="fas ${icon}"></i>
+          <span>${label}</span>
+          <span class="shop-grid-count">${products.length} producto${products.length !== 1 ? 's' : ''}</span>
         </div>
         <div class="shop-grid">
           ${products.map(buildProductCard).join('')}
@@ -311,6 +319,7 @@
     messagesEl.scrollTop = messagesEl.scrollHeight;
 
     // Stagger the materialization animation per card
+    // (returns bubble for caller to attach extra handlers)
     const cards = bubble.querySelectorAll('.shop-card--entering');
     cards.forEach((card, i) => {
       card.style.animationDelay = `${i * 70}ms`;
@@ -323,6 +332,8 @@
     });
 
     // Bind add-to-cart buttons with ripple + flash effects
+    // eslint-disable-next-line no-unused-expressions
+    void bubble; // returned below
     bubble.addEventListener('click', (e) => {
       const btn = e.target.closest('.shop-card-btn');
       if (!btn) return;
@@ -356,38 +367,61 @@
       btn.classList.add('added');
       setTimeout(() => { btn.innerHTML = '<i class="fas fa-plus"></i>'; btn.classList.remove('added'); }, 1400);
     });
+
+    return bubble;
   }
 
-  /* ─── Product keywords detection ────────────────────────────── */
+  /* ─── Product keywords & search patterns ──────────────────── */
   const PRODUCT_KEYWORDS = /producto|catálogo|catalogo|precio|cotiz|servicio|plan|comprar|tienda|ver servicios|qué ofrecen|que ofrecen|listado|oferta/i;
 
+  // Detects: "busca impresoras", "muéstrame solo laptops", "ver teclados", etc.
+  const SEARCH_PATTERN = /^(?:busca|buscar|muéstrame|mostrame|mostrar|ver|quiero ver|muestra(?:me)?|filtrar|dame|necesito|tienes?|hay\s)\s+(?:solo\s+|las?\s+|los?\s+|un(?:as?)?\s+|alguna?s?\s+)?(.{2,60})$/i;
+
+  function extractSearchQuery(text) {
+    const m = text.trim().match(SEARCH_PATTERN);
+    return m ? m[1].replace(/\?|\.$/g, '').trim() : null;
+  }
+
+  /* ─── Expand chat to shop mode ──────────────────────────── */
+  function enterShopMode() {
+    const root = document.querySelector('.rg-chat-root');
+    if (!root || root.classList.contains('shop-mode')) return;
+    root.classList.add('shop-mode');
+    root.querySelector('.rg-chat-close')?.addEventListener('click', () => {
+      root.classList.remove('shop-mode');
+    }, { once: true });
+  }
+
+  /* ─── Fetch & display products (with optional query) ────────── */
+  async function fetchAndShowProducts(query) {
+    const typingEl = showTypingInChat();
+    try {
+      const url = query ? `/api/odoo/products?q=${encodeURIComponent(query)}` : '/api/odoo/products';
+      const res = await fetch(url);
+      const products = await res.json();
+      removeTypingFromChat(typingEl);
+      if (!Array.isArray(products)) throw new Error(products?.error || 'Error de servidor');
+
+      enterShopMode();
+      const bubble = addBotHtml(buildProductsGrid(products, query || null));
+
+      // Handle "Ver todo el catálogo" button in empty state
+      bubble?.querySelector('.shop-show-all-btn')?.addEventListener('click', () => {
+        fetchAndShowProducts(null);
+      });
+    } catch (e) {
+      removeTypingFromChat(typingEl);
+      addBotMsg(`No pude ${query ? `encontrar productos para "${query}"` : 'cargar el catálogo'}. Intenta de nuevo en un momento.`);
+    }
+  }
+
   window.odooShop = {
-    isProductQuery: (text) => PRODUCT_KEYWORDS.test(text),
+    isProductQuery:  (text) => PRODUCT_KEYWORDS.test(text),
+    isSearchQuery:   (text) => !!extractSearchQuery(text),
+    getSearchQuery:  (text) => extractSearchQuery(text),
 
-    async showProducts() {
-      const typingEl = showTypingInChat();
-      try {
-        const res = await fetch('/api/odoo/products');
-        const products = await res.json();
-        removeTypingFromChat(typingEl);
-        if (!Array.isArray(products)) throw new Error(products?.error || 'Error');
-
-        // Expand chat to shop mode before inserting cards
-        const root = document.querySelector('.rg-chat-root');
-        if (root) {
-          root.classList.add('shop-mode');
-          // Collapse back when user closes chat
-          root.querySelector('.rg-chat-close')?.addEventListener('click', () => {
-            root.classList.remove('shop-mode');
-          }, { once: true });
-        }
-
-        addBotHtml(buildProductsGrid(products));
-      } catch (e) {
-        removeTypingFromChat(typingEl);
-        addBotMsg('No pude cargar el catálogo ahora mismo. Intenta de nuevo en un momento.');
-      }
-    },
+    async showProducts()           { await fetchAndShowProducts(null); },
+    async searchProducts(query)    { await fetchAndShowProducts(query); },
 
     openCart() { renderCartPanel(); },
 

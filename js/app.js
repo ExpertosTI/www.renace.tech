@@ -861,7 +861,13 @@ function initRgChat() {
     input.style.height = '';
     updateSendState();
 
-    // Intercept product / catalog queries → Odoo shop
+    // Intercept product search (e.g. "muéstrame impresoras") → filtered Odoo catalog
+    if (window.odooShop?.isSearchQuery(text)) {
+      const query = window.odooShop.getSearchQuery(text);
+      await window.odooShop.searchProducts(query);
+      return;
+    }
+    // Intercept general product / catalog queries → full Odoo catalog
     if (window.odooShop?.isProductQuery(text)) {
       await window.odooShop.showProducts();
       return;
