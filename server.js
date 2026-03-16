@@ -524,6 +524,7 @@ function getCategory(ext) {
 const ODOO_URL          = process.env.ODOO_URL          || 'http://85.31.224.232:7015';
 const ODOO_LONGPOLL_URL = process.env.ODOO_LONGPOLL_URL || 'http://85.31.224.232:7018';
 const CHAT_WEBHOOK      = process.env.CHAT_WEBHOOK      || 'https://ai.renace.tech/webhook/499666c3-d807-4bb7-8195-43932f64a91f/chat';
+const DEFAULT_LANG      = process.env.ODOO_LANG         || 'en_US';
 const HOP_BY_HOP = new Set([
   'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
   'te', 'trailers', 'transfer-encoding', 'upgrade',
@@ -690,7 +691,7 @@ async function odooLegacyAuth(db, login, apikey) {
 async function odooLegacyExecute(model, method, args, kwargs, db, uid, apikey) {
   const { body, status } = await odooHttpPost('/jsonrpc', {
     jsonrpc: '2.0', method: 'call', id: Date.now(),
-    params: { service: 'object', method: 'execute_kw', args: [db, uid, apikey, model, method, args, kwargs] },
+    params: { service: 'object', method: 'execute_kw', args: [db, uid, apikey, model, method, args, { ...kwargs, context: { lang: DEFAULT_LANG, ...(kwargs?.context || {}) } }] },
   });
   if (status !== 200) throw new Error(`Odoo execute HTTP ${status}`);
   const r = JSON.parse(body);
@@ -727,7 +728,7 @@ async function odooExecute(model, method, args = [], kwargs = {}) {
   // Try JSON-2 unless already confirmed legacy
   if (_odooApiMode !== 'legacy') {
     // Translate to JSON-2 flat body: kwargs keys become top-level, ids = args[0]
-    const body = { context: { lang: 'es_ES' }, ...kwargs };
+    const body = { context: { lang: DEFAULT_LANG }, ...kwargs };
     if (args.length && Array.isArray(args[0])) body.domain = args[0]; // search/search_read
     else if (args.length)                       body.ids    = args[0]; // read/write/unlink
     try {
@@ -745,9 +746,13 @@ async function odooExecute(model, method, args = [], kwargs = {}) {
       console.log('[Odoo] JSON-2 not available (404), switching to legacy /jsonrpc');
     } catch (e) {
       if (_odooApiMode === 'json2') throw e; // confirmed json2 already, real error
+      const msg = e.message || '';
+      const invalidLang = msg.includes('Invalid language code');
       _odooApiMode = 'legacy';
       _odooUidCache = null;
-      console.warn('[Odoo] JSON-2 attempt failed, using legacy:', e.message);
+      console.log(invalidLang
+        ? '[Odoo] JSON-2 invalid lang, switching to legacy /jsonrpc'
+        : '[Odoo] JSON-2 not available (404), switching to legacy /jsonrpc');
     }
   }
 
