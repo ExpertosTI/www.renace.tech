@@ -536,8 +536,10 @@ function initDocumentsUpload() {
       if (nextCredential) {
         _adminCredential = nextCredential;
         setAdminUnlocked(true);
-        setAdminVisibility(true);
-        showNotification('Credencial cargada. Se validará al subir.', 'success');
+        if (uploadNavBtn) uploadNavBtn.style.display = 'inline-flex';
+        if (finderWindow) finderWindow.classList.add('documents-admin-visible');
+        setDocumentsView('list');
+        showNotification('Desbloqueado. Puedes eliminar y subir archivos.', 'success');
       } else {
         showNotification('Ingresa tu credencial de administrador.', 'error');
       }

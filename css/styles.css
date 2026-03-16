@@ -354,7 +354,10 @@ a *, button *, [onclick] *, .finder-control *, .control *, .terminal-btn *, .btn
   line-height: 1.7;
   color: var(--text-secondary);
   overflow-y: auto;
-  max-height: 50vh;
+}
+.hero .terminal-body {
+  max-height: none;
+  overflow-y: visible;
 }
 
 .terminal-line { margin-bottom: 0.25rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
