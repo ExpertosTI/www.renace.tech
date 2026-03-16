@@ -1311,6 +1311,198 @@ a *, button *, [onclick] *, .finder-control *, .control *, .terminal-btn *, .btn
   100% { opacity: 0; transform: rotate(45deg) translate(3px, 3px); }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   IMMERSIVE UX — 12 features
+   ═══════════════════════════════════════════════════════════════ */
+
+/* 1. Download progress toast */
+.dl-toast {
+  position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 10200;
+  background: rgba(15, 20, 30, 0.97);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem;
+  min-width: 280px; max-width: 340px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+  transform: translateY(20px); opacity: 0;
+  transition: transform 0.3s var(--ease-spring), opacity 0.3s ease;
+}
+.dl-toast.visible { transform: translateY(0); opacity: 1; }
+.dl-toast.done { border-color: rgba(52, 211, 153, 0.3); }
+.dl-toast-header {
+  display: flex; align-items: center; gap: 0.6rem;
+  margin-bottom: 0.6rem;
+}
+.dl-toast-icon { font-size: 0.85rem; color: var(--accent-blue); flex-shrink: 0; }
+.dl-toast-icon.success { color: var(--accent-green); }
+.dl-toast-icon.error { color: #ef4444; }
+.dl-toast-name {
+  flex: 1; font-size: 0.82rem; font-weight: 500;
+  color: var(--text-primary); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.dl-toast-pct { font-size: 0.75rem; color: var(--accent-blue); font-weight: 600; flex-shrink: 0; }
+.dl-toast-track {
+  height: 4px; border-radius: 4px;
+  background: rgba(255,255,255,0.08); overflow: hidden;
+  margin-bottom: 0.45rem;
+}
+.dl-toast-bar {
+  height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan));
+  transition: width 0.2s ease;
+}
+.dl-toast-bar.indeterminate {
+  animation: dl-indeterminate 1.2s ease-in-out infinite;
+}
+@keyframes dl-indeterminate {
+  0% { width: 0%; margin-left: 0; }
+  50% { width: 60%; margin-left: 20%; }
+  100% { width: 0%; margin-left: 100%; }
+}
+.dl-toast-status { font-size: 0.72rem; color: var(--text-muted); }
+
+/* 2. Scroll progress bar */
+#scroll-progress-bar {
+  position: fixed; top: 0; left: 0; height: 3px; z-index: 10000;
+  background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan), #818cf8);
+  width: 0%; transition: width 0.1s linear;
+  pointer-events: none;
+}
+
+/* 3. Section reveal animations */
+.reveal-target {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.6s ease, transform 0.6s var(--ease-spring);
+}
+.reveal-target:nth-child(2) { transition-delay: 0.08s; }
+.reveal-target:nth-child(3) { transition-delay: 0.16s; }
+.reveal-target:nth-child(4) { transition-delay: 0.24s; }
+.reveal-visible { opacity: 1 !important; transform: none !important; }
+
+/* 4. Active nav link */
+nav a.nav-active {
+  color: var(--accent-cyan) !important;
+  position: relative;
+}
+nav a.nav-active::after {
+  content: ''; position: absolute; bottom: -2px; left: 0; right: 0;
+  height: 2px; border-radius: 2px;
+  background: var(--accent-cyan);
+}
+
+/* 5. Cursor glow */
+#cursor-glow {
+  position: fixed; top: 0; left: 0;
+  width: 300px; height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(56,189,248,0.08) 0%, transparent 70%);
+  pointer-events: none; z-index: 0;
+  transition: opacity 0.4s ease;
+  will-change: transform;
+}
+
+/* 6. Card 3D tilt */
+.pricing-card {
+  transition: transform 0.15s ease, box-shadow var(--transition-normal) !important;
+  will-change: transform;
+  transform-style: preserve-3d;
+}
+
+/* 7. Copy to clipboard */
+.copyable {
+  cursor: pointer !important;
+  position: relative;
+  transition: color var(--transition-fast);
+}
+.copyable:hover { color: var(--accent-cyan) !important; }
+.copyable.copied { color: var(--accent-green) !important; }
+.copyable::after {
+  content: ' ⎘';
+  font-size: 0.7em;
+  opacity: 0.4;
+}
+
+/* 8. Back to top */
+#back-to-top {
+  position: fixed; bottom: 5rem; right: 1.5rem; z-index: 9999;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(56,189,248,0.12);
+  border: 1px solid rgba(56,189,248,0.3);
+  color: var(--accent-blue); font-size: 0.85rem;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  opacity: 0; transform: translateY(12px);
+  transition: opacity 0.3s ease, transform 0.3s ease, background var(--transition-fast);
+  pointer-events: none;
+}
+#back-to-top.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+#back-to-top:hover { background: rgba(56,189,248,0.25); }
+
+/* 9. Keyboard shortcuts hint */
+.shortcut-hint {
+  position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(8px);
+  background: rgba(15,20,30,0.92);
+  border: 1px solid var(--border-color);
+  border-radius: 8px; padding: 0.4rem 0.9rem;
+  font-size: 0.78rem; color: var(--text-secondary);
+  opacity: 0; transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none; z-index: 10300;
+}
+.shortcut-hint.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+.shortcuts-help {
+  position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) scale(0.95);
+  background: rgba(15,20,30,0.97);
+  border: 1px solid rgba(56,189,248,0.2);
+  border-radius: var(--radius-lg); padding: 1rem 1.25rem;
+  min-width: 220px; z-index: 10300;
+  opacity: 0; transition: opacity 0.2s, transform 0.2s;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+}
+.shortcuts-help.visible { opacity: 1; transform: translateX(-50%) scale(1); }
+.shortcuts-help-header {
+  font-size: 0.8rem; font-weight: 600; color: var(--accent-blue);
+  display: flex; align-items: center; gap: 0.5rem;
+  margin-bottom: 0.75rem; padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+.shortcuts-help-list { display: flex; flex-direction: column; gap: 0.45rem; }
+.shortcuts-help-list div { display: flex; align-items: center; gap: 0.6rem; font-size: 0.78rem; color: var(--text-secondary); }
+kbd {
+  background: rgba(255,255,255,0.08); border: 1px solid var(--border-color);
+  border-radius: 4px; padding: 0.1rem 0.4rem;
+  font-family: 'SF Mono', monospace; font-size: 0.72rem; color: var(--text-primary);
+}
+
+/* 10. File ripple */
+.file-ripple {
+  position: absolute; border-radius: 50%;
+  background: rgba(56,189,248,0.15);
+  width: 6px; height: 6px;
+  margin-left: -3px; margin-top: -3px;
+  animation: file-ripple-anim 0.5s ease-out forwards;
+  pointer-events: none;
+}
+@keyframes file-ripple-anim {
+  to { width: 200px; height: 200px; margin-left: -100px; margin-top: -100px; opacity: 0; }
+}
+
+/* 11. Counters — no specific visual, handled via data-count attr */
+
+/* 12. Terminal blinking cursor */
+.terminal-cursor {
+  display: inline-block;
+  color: var(--accent-green);
+  animation: terminal-blink 1s step-end infinite;
+  font-size: 0.85rem;
+  margin-left: 2px;
+  opacity: 1;
+}
+@keyframes terminal-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
 /* --- Fade In Animation --- */
 .fade-in-element {
   opacity: 0; transform: translateY(30px);
