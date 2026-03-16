@@ -736,12 +736,43 @@ app.get('/api/odoo/products', apiLimiter, async (req, res) => {
     const products = await odooExecute(
       'product.template', 'search_read',
       [domain],
-      { fields: ['id', 'name', 'list_price', 'description_sale', 'image_128', 'categ_id', 'type'], limit, order: 'name asc' }
+      { fields: ['id', 'name', 'list_price', 'description_sale', 'categ_id', 'type'], limit, order: 'name asc' }
     );
     res.json(products || []);
   } catch (e) {
     console.error('[Odoo products]', e.message);
     res.status(502).json({ error: e.message });
+  }
+});
+
+// GET /api/odoo/image/:id  — lightweight product image proxy (avoids huge base64 in product list)
+app.get('/api/odoo/image/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (!id || id < 1) return res.status(400).end();
+  try {
+    const target = new URL(ODOO_URL);
+    const lib    = target.protocol === 'https:' ? https : http;
+    const path   = `/web/image/product.template/${id}/image_128`;
+    const proxyReq = lib.request({
+      hostname: target.hostname,
+      port:     parseInt(target.port) || 7015,
+      path,
+      method:   'GET',
+      headers:  { 'User-Agent': 'RENACE.TECH NodeProxy/1.0' },
+    }, (proxyRes) => {
+      if (proxyRes.statusCode === 200) {
+        res.set('Content-Type', proxyRes.headers['content-type'] || 'image/png');
+        res.set('Cache-Control', 'public, max-age=86400');
+        proxyRes.pipe(res);
+      } else {
+        res.status(proxyRes.statusCode || 404).end();
+      }
+    });
+    proxyReq.on('error', () => res.status(502).end());
+    proxyReq.setTimeout(5000, () => { proxyReq.destroy(); res.status(504).end(); });
+    proxyReq.end();
+  } catch (e) {
+    res.status(502).end();
   }
 });
 

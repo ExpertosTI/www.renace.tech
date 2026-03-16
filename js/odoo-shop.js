@@ -47,9 +47,10 @@
 
   /* ─── Build product card HTML ────────────────────────────────── */
   function buildProductCard(p) {
-    const img = p.image_128 && p.image_128 !== false
-      ? `<img src="data:image/png;base64,${p.image_128}" alt="${escHtml(p.name)}" class="shop-card-img" loading="lazy">`
-      : `<div class="shop-card-img-placeholder"><i class="fas fa-cube"></i></div>`;
+    const img = p.id
+      ? `<img src="/api/odoo/image/${p.id}" alt="${escHtml(p.name)}" class="shop-card-img" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+      : '';
+    const imgFallback = `<div class="shop-card-img-placeholder"${p.id ? ' style="display:none"' : ''}><i class="fas fa-cube"></i></div>`;
 
     const desc = p.description_sale && p.description_sale !== false
       ? `<p class="shop-card-desc">${escHtml(String(p.description_sale)).substring(0, 80)}…</p>`
@@ -61,14 +62,14 @@
       <div class="shop-card shop-card--entering" data-id="${p.id}" data-name="${escHtml(p.name)}" data-price="${p.list_price}">
         <div class="shop-card-scan"></div>
         <div class="shop-card-glow"></div>
-        <div class="shop-card-media">${img}</div>
+        <div class="shop-card-media">${img}${imgFallback}</div>
         <div class="shop-card-body">
           ${categ ? `<span class="shop-card-tag">${categ}</span>` : ''}
           <div class="shop-card-name">${escHtml(p.name)}</div>
           ${desc}
           <div class="shop-card-footer">
             <div class="shop-card-price">${fmt(p.list_price)}</div>
-            <button class="shop-card-btn" data-id="${p.id}" data-name="${escHtml(p.name)}" data-price="${p.list_price}" data-img="${p.image_128 || ''}">
+            <button class="shop-card-btn" data-id="${p.id}" data-name="${escHtml(p.name)}" data-price="${p.list_price}">
               <i class="fas fa-plus"></i>
             </button>
           </div>
@@ -109,8 +110,8 @@
     const empty = items.length === 0;
 
     const rows = items.map(i => {
-      const imgEl = i.image
-        ? `<img src="data:image/png;base64,${i.image}" class="cart-item-img" alt="${escHtml(i.name)}">`
+      const imgEl = i.id
+        ? `<img src="/api/odoo/image/${i.id}" class="cart-item-img" alt="${escHtml(i.name)}" loading="lazy" onerror="this.outerHTML='<div class=cart-item-img-placeholder><i class=fas.fa-cube></i></div>'">`
         : `<div class="cart-item-img-placeholder"><i class="fas fa-cube"></i></div>`;
       const subtotal = fmt(i.price * i.qty);
       return `
@@ -300,8 +301,8 @@
   /* ─── Build receipt / ticket card HTML ─────────────────── */
   function buildReceiptHTML(orderRef, total, items, email) {
     const rows = items.map(i => {
-      const thumb = i.image
-        ? `<img class="qt-item-thumb" src="data:image/png;base64,${i.image}" alt="">`
+      const thumb = i.id
+        ? `<img class="qt-item-thumb" src="/api/odoo/image/${i.id}" alt="" loading="lazy">`
         : `<div class="qt-item-thumb qt-item-thumb--empty"><i class="fas fa-box"></i></div>`;
       return `
       <div class="qt-item">
@@ -359,7 +360,7 @@
   function buildProductPickerHTML(products, qty) {
     const cards = products.slice(0, 5).map((p, idx) => `
       <div class="bpp-card" data-idx="${idx}">
-        ${p.image_128 ? `<img class="bpp-thumb" src="data:image/png;base64,${p.image_128}" alt="">` : `<div class="bpp-thumb bpp-thumb--empty"><i class="fas fa-box"></i></div>`}
+        <img class="bpp-thumb" src="/api/odoo/image/${p.id}" alt="" loading="lazy">
         <div class="bpp-info">
           <span class="bpp-name">${escHtml(p.name)}</span>
           <span class="bpp-price">${fmt(p.list_price)}</span>
@@ -417,7 +418,7 @@
         }
         if (products.length === 1) {
           const p = products[0];
-          for (let n = 0; n < qty; n++) cart.add({ id: p.id, name: p.name, price: p.list_price, image: p.image_128 });
+          for (let n = 0; n < qty; n++) cart.add({ id: p.id, name: p.name, price: p.list_price });
           addBotMsg(`✅ ${qty > 1 ? qty + '× ' : ''}**${p.name}** agregado al carrito! 🛒\n\n💰 Total: **${fmt(cart.total())}**`);
         } else {
           // Compact inline picker — does NOT open the full catalog
@@ -492,8 +493,8 @@
     if (existingRows.length !== items.length) {
       // Item was added or removed — rebuild body html only
       body.innerHTML = items.map(i => {
-        const imgEl = i.image
-          ? `<img src="data:image/png;base64,${i.image}" class="cart-item-img" alt="${escHtml(i.name)}">`
+        const imgEl = i.id
+          ? `<img src="/api/odoo/image/${i.id}" class="cart-item-img" alt="${escHtml(i.name)}" loading="lazy">`
           : `<div class="cart-item-img-placeholder"><i class="fas fa-cube"></i></div>`;
         return `<div class="cart-item" data-id="${i.id}">
           ${imgEl}
@@ -636,7 +637,6 @@
       const id    = parseInt(btn.dataset.id, 10);
       const name  = btn.dataset.name;
       const price = parseFloat(btn.dataset.price);
-      const image = btn.dataset.img || '';
 
       // Ripple effect
       const ripple = document.createElement('span');
@@ -656,7 +656,7 @@
         setTimeout(() => card.classList.remove('shop-card--selected'), 700);
       }
 
-      cart.add({ id, name, price, image });
+      cart.add({ id, name, price });
 
       btn.innerHTML = '<i class="fas fa-check"></i>';
       btn.classList.add('added');
@@ -693,7 +693,10 @@
   }
 
   /* ─── Fetch & display products (with optional query) ────────── */
+  let _fetchingProducts = false;
   async function fetchAndShowProducts(query) {
+    if (_fetchingProducts) return;   // guard: ignore duplicate clicks while loading
+    _fetchingProducts = true;
     const typingEl = showTypingInChat();
     try {
       const url = query ? `/api/odoo/products?q=${encodeURIComponent(query)}` : '/api/odoo/products';
@@ -712,6 +715,8 @@
     } catch (e) {
       removeTypingFromChat(typingEl);
       addBotMsg(`No pude ${query ? `encontrar productos para "${query}"` : 'cargar el catálogo'}. Intenta de nuevo en un momento.`);
+    } finally {
+      _fetchingProducts = false;
     }
   }
 
