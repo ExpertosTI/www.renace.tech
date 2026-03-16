@@ -2058,6 +2058,71 @@ kbd {
 }
 .qt-contact-row small { opacity: 0.75; }
 
+/* ── Compact inline product picker (cart commands) ───────── */
+.bot-product-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 2px 0;
+}
+.bpp-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px;
+  padding: 6px 8px;
+  transition: border-color 0.2s;
+}
+.bpp-card:hover { border-color: rgba(56,189,248,0.3); }
+.bpp-thumb {
+  width: 38px; height: 38px;
+  border-radius: 6px;
+  object-fit: contain;
+  background: rgba(255,255,255,0.06);
+  flex-shrink: 0;
+}
+.bpp-thumb--empty {
+  display: flex; align-items: center; justify-content: center;
+  color: #475569; font-size: 1rem;
+}
+.bpp-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.bpp-name {
+  font-size: 0.78rem;
+  color: #cbd5e1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bpp-price {
+  font-size: 0.73rem;
+  color: #38bdf8;
+  font-weight: 600;
+}
+.bpp-add {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(56,189,248,0.15);
+  color: #38bdf8;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+  transition: background 0.2s, transform 0.15s;
+}
+.bpp-add:hover {
+  background: rgba(56,189,248,0.3);
+  transform: scale(1.1);
+}
+
 /* ── Cart badge pulse ─────────────────────────────────────── */
 @keyframes badge-pulse {
   0%   { transform: scale(1); }

@@ -323,18 +323,42 @@
   }
 
   /* ─── Cart command superpowers ─────────────────────────── */
-  const CART_CMD_PATTERN = /\b(?:agreg[ae]r?|añad[ei]r?|mete?r?|pon[ge]r?|incluye?r?|quit[ae]r?|elimin[ae]r?|borr[ae]r?|sacar?|remueve?r?)\b/i;
+
+  // Strip accents so "quítame" → "quitame", "agrégame" → "agregame", etc.
+  function normText(s) {
+    return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  }
+
+  // Matches verb + optional 'me'/'nos' enclitic, with or without accent
+  const CART_CMD_PATTERN = /\b(?:agreg[ae]r?|anad[ei]r?|mete?r?|pon[ge]r?|incluye?r?|quit[ae]r?|elimin[ae]r?|borr[ae]r?|sacar?|remueve?r?)(?:me|nos)?\b/i;
+
+  // Build a compact inline product picker (no enterShopMode, no full grid)
+  function buildProductPickerHTML(products, qty) {
+    const cards = products.slice(0, 5).map((p, idx) => `
+      <div class="bpp-card" data-idx="${idx}">
+        ${p.image_128 ? `<img class="bpp-thumb" src="data:image/png;base64,${p.image_128}" alt="">` : `<div class="bpp-thumb bpp-thumb--empty"><i class="fas fa-box"></i></div>`}
+        <div class="bpp-info">
+          <span class="bpp-name">${escHtml(p.name)}</span>
+          <span class="bpp-price">${fmt(p.list_price)}</span>
+        </div>
+        <button class="bpp-add" data-id="${p.id}" data-name="${escHtml(p.name)}" data-price="${p.list_price}" data-qty="${qty}">
+          <i class="fas fa-plus"></i>
+        </button>
+      </div>`).join('');
+    return `<div class="bot-product-picker">${cards}</div>`;
+  }
 
   async function handleCartCommand(text) {
+    const n = normText(text);   // accent-stripped, lowercase
     const t = text.trim();
 
     // ─ Remove from cart
-    const removeM = t.match(/(?:quit[ae]r?|elimin[ae]r?|borr[ae]r?|sacar?|remueve?r?)\s+(?:el?\s+|la\s+|los?\s+|las?\s+)?(.+?)[?!.]*$/i);
+    const removeM = n.match(/(?:quit[ae]r?|elimin[ae]r?|borr[ae]r?|sacar?|remueve?r?)(?:me|nos)?\s+(?:el?\s+|la\s+|los?\s+|las?\s+|un[ao]?\s+)?(.+?)[?!.\s]*$/);
     if (removeM) {
-      const q = removeM[1].toLowerCase().trim();
-      const found = cart.items.find(i => i.name.toLowerCase().includes(q));
+      const q = removeM[1].trim();
+      const found = cart.items.find(i => normText(i.name).includes(q));
       if (!found) {
-        addBotMsg(`No tengo **"${removeM[1]}"** en tu carrito. ¿Quieres ver lo que tienes?`);
+        addBotMsg(`No encuentro **"${removeM[1]}"** en tu carrito. ¿Quieres ver lo que tienes?`);
         addBotHtml('<div style="margin-top:4px;"><button id="cc-view-cart" style="background:rgba(129,140,248,0.12);color:#818cf8;border:1px solid rgba(129,140,248,0.35);padding:5px 14px;border-radius:20px;cursor:pointer;font-size:0.78rem;"><i class="fas fa-shopping-cart"></i> Ver carrito</button></div>');
         setTimeout(() => document.getElementById('cc-view-cart')?.addEventListener('click', renderCartPanel), 50);
       } else {
@@ -345,13 +369,13 @@
     }
 
     // ─ Add to cart
-    const addM = t.match(/(?:agreg[ae]r?|añad[ei]r?|mete?r?|pon[ge]r?|incluye?r?)\s+(?:(?:un[ao]?\s+|otra?\s+|má?s?\s+|(\d+)\s+)(?:de\s+)?)?(.+?)[?!.]*$/i);
+    const addM = n.match(/(?:agreg[ae]r?|anad[ei]r?|mete?r?|pon[ge]r?|incluye?r?)(?:me|nos)?\s+(?:(?:un[ao]?\s+|otra?\s+|mas?\s+|(\d+)\s+)(?:de\s+)?)?(.+?)[?!.\s]*$/);
     if (addM) {
       const qty   = addM[1] ? parseInt(addM[1]) : 1;
       const query = addM[2].trim();
 
       // Already in cart by name? Just increment qty
-      const inCart = cart.items.find(i => i.name.toLowerCase().includes(query.toLowerCase()));
+      const inCart = cart.items.find(i => normText(i.name).includes(query));
       if (inCart) {
         cart.updateQty(inCart.id, inCart.qty + qty);
         addBotMsg(`✅ Actualizado: **${inCart.qty}× ${inCart.name}** en tu carrito.\n\n💰 Total: **${fmt(cart.total())}**`);
@@ -373,8 +397,22 @@
           for (let n = 0; n < qty; n++) cart.add({ id: p.id, name: p.name, price: p.list_price, image: p.image_128 });
           addBotMsg(`✅ ${qty > 1 ? qty + '× ' : ''}**${p.name}** agregado al carrito! 🛒\n\n💰 Total: **${fmt(cart.total())}**`);
         } else {
-          addBotMsg(`Encontré ${products.length} coincidencias para **"${query}"**. ¿Cuál quieres agregar?`);
-          addBotHtml(buildProductsGrid(products.slice(0, 6), query));
+          // Compact inline picker — does NOT open the full catalog
+          addBotMsg(`Encontré ${products.length} opciones para **"${query}"**. ¿Cuál quieres?`);
+          const bubble = addBotHtml(buildProductPickerHTML(products, qty));
+          setTimeout(() => {
+            bubble?.querySelectorAll('.bpp-add').forEach(btn => {
+              btn.addEventListener('click', () => {
+                const id    = parseInt(btn.dataset.id);
+                const name  = btn.dataset.name;
+                const price = parseFloat(btn.dataset.price);
+                const q2    = parseInt(btn.dataset.qty);
+                for (let n = 0; n < q2; n++) cart.add({ id, name, price });
+                addBotMsg(`✅ ${q2 > 1 ? q2 + '× ' : ''}**${name}** agregado al carrito! 🛒\n\n💰 Total: **${fmt(cart.total())}**`);
+                bubble.closest('li')?.remove();
+              });
+            });
+          }, 50);
         }
       } catch (err) {
         addBotMsg('Hubo un error al buscar el producto. Intenta de nuevo.');
@@ -670,7 +708,7 @@
     startQuoteFlow:   ()     => quoteFlow.start(),
 
     // Cart command superpowers
-    isCartCommand:    (text) => CART_CMD_PATTERN.test(text),
+    isCartCommand:    (text) => CART_CMD_PATTERN.test(normText(text)),
     handleCartCommand:(text) => handleCartCommand(text),
   };
 
