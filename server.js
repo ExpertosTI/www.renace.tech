@@ -326,6 +326,44 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// Proxy chat webhook to avoid CORS from frontend
+app.post('/api/chat', async (req, res) => {
+  if (!CHAT_WEBHOOK) return res.status(500).json({ error: 'CHAT_WEBHOOK no configurado' });
+  try {
+    const upstream = new URL(CHAT_WEBHOOK);
+    const bodyStr  = JSON.stringify(req.body || {});
+    const lib      = upstream.protocol === 'https:' ? https : http;
+    const preq = lib.request({
+      hostname: upstream.hostname,
+      port: upstream.port || (upstream.protocol === 'https:' ? 443 : 80),
+      path: upstream.pathname + upstream.search,
+      method: 'POST',
+      headers: {
+        'Content-Type':   'application/json',
+        'Content-Length': Buffer.byteLength(bodyStr),
+      },
+    }, (pres) => {
+      let data = '';
+      pres.on('data', c => { data += c; });
+      pres.on('end', () => {
+        res.status(pres.statusCode || 502);
+        try { res.json(JSON.parse(data)); }
+        catch { res.send(data); }
+      });
+    });
+    preq.on('error', (e) => {
+      console.error('[Chat proxy]', e.message);
+      res.status(502).json({ error: 'Chat upstream error' });
+    });
+    preq.write(bodyStr);
+    preq.end();
+  } catch (e) {
+    res.status(502).json({ error: e.message });
+  }
+});
+
 app.get('/api/health/live', (req, res) => {
   res.json({ status: 'ok' });
 });
@@ -485,6 +523,7 @@ function getCategory(ext) {
 // strip /odoo prefix, forward real IP/proto headers, rewrite redirects.
 const ODOO_URL          = process.env.ODOO_URL          || 'http://85.31.224.232:7015';
 const ODOO_LONGPOLL_URL = process.env.ODOO_LONGPOLL_URL || 'http://85.31.224.232:7018';
+const CHAT_WEBHOOK      = process.env.CHAT_WEBHOOK      || 'https://ai.renace.tech/webhook/499666c3-d807-4bb7-8195-43932f64a91f/chat';
 const HOP_BY_HOP = new Set([
   'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
   'te', 'trailers', 'transfer-encoding', 'upgrade',
@@ -736,7 +775,7 @@ app.get('/api/odoo/products', apiLimiter, async (req, res) => {
     const products = await odooExecute(
       'product.template', 'search_read',
       [domain],
-      { fields: ['id', 'name', 'list_price', 'description_sale', 'categ_id', 'type'], limit, order: 'name asc' }
+      { fields: ['id', 'name', 'list_price', 'description_sale', 'image_128', 'categ_id', 'type'], limit, order: 'name asc' }
     );
     res.json(products || []);
   } catch (e) {
@@ -860,12 +899,26 @@ app.use('/web', (req, res) => {
   const target = new URL(ODOO_URL);
   const lib    = target.protocol === 'https:' ? https : http;
   const upstreamPath = '/web' + (req.url === '/' ? '' : req.url);
+
+  // Re-serialize body (body-parser already consumed the stream)
+  let bodyStr = '';
+  const ctype = req.headers['content-type'] || '';
+  if (req.body && Object.keys(req.body).length) {
+    if (ctype.includes('json')) bodyStr = JSON.stringify(req.body);
+    else bodyStr = new URLSearchParams(req.body).toString();
+  }
+
   const proxyReq = lib.request({
     hostname: target.hostname,
     port:     target.port || (target.protocol === 'https:' ? 443 : 80),
     path:     upstreamPath,
     method:   req.method,
-    headers:  { ...buildOdooProxyHeaders(req), host: target.host },
+    headers:  {
+      ...buildOdooProxyHeaders(req),
+      host: target.host,
+      'content-length': bodyStr ? Buffer.byteLength(bodyStr) : 0,
+      'content-type':   ctype || 'application/x-www-form-urlencoded',
+    },
   }, (proxyRes) => {
     const outHeaders = {};
     for (const [k, v] of Object.entries(proxyRes.headers)) {
@@ -879,8 +932,14 @@ app.use('/web', (req, res) => {
     console.error('[Odoo /web proxy]', err.message);
     if (!res.headersSent) res.status(502).send('Odoo unavailable');
   });
-  if (['POST', 'PUT', 'PATCH'].includes(req.method)) req.pipe(proxyReq, { end: true });
-  else proxyReq.end();
+  if (['POST', 'PUT', 'PATCH'].includes(req.method) && bodyStr) {
+    proxyReq.write(bodyStr);
+    proxyReq.end();
+  } else if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+    req.pipe(proxyReq, { end: true });
+  } else {
+    proxyReq.end();
+  }
 });
 
 // ── Global Error Handler ──

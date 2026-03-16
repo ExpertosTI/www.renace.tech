@@ -47,10 +47,11 @@
 
   /* ─── Build product card HTML ────────────────────────────────── */
   function buildProductCard(p) {
-    const img = p.id
-      ? `<img src="/api/odoo/image/${p.id}" alt="${escHtml(p.name)}" class="shop-card-img" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+    const imgSrc = p.image_128 ? `data:image/png;base64,${p.image_128}` : (p.id ? `/api/odoo/image/${p.id}` : '');
+    const img = imgSrc
+      ? `<img src="${imgSrc}" alt="${escHtml(p.name)}" class="shop-card-img" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
       : '';
-    const imgFallback = `<div class="shop-card-img-placeholder"${p.id ? ' style="display:none"' : ''}><i class="fas fa-cube"></i></div>`;
+    const imgFallback = `<div class="shop-card-img-placeholder"${imgSrc ? ' style="display:none"' : ''}><i class="fas fa-cube"></i></div>`;
 
     const desc = p.description_sale && p.description_sale !== false
       ? `<p class="shop-card-desc">${escHtml(String(p.description_sale)).substring(0, 80)}…</p>`
@@ -69,7 +70,7 @@
           ${desc}
           <div class="shop-card-footer">
             <div class="shop-card-price">${fmt(p.list_price)}</div>
-            <button class="shop-card-btn" data-id="${p.id}" data-name="${escHtml(p.name)}" data-price="${p.list_price}">
+            <button class="shop-card-btn" data-id="${p.id}" data-name="${escHtml(p.name)}" data-price="${p.list_price}" data-img="${imgSrc}">
               <i class="fas fa-plus"></i>
             </button>
           </div>
@@ -110,8 +111,9 @@
     const empty = items.length === 0;
 
     const rows = items.map(i => {
-      const imgEl = i.id
-        ? `<img src="/api/odoo/image/${i.id}" class="cart-item-img" alt="${escHtml(i.name)}" loading="lazy" onerror="this.outerHTML='<div class=cart-item-img-placeholder><i class=fas.fa-cube></i></div>'">`
+      const src = i.image || (i.id ? `/api/odoo/image/${i.id}` : '');
+      const imgEl = src
+        ? `<img src="${src}" class="cart-item-img" alt="${escHtml(i.name)}" loading="lazy" onerror="this.outerHTML='<div class=cart-item-img-placeholder><i class=fas.fa-cube></i></div>'">`
         : `<div class="cart-item-img-placeholder"><i class="fas fa-cube"></i></div>`;
       const subtotal = fmt(i.price * i.qty);
       return `
@@ -375,7 +377,7 @@
   function buildProductPickerHTML(products, qty) {
     const cards = products.slice(0, 5).map((p, idx) => `
       <div class="bpp-card" data-idx="${idx}">
-        <img class="bpp-thumb" src="/api/odoo/image/${p.id}" alt="" loading="lazy">
+        <img class="bpp-thumb" src="${p.image_128 ? `data:image/png;base64,${p.image_128}` : `/api/odoo/image/${p.id}`}" alt="" loading="lazy">
         <div class="bpp-info">
           <span class="bpp-name">${escHtml(p.name)}</span>
           <span class="bpp-price">${fmt(p.list_price)}</span>
@@ -433,7 +435,8 @@
         }
         if (products.length === 1) {
           const p = products[0];
-          for (let n = 0; n < qty; n++) cart.add({ id: p.id, name: p.name, price: p.list_price });
+          const imgSrc = p.image_128 ? `data:image/png;base64,${p.image_128}` : `/api/odoo/image/${p.id}`;
+          for (let n = 0; n < qty; n++) cart.add({ id: p.id, name: p.name, price: p.list_price, image: imgSrc });
           addBotMsg(`✅ ${qty > 1 ? qty + '× ' : ''}**${p.name}** agregado al carrito! 🛒\n\n💰 Total: **${fmt(cart.total())}**`);
         } else {
           // Compact inline picker — does NOT open the full catalog
@@ -446,7 +449,8 @@
                 const name  = btn.dataset.name;
                 const price = parseFloat(btn.dataset.price);
                 const q2    = parseInt(btn.dataset.qty);
-                for (let n = 0; n < q2; n++) cart.add({ id, name, price });
+                const imgSrc = p.image_128 ? `data:image/png;base64,${p.image_128}` : `/api/odoo/image/${id}`;
+                for (let n = 0; n < q2; n++) cart.add({ id, name, price, image: imgSrc });
                 addBotMsg(`✅ ${q2 > 1 ? q2 + '× ' : ''}**${name}** agregado al carrito! 🛒\n\n💰 Total: **${fmt(cart.total())}**`);
                 bubble.closest('li')?.remove();
               });
@@ -508,9 +512,10 @@
     if (existingRows.length !== items.length) {
       // Item was added or removed — rebuild body html only
       body.innerHTML = items.map(i => {
-        const imgEl = i.id
-          ? `<img src="/api/odoo/image/${i.id}" class="cart-item-img" alt="${escHtml(i.name)}" loading="lazy">`
-          : `<div class="cart-item-img-placeholder"><i class="fas fa-cube"></i></div>`;
+        const src = i.image || (i.id ? `/api/odoo/image/${i.id}` : '');
+        const imgEl = src
+          ? `<img src="${src}" class="cart-item-img" alt="${escHtml(i.name)}" loading="lazy">`
+          : `<div class="cart-item-img-placeholder"><i class="fas a-cube"></i></div>`;
         return `<div class="cart-item" data-id="${i.id}">
           ${imgEl}
           <div class="cart-item-info"><div class="cart-item-name">${escHtml(i.name)}</div><div class="cart-item-unit-price">${fmt(i.price)} / ud.</div></div>
@@ -652,6 +657,7 @@
       const id    = parseInt(btn.dataset.id, 10);
       const name  = btn.dataset.name;
       const price = parseFloat(btn.dataset.price);
+      const image = btn.dataset.img;
 
       // Ripple effect
       const ripple = document.createElement('span');
@@ -671,7 +677,7 @@
         setTimeout(() => card.classList.remove('shop-card--selected'), 700);
       }
 
-      cart.add({ id, name, price });
+      cart.add({ id, name, price, image });
 
       btn.innerHTML = '<i class="fas fa-check"></i>';
       btn.classList.add('added');

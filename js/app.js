@@ -14,7 +14,7 @@
 // CONFIGURATION
 // ═══════════════════════════════════════════════════════════════
 const CONFIG = {
-  chatWebhook: 'https://ai.renace.tech/webhook/499666c3-d807-4bb7-8195-43932f64a91f/chat',
+  chatWebhook: '/api/chat',
   metricsWebhook: 'https://ai.renace.tech/webhook/6e33280a-faeb-4394-a34c-142fee0ebfc7',
   scrollThreshold: 100,
   debounceTime: 150,
