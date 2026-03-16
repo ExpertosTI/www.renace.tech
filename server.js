@@ -775,7 +775,12 @@ app.get('/api/odoo/products', apiLimiter, async (req, res) => {
     const products = await odooExecute(
       'product.template', 'search_read',
       [domain],
-      { fields: ['id', 'name', 'list_price', 'description_sale', 'image_128', 'categ_id', 'type'], limit, order: 'name asc' }
+      {
+        fields: ['id', 'name', 'list_price', 'description_sale', 'image_128', 'image_1920', 'categ_id', 'type'],
+        limit,
+        order: 'name asc',
+        context: { bin_size: false }
+      }
     );
     res.json(products || []);
   } catch (e) {
