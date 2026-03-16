@@ -840,6 +840,23 @@ function initRgChat() {
         const optionsHtml = data.options.map(opt => `<button class="rg-chat-option-btn" style="display:inline-block; background:rgba(0,180,216,0.2); color:white; border:1px solid rgba(0,180,216,0.6); padding:8px 14px; border-radius:20px; margin:4px; font-size:0.85rem; cursor:pointer">${utils.escapeHtml(opt)}</button>`).join('');
         addHtmlMessage(`<div class="rg-chat-options" style="display:flex; flex-wrap:wrap; gap:5px; margin-top:5px;">${optionsHtml}</div>`);
       }
+
+      // Proactive catalog suggestion when AI mentions products/prices
+      const CATALOG_TRIGGER = /precio|producto|cat[aá]logo|disponible|oferta|cotiz|equipo|servicio|tienda|comprar|modelo|marca/i;
+      if (reply && CATALOG_TRIGGER.test(reply)) {
+        addHtmlMessage(`<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;">
+          <button class="rg-chat-option-btn" id="bot-show-catalog-btn" style="background:rgba(56,189,248,0.12);color:#38bdf8;border:1px solid rgba(56,189,248,0.35);padding:6px 14px;border-radius:20px;cursor:pointer;font-size:0.78rem;">
+            <i class="fas fa-store"></i> Ver catálogo
+          </button>
+          ${window.renaceCart?.count?.() > 0 ? `<button class="rg-chat-option-btn" id="bot-show-cart-btn" style="background:rgba(129,140,248,0.12);color:#818cf8;border:1px solid rgba(129,140,248,0.35);padding:6px 14px;border-radius:20px;cursor:pointer;font-size:0.78rem;">
+            <i class="fas fa-shopping-cart"></i> Mi carrito (${window.renaceCart.count()})
+          </button>` : ''}
+        </div>`);
+        setTimeout(() => {
+          document.getElementById('bot-show-catalog-btn')?.addEventListener('click', () => window.odooShop?.showProducts());
+          document.getElementById('bot-show-cart-btn')?.addEventListener('click', () => window.odooShop?.openCart());
+        }, 50);
+      }
     } catch (err) {
       removeTyping();
       let msg = 'Hubo un problema de conexión.';
@@ -860,6 +877,30 @@ function initRgChat() {
     input.value = '';
     input.style.height = '';
     updateSendState();
+
+    // Intercept cart queries → respond directly from cart state
+    const CART_QUERY = /carrito|qu[eé]\s+(?:ten[ig]|a[gñ]ré?|selecc)|cu[aá]nto\s+(?:es|ser[aá]|me\s+sale|tengo|suman?)|mi[s]?\s+(?:producto|selec|pedido)|ver\s+(?:mi\s+)?carrito|total\s+(?:del?\s+)?carrito/i;
+    if (CART_QUERY.test(text) && window.renaceCart) {
+      const c = window.renaceCart;
+      if (c.count() === 0) {
+        addMessage('bot', 'Tu carrito está vacío. ¿Quieres que te muestre el catálogo de productos?');
+        addHtmlMessage(`<div style="margin-top:6px;"><button class="rg-chat-option-btn" id="empty-cart-catalog" style="background:rgba(56,189,248,0.12);color:#38bdf8;border:1px solid rgba(56,189,248,0.35);padding:6px 14px;border-radius:20px;cursor:pointer;font-size:0.78rem;"><i class="fas fa-store"></i> Ver catálogo</button></div>`);
+        setTimeout(() => document.getElementById('empty-cart-catalog')?.addEventListener('click', () => window.odooShop?.showProducts()), 50);
+      } else {
+        const lines = c.items.map(i => `• ${i.qty}x ${i.name} — ${new Intl.NumberFormat('es-DO',{style:'currency',currency:'DOP',maximumFractionDigits:2}).format(i.price * i.qty)}`).join('\n');
+        const total = new Intl.NumberFormat('es-DO',{style:'currency',currency:'DOP',maximumFractionDigits:2}).format(c.total());
+        addMessage('bot', `🛒 Tienes ${c.count()} artículo${c.count()!==1?'s':''} en tu carrito:\n\n${lines}\n\n**Total: ${total}**`);
+        addHtmlMessage(`<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;"><button class="rg-chat-option-btn" id="cart-q-view" style="background:rgba(129,140,248,0.12);color:#818cf8;border:1px solid rgba(129,140,248,0.35);padding:6px 14px;border-radius:20px;cursor:pointer;font-size:0.78rem;"><i class="fas fa-shopping-cart"></i> Ver carrito</button><button class="rg-chat-option-btn" id="cart-q-quote" style="background:rgba(56,189,248,0.12);color:#38bdf8;border:1px solid rgba(56,189,248,0.35);padding:6px 14px;border-radius:20px;cursor:pointer;font-size:0.78rem;"><i class="fas fa-file-invoice"></i> Solicitar cotización</button></div>`);
+        setTimeout(() => {
+          document.getElementById('cart-q-view')?.addEventListener('click', () => window.odooShop?.openCart());
+          document.getElementById('cart-q-quote')?.addEventListener('click', () => {
+            // trigger quote form directly  
+            window.odooShop?.openCart();
+          });
+        }, 50);
+      }
+      return;
+    }
 
     // Intercept product search (e.g. "muéstrame impresoras") → filtered Odoo catalog
     if (window.odooShop?.isSearchQuery(text)) {

@@ -103,41 +103,72 @@
       </div>`;
   }
 
-  /* ─── Build cart sidebar HTML ────────────────────────────────── */
+  /* ─── Build cart panel HTML (Temu-style) ────────────────────── */
   function buildCartHTML() {
     const items = cart.items;
     const empty = items.length === 0;
-    const rows = items.map(i => `
+
+    const rows = items.map(i => {
+      const imgEl = i.image
+        ? `<img src="data:image/png;base64,${i.image}" class="cart-item-img" alt="${escHtml(i.name)}">`
+        : `<div class="cart-item-img-placeholder"><i class="fas fa-cube"></i></div>`;
+      const subtotal = fmt(i.price * i.qty);
+      return `
       <div class="cart-item" data-id="${i.id}">
-        ${i.image ? `<img src="data:image/png;base64,${i.image}" class="cart-item-img">` : `<div class="cart-item-img cart-item-img-placeholder"><i class="fas fa-cube"></i></div>`}
+        ${imgEl}
         <div class="cart-item-info">
           <div class="cart-item-name">${escHtml(i.name)}</div>
-          <div class="cart-item-price">${fmt(i.price)}</div>
+          <div class="cart-item-unit-price">${fmt(i.price)} / ud.</div>
         </div>
-        <div class="cart-item-qty">
-          <button class="cart-qty-btn" data-action="dec" data-id="${i.id}">−</button>
-          <span>${i.qty}</span>
-          <button class="cart-qty-btn" data-action="inc" data-id="${i.id}">+</button>
+        <div class="cart-item-controls">
+          <div class="cart-item-subtotal">${subtotal}</div>
+          <div class="cart-item-qty">
+            <button class="cart-qty-btn" data-action="dec" data-id="${i.id}" title="Reducir">−</button>
+            <span>${i.qty}</span>
+            <button class="cart-qty-btn" data-action="inc" data-id="${i.id}" title="Aumentar">+</button>
+          </div>
+          <button class="cart-remove-btn" data-id="${i.id}" title="Eliminar"><i class="fas fa-trash-alt"></i></button>
         </div>
-        <button class="cart-remove-btn" data-id="${i.id}"><i class="fas fa-times"></i></button>
-      </div>`).join('');
+      </div>`;
+    }).join('');
+
+    const footer = !empty ? `
+      <div class="cart-panel-footer">
+        <div class="cart-summary">
+          <span class="cart-summary-label">Total (${cart.count()} artículo${cart.count() !== 1 ? 's' : ''})</span>
+          <span class="cart-total">${fmt(cart.total())}</span>
+        </div>
+        <div class="cart-footer-btns">
+          <button class="cart-keep-shopping-btn" id="cart-keep-shopping">
+            <i class="fas fa-th"></i> Seguir
+          </button>
+          <button class="cart-quote-btn" id="cart-quote-btn">
+            <i class="fas fa-file-invoice"></i> Cotizar
+          </button>
+        </div>
+      </div>` : '';
 
     return `
       <div class="cart-panel" id="rg-cart-panel">
         <div class="cart-panel-header">
-          <span><i class="fas fa-shopping-cart"></i> Tu Carrito</span>
-          <button class="cart-panel-close" id="cart-panel-close"><i class="fas fa-times"></i></button>
+          <div class="cart-panel-title"><i class="fas fa-shopping-cart"></i> Mi Carrito</div>
+          <div class="cart-panel-actions">
+            ${!empty ? `<button class="cart-clear-btn" id="cart-clear-btn"><i class="fas fa-trash"></i> Vaciar</button>` : ''}
+            <button class="cart-panel-close" id="cart-panel-close" title="Cerrar"><i class="fas fa-chevron-down"></i></button>
+          </div>
         </div>
         <div class="cart-panel-body">
-          ${empty ? `<div class="cart-empty"><i class="fas fa-cart-plus"></i><p>Tu carrito está vacío.<br>Agrega productos del catálogo.</p></div>` : rows}
+          ${empty
+            ? `<div class="cart-empty">
+                <i class="fas fa-shopping-bag"></i>
+                <p>Tu carrito está vacío.</p>
+                <button class="cart-empty-cta" id="cart-go-catalog">
+                  <i class="fas fa-store"></i> Ver catálogo
+                </button>
+              </div>`
+            : rows}
         </div>
-        ${!empty ? `
-        <div class="cart-panel-footer">
-          <div class="cart-total">Total: <strong>${fmt(cart.total())}</strong></div>
-          <button class="cart-quote-btn" id="cart-quote-btn">
-            <i class="fas fa-file-invoice"></i> Solicitar Cotización
-          </button>
-        </div>` : ''}
+        ${footer}
       </div>`;
   }
 
@@ -176,12 +207,13 @@
     setTimeout(() => badge.classList.remove('pulse'), 600);
   }
 
-  /* ─── Render cart panel ──────────────────────────────────────── */
+  /* ─── Render cart panel (mounts inside .rg-chat-window) ────── */
   function renderCartPanel() {
     const existing = document.getElementById('rg-cart-panel');
     if (existing) existing.remove();
 
-    const wrapper = document.querySelector('.rg-chat-root');
+    // Mount inside the chat window so it overlays the conversation
+    const wrapper = document.querySelector('.rg-chat-window');
     if (!wrapper) return;
 
     const el = document.createElement('div');
@@ -190,31 +222,45 @@
     wrapper.appendChild(panel);
     requestAnimationFrame(() => panel.classList.add('open'));
 
-    // Close
-    panel.querySelector('#cart-panel-close')?.addEventListener('click', () => {
+    function closePanel() {
       panel.classList.remove('open');
-      setTimeout(() => panel.remove(), 300);
+      setTimeout(() => panel.remove(), 380);
+    }
+
+    panel.querySelector('#cart-panel-close')?.addEventListener('click', closePanel);
+
+    panel.querySelector('#cart-clear-btn')?.addEventListener('click', () => {
+      cart.clear();
+      renderCartPanel();
+    });
+
+    panel.querySelector('#cart-go-catalog')?.addEventListener('click', () => {
+      closePanel();
+      setTimeout(() => fetchAndShowProducts(null), 390);
+    });
+
+    panel.querySelector('#cart-keep-shopping')?.addEventListener('click', () => {
+      closePanel();
+      setTimeout(() => fetchAndShowProducts(null), 390);
     });
 
     // Qty controls & remove
-    panel.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-action]');
-      if (btn) {
-        const id = parseInt(btn.dataset.id, 10);
+    panel.querySelector('.cart-panel-body')?.addEventListener('click', (e) => {
+      const qBtn = e.target.closest('[data-action]');
+      if (qBtn) {
+        const id   = parseInt(qBtn.dataset.id, 10);
         const item = cart.items.find(i => i.id === id);
         if (!item) return;
-        cart.updateQty(id, btn.dataset.action === 'inc' ? item.qty + 1 : item.qty - 1);
-        renderCartPanel();
-        return;
+        cart.updateQty(id, qBtn.dataset.action === 'inc' ? item.qty + 1 : item.qty - 1);
+        renderCartPanel(); return;
       }
       const rm = e.target.closest('.cart-remove-btn');
       if (rm) { cart.remove(parseInt(rm.dataset.id, 10)); renderCartPanel(); }
+    });
 
-      const qBtn = e.target.closest('#cart-quote-btn');
-      if (qBtn) {
-        panel.classList.remove('open');
-        setTimeout(() => { panel.remove(); showQuoteForm(); }, 300);
-      }
+    panel.querySelector('#cart-quote-btn')?.addEventListener('click', () => {
+      closePanel();
+      setTimeout(() => showQuoteForm(), 390);
     });
   }
 
