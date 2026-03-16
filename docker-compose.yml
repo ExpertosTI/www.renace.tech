@@ -24,10 +24,7 @@ services:
 
 
   app:
-    image: renace-app:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/expertosti/www.renace.tech:latest
     environment:
       DATABASE_URL: ${DATABASE_URL}
       NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL}
@@ -39,6 +36,7 @@ services:
       SMTP_USER: ${SMTP_USER}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       SMTP_FROM: ${SMTP_FROM}
+      PORT: ${PORT:-3000}
       NODE_ENV: production
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:3000/api/health/live >/dev/null 2>&1 || exit 1"]
