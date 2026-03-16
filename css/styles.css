@@ -1194,6 +1194,26 @@ a *, button *, [onclick] *, .finder-control *, .control *, .terminal-btn *, .btn
   .rg-chat-window { width: calc(100vw - 2rem); right: -0.5rem; }
 }
 
+/* ── Shop Mode: chat expands when catalog loads ── */
+.rg-chat-root.shop-mode .rg-chat-window {
+  width: min(560px, calc(100vw - 1.5rem));
+  max-height: min(88vh, 740px);
+  transition: width 0.4s cubic-bezier(0.34,1.56,0.64,1),
+              max-height 0.4s cubic-bezier(0.34,1.56,0.64,1);
+}
+.rg-chat-root.shop-mode .rg-chat-body {
+  max-height: none;
+  flex: 1;
+}
+@media (max-width: 580px) {
+  .rg-chat-root.shop-mode .rg-chat-window {
+    width: calc(100vw - 0.75rem);
+    max-height: 90vh;
+    right: -0.4rem;
+    bottom: calc(100% + 0.4rem);
+  }
+}
+
 /* --- Custom Confirm Modal --- */
 .app-modal-overlay {
   position: fixed; inset: 0; z-index: 10100;
@@ -1507,6 +1527,36 @@ kbd {
    ODOO SHOP — Futuristic product cards + cart
    ═══════════════════════════════════════════════════════════════ */
 
+/* ── Materialization animation (scan + holographic fade-in) ── */
+@keyframes materialize-in {
+  0%   { opacity:0; transform:scale(0.82) translateY(14px); filter:brightness(3) blur(8px) saturate(2); border-color:rgba(56,189,248,0.95); box-shadow:0 0 40px rgba(56,189,248,0.6),inset 0 0 20px rgba(56,189,248,0.15); }
+  20%  { opacity:0.6; filter:brightness(1.8) blur(3px); }
+  55%  { opacity:1; filter:brightness(1.2) blur(0.5px); transform:scale(1.03) translateY(-3px); }
+  75%  { border-color:rgba(56,189,248,0.5); box-shadow:0 0 12px rgba(56,189,248,0.2); }
+  100% { transform:scale(1) translateY(0); filter:brightness(1) blur(0); border-color:rgba(56,189,248,0.15); box-shadow:none; }
+}
+@keyframes scan-line-sweep {
+  0%   { top:-3px; opacity:1; }
+  100% { top:calc(100% + 3px); opacity:0; }
+}
+@keyframes holo-shimmer {
+  0%   { background-position:200% 50%; }
+  100% { background-position:-200% 50%; }
+}
+@keyframes card-select-flash {
+  0%   { box-shadow:0 0 0 0 rgba(56,189,248,0); }
+  25%  { box-shadow:0 0 0 8px rgba(56,189,248,0.45),inset 0 0 24px rgba(56,189,248,0.18); border-color:rgba(56,189,248,0.8); }
+  100% { box-shadow:0 0 0 0 rgba(56,189,248,0); border-color:rgba(56,189,248,0.15); }
+}
+@keyframes ripple-burst {
+  0%   { transform:scale(0); opacity:0.7; }
+  100% { transform:scale(4); opacity:0; }
+}
+@keyframes particle-pop {
+  0%   { transform:translate(0,0) scale(1); opacity:1; }
+  100% { transform:translate(var(--tx),var(--ty)) scale(0); opacity:0; }
+}
+
 /* Chat bubble wide variant for product grid */
 .rg-chat-bubble--wide {
   max-width: 100% !important;
@@ -1584,19 +1634,52 @@ kbd {
   border: 1px solid rgba(56,189,248,0.15);
   border-radius: 12px;
   cursor: default;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.25s, box-shadow 0.25s, transform 0.25s;
   display: flex; flex-direction: column;
+  will-change: transform;
 }
 .shop-card:hover {
-  border-color: rgba(56,189,248,0.45);
-  box-shadow: 0 0 18px rgba(56,189,248,0.12);
+  border-color: rgba(56,189,248,0.5);
+  box-shadow: 0 0 22px rgba(56,189,248,0.15), 0 4px 12px rgba(0,0,0,0.3);
+  transform: translateY(-2px);
 }
 .shop-card-glow {
   position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(circle at 50% 0%, rgba(56,189,248,0.06), transparent 60%);
+  background: radial-gradient(circle at 50% 0%, rgba(56,189,248,0.08), transparent 65%);
   opacity: 0; transition: opacity 0.3s;
 }
 .shop-card:hover .shop-card-glow { opacity: 1; }
+
+/* Holographic shimmer overlay */
+.shop-card::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgba(56,189,248,0.07) 50%, rgba(129,140,248,0.05) 55%, transparent 65%);
+  background-size: 300% 100%;
+  opacity: 0; pointer-events: none;
+  animation: holo-shimmer 2.8s ease-in-out infinite;
+}
+.shop-card:hover::after { opacity: 1; }
+
+/* Scan line element */
+.shop-card-scan {
+  position: absolute; left: 0; right: 0;
+  top: -3px; height: 3px;
+  background: linear-gradient(90deg, transparent, rgba(56,189,248,0.95), transparent);
+  box-shadow: 0 0 10px 2px rgba(56,189,248,0.7);
+  pointer-events: none; z-index: 10;
+  animation: scan-line-sweep 0.55s ease-out forwards;
+}
+
+/* Materialization state */
+.shop-card--entering {
+  animation: materialize-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  opacity: 0;
+}
+/* Selection flash */
+.shop-card--selected {
+  animation: card-select-flash 0.65s ease-out forwards !important;
+}
 .shop-card-media {
   height: 80px; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
@@ -1633,16 +1716,25 @@ kbd {
   background-clip: text;
 }
 .shop-card-btn {
-  width: 26px; height: 26px; border-radius: 50%;
+  width: 28px; height: 28px; border-radius: 50%;
   background: rgba(56,189,248,0.12);
   border: 1px solid rgba(56,189,248,0.3);
-  color: var(--accent-blue); font-size: 0.75rem;
+  color: var(--accent-blue); font-size: 0.78rem;
   display: flex; align-items: center; justify-content: center;
-  cursor: pointer; transition: background 0.2s, border-color 0.2s;
+  cursor: pointer; transition: background 0.2s, border-color 0.2s, transform 0.15s;
   flex-shrink: 0;
+  position: relative; overflow: hidden;
 }
-.shop-card-btn:hover { background: var(--accent-blue); color: #0d1117; border-color: var(--accent-blue); }
+.shop-card-btn:hover { background: var(--accent-blue); color: #0d1117; border-color: var(--accent-blue); transform: scale(1.12); }
 .shop-card-btn.added { background: var(--accent-green); border-color: var(--accent-green); color: #fff; }
+.shop-card-btn .btn-ripple {
+  position: absolute; border-radius: 50%;
+  width: 10px; height: 10px;
+  margin-top: -5px; margin-left: -5px;
+  background: rgba(255,255,255,0.55);
+  animation: ripple-burst 0.55s ease-out forwards;
+  pointer-events: none;
+}
 .shop-empty {
   text-align: center; padding: 2rem 1rem;
   color: var(--text-muted); font-size: 0.82rem;

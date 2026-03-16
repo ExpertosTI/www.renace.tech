@@ -808,10 +808,16 @@ function initRgChat() {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 120000); // 120 seconds timeout for Odoo APIs
 
+      const cartContext = window.odooShop?.getCartContext?.();
       const response = await fetch(CONFIG.chatWebhook, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, sessionId: getSessionId(), source: 'renace-web-chat' }),
+        body: JSON.stringify({
+          message: text,
+          sessionId: getSessionId(),
+          source: 'renace-web-chat',
+          ...(cartContext ? { cart: cartContext, cartTotal: window.renaceCart?.total?.() } : {}),
+        }),
         signal: controller.signal,
       });
       clearTimeout(timeout);

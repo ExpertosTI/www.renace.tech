@@ -58,7 +58,8 @@
     const categ = Array.isArray(p.categ_id) ? escHtml(p.categ_id[1] || '') : '';
 
     return `
-      <div class="shop-card" data-id="${p.id}" data-name="${escHtml(p.name)}" data-price="${p.list_price}">
+      <div class="shop-card shop-card--entering" data-id="${p.id}" data-name="${escHtml(p.name)}" data-price="${p.list_price}">
+        <div class="shop-card-scan"></div>
         <div class="shop-card-glow"></div>
         <div class="shop-card-media">${img}</div>
         <div class="shop-card-body">
@@ -309,20 +310,51 @@
     messagesEl.appendChild(li);
     messagesEl.scrollTop = messagesEl.scrollHeight;
 
-    // Bind add-to-cart buttons within the grid
+    // Stagger the materialization animation per card
+    const cards = bubble.querySelectorAll('.shop-card--entering');
+    cards.forEach((card, i) => {
+      card.style.animationDelay = `${i * 70}ms`;
+      // Remove scan line after animation completes
+      setTimeout(() => {
+        const scan = card.querySelector('.shop-card-scan');
+        if (scan) scan.remove();
+        card.classList.remove('shop-card--entering');
+      }, 800 + i * 70);
+    });
+
+    // Bind add-to-cart buttons with ripple + flash effects
     bubble.addEventListener('click', (e) => {
       const btn = e.target.closest('.shop-card-btn');
       if (!btn) return;
-      cart.add({
-        id: parseInt(btn.dataset.id, 10),
-        name: btn.dataset.name,
-        price: parseFloat(btn.dataset.price),
-        image: btn.dataset.img || '',
-      });
-      // Visual feedback
+
+      const id    = parseInt(btn.dataset.id, 10);
+      const name  = btn.dataset.name;
+      const price = parseFloat(btn.dataset.price);
+      const image = btn.dataset.img || '';
+
+      // Ripple effect
+      const ripple = document.createElement('span');
+      ripple.className = 'btn-ripple';
+      const rect = btn.getBoundingClientRect();
+      ripple.style.left = `${(e.clientX - rect.left)}px`;
+      ripple.style.top  = `${(e.clientY - rect.top)}px`;
+      btn.appendChild(ripple);
+      setTimeout(() => ripple.remove(), 600);
+
+      // Card flash
+      const card = btn.closest('.shop-card');
+      if (card) {
+        card.classList.remove('shop-card--selected');
+        void card.offsetWidth; // reflow to restart animation
+        card.classList.add('shop-card--selected');
+        setTimeout(() => card.classList.remove('shop-card--selected'), 700);
+      }
+
+      cart.add({ id, name, price, image });
+
       btn.innerHTML = '<i class="fas fa-check"></i>';
       btn.classList.add('added');
-      setTimeout(() => { btn.innerHTML = '<i class="fas fa-plus"></i>'; btn.classList.remove('added'); }, 1200);
+      setTimeout(() => { btn.innerHTML = '<i class="fas fa-plus"></i>'; btn.classList.remove('added'); }, 1400);
     });
   }
 
@@ -339,6 +371,17 @@
         const products = await res.json();
         removeTypingFromChat(typingEl);
         if (!Array.isArray(products)) throw new Error(products?.error || 'Error');
+
+        // Expand chat to shop mode before inserting cards
+        const root = document.querySelector('.rg-chat-root');
+        if (root) {
+          root.classList.add('shop-mode');
+          // Collapse back when user closes chat
+          root.querySelector('.rg-chat-close')?.addEventListener('click', () => {
+            root.classList.remove('shop-mode');
+          }, { once: true });
+        }
+
         addBotHtml(buildProductsGrid(products));
       } catch (e) {
         removeTypingFromChat(typingEl);
@@ -347,6 +390,11 @@
     },
 
     openCart() { renderCartPanel(); },
+
+    getCartContext() {
+      if (!cart.items.length) return null;
+      return cart.items.map(i => `${i.qty}x ${i.name} (${fmt(i.price)} c/u)`).join(', ');
+    },
   };
 
   /* ─── Typing indicator helpers ───────────────────────────────── */
