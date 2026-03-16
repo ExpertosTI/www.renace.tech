@@ -621,6 +621,21 @@ function initDocumentsUpload() {
 
   // Upload form submit
   if (form && input) {
+    // Progress bar element
+    let progressWrap = document.createElement('div');
+    progressWrap.className = 'upload-progress-wrap';
+    progressWrap.innerHTML = '<div class="upload-progress-bar"></div><span class="upload-progress-text"></span>';
+    form.appendChild(progressWrap);
+    const bar = progressWrap.querySelector('.upload-progress-bar');
+    const text = progressWrap.querySelector('.upload-progress-text');
+
+    function setProgress(pct, label) {
+      if (!bar || !text) return;
+      bar.style.width = `${pct}%`;
+      text.textContent = label || `${pct.toFixed(0)}%`;
+      progressWrap.style.opacity = pct >= 100 ? '0' : '1';
+    }
+
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       if (!adminUnlocked) { showNotification('Desbloquea con el PIN primero.', 'error'); return; }
@@ -631,35 +646,37 @@ function initDocumentsUpload() {
       const formData = new FormData();
       files.forEach(f => formData.append('files', f));
 
-      fetch('/api/documents', {
-        method: 'POST',
-        headers: { 'x-admin-pin': _adminCredential },
-        body: formData
-      })
-        .then(async r => {
-          if (!r.ok) {
-            const d = await r.json().catch(() => ({}));
-            throw new Error(d.error || 'Error al subir');
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/documents');
+      xhr.setRequestHeader('x-admin-pin', _adminCredential);
+      xhr.upload.onprogress = (evt) => {
+        if (evt.lengthComputable) {
+          const pct = (evt.loaded / evt.total) * 100;
+          setProgress(pct, `${(evt.loaded / 1024 / 1024).toFixed(1)} / ${(evt.total / 1024 / 1024).toFixed(1)} MB`);
+        }
+      };
+      xhr.onload = () => {
+        setProgress(100, 'Completado');
+        try {
+          const data = JSON.parse(xhr.responseText || '{}');
+          if (xhr.status >= 200 && xhr.status < 300) {
+            showNotification(data.message || 'Archivos subidos.', 'success');
+            input.value = '';
+            loadDocuments();
+          } else {
+            throw new Error(data.error || 'Error al subir');
           }
-          return r.json();
-        })
-        .then(data => {
-          showNotification(data.message || 'Archivos subidos.', 'success');
-          input.value = '';
-          loadDocuments();
-        })
-        .catch(err => {
-          if ((err.message || '').toLowerCase().includes('no autorizado')) {
-            _adminCredential = '';
-            setAdminUnlocked(false);
-            if (pinInput) {
-              pinInput.value = '';
-              pinInput.disabled = false;
-              pinInput.focus();
-            }
-          }
+        } catch (err) {
           showNotification(err.message || 'Error subiendo archivos.', 'error');
-        });
+        }
+        setTimeout(() => setProgress(0, ''), 800);
+      };
+      xhr.onerror = () => {
+        showNotification('Error de red al subir.', 'error');
+        setProgress(0, '');
+      };
+      xhr.send(formData);
+      setProgress(1, 'Iniciando...');
     });
   }
 }
@@ -827,6 +844,12 @@ function initRgChat() {
       try { data = rawText ? JSON.parse(rawText) : null; } catch { data = null; }
 
       removeTyping();
+
+      if (!response.ok) {
+        const msg = data?.error || (response.status === 504 ? 'El asistente tardó demasiado (504).' : `Error ${response.status}`);
+        addMessage('bot', msg);
+        return;
+      }
 
       if (data && typeof data === 'object' && (data.type === 'sales_report' || data.reportType === 'sales')) {
         const html = buildSalesReportCard(data);
