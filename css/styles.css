@@ -976,7 +976,7 @@ a *, button *, [onclick] *, .finder-control *, .control *, .terminal-btn *, .btn
 
 /* Admin visibility */
 .finder-window .documents-admin-only { display: none; }
-.finder-window.documents-admin-visible .documents-admin-only { display: inline-flex; }
+.finder-window.documents-admin-visible .finder-nav-btn.documents-admin-only { display: inline-flex; }
 
 @media (max-width: 900px) {
   .finder-window { max-width: 100%; }
