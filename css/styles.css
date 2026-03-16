@@ -1188,7 +1188,39 @@ a *, button *, [onclick] *, .finder-control *, .control *, .terminal-btn *, .btn
   transition: background var(--transition-fast);
 }
 .rg-chat-input button:hover { background: var(--accent-cyan); }
-.rg-chat-input button:disabled { opacity: 0.4; cursor: not-allowed; }
+.rg-chat-input button[disabled] {
+  opacity: 0.55;
+  cursor: default;
+  box-shadow: none;
+}
+
+.rg-chat-typing {
+  background: rgba(255, 255, 255, 0.04);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.rg-chat-dots {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+}
+.rg-chat-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--text-muted, #9ca3af);
+  opacity: 0.45;
+  animation: rgChatPulse 1.4s infinite ease-in-out;
+}
+.rg-chat-dots span:nth-child(2) { animation-delay: 0.15s; }
+.rg-chat-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes rgChatPulse {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.45; }
+  40% { transform: translateY(-4px); opacity: 1; }
+}
 
 @media (max-width: 480px) {
   .rg-chat-window { width: calc(100vw - 2rem); right: -0.5rem; }

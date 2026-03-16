@@ -747,8 +747,8 @@ function initRgChat() {
     typingLi = document.createElement('li');
     typingLi.className = 'rg-chat-message rg-chat-bot';
     const bubble = document.createElement('div');
-    bubble.className = 'rg-chat-bubble';
-    bubble.textContent = 'Escribiendo…';
+    bubble.className = 'rg-chat-bubble rg-chat-typing';
+    bubble.innerHTML = '<span class="rg-chat-dots"><span></span><span></span><span></span></span>';
     typingLi.appendChild(bubble);
     messagesEl.appendChild(typingLi);
     scrollToBottom();

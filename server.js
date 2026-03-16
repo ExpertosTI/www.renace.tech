@@ -344,6 +344,9 @@ app.post('/api/chat', async (req, res) => {
       headers: {
         'Content-Type':   'application/json',
         'Content-Length': Buffer.byteLength(bodyStr),
+        'x-forwarded-for': req.headers['x-forwarded-for'] || req.ip,
+        'x-forwarded-host': req.headers['x-forwarded-host'] || req.headers.host,
+        'x-forwarded-proto': req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http'),
       },
     }, (pres) => {
       let data = '';
@@ -357,6 +360,10 @@ app.post('/api/chat', async (req, res) => {
     preq.on('error', (e) => {
       console.error('[Chat proxy]', e.message);
       res.status(502).json({ error: 'Chat upstream error' });
+    });
+    preq.setTimeout(60000, () => {
+      preq.destroy();
+      if (!res.headersSent) res.status(504).json({ error: 'Chat upstream timeout' });
     });
     preq.write(bodyStr);
     preq.end();
