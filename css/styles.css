@@ -1527,17 +1527,17 @@ kbd {
    ODOO SHOP — Futuristic product cards + cart
    ═══════════════════════════════════════════════════════════════ */
 
-/* ── Materialization animation (scan + holographic fade-in) ── */
+/* ── Card entrance — smooth fade + lift (replaces aggressive scan) ── */
 @keyframes materialize-in {
-  0%   { opacity:0; transform:scale(0.82) translateY(14px); filter:brightness(3) blur(8px) saturate(2); border-color:rgba(56,189,248,0.95); box-shadow:0 0 40px rgba(56,189,248,0.6),inset 0 0 20px rgba(56,189,248,0.15); }
-  20%  { opacity:0.6; filter:brightness(1.8) blur(3px); }
+  0%   { opacity:0; transform:scale(0.93) translateY(12px); filter:brightness(1.4) blur(2px); }
+  60%  { opacity:0.92; transform:scale(1.01) translateY(-2px); filter:brightness(1.05) blur(0); }
   55%  { opacity:1; filter:brightness(1.2) blur(0.5px); transform:scale(1.03) translateY(-3px); }
   75%  { border-color:rgba(56,189,248,0.5); box-shadow:0 0 12px rgba(56,189,248,0.2); }
   100% { transform:scale(1) translateY(0); filter:brightness(1) blur(0); border-color:rgba(56,189,248,0.15); box-shadow:none; }
 }
 @keyframes scan-line-sweep {
-  0%   { top:-3px; opacity:1; }
-  100% { top:calc(100% + 3px); opacity:0; }
+  0%   { top:-2px; opacity:0.5; }
+  100% { top:calc(100% + 2px); opacity:0; }
 }
 @keyframes holo-shimmer {
   0%   { background-position:200% 50%; }
@@ -1673,7 +1673,7 @@ kbd {
 
 /* Materialization state */
 .shop-card--entering {
-  animation: materialize-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: materialize-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
   opacity: 0;
 }
 /* Selection flash */

@@ -878,6 +878,12 @@ function initRgChat() {
     input.style.height = '';
     updateSendState();
 
+    // Intercept quote conversation flow — bot asks data one step at a time
+    if (window.odooShop?.isInQuoteFlow()) {
+      window.odooShop.handleQuoteInput(text);
+      return;
+    }
+
     // Intercept cart queries → respond directly from cart state
     const CART_QUERY = /carrito|qu[eé]\s+(?:ten[ig]|a[gñ]ré?|selecc)|cu[aá]nto\s+(?:es|ser[aá]|me\s+sale|tengo|suman?)|mi[s]?\s+(?:producto|selec|pedido)|ver\s+(?:mi\s+)?carrito|total\s+(?:del?\s+)?carrito/i;
     if (CART_QUERY.test(text) && window.renaceCart) {

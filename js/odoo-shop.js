@@ -172,23 +172,98 @@
       </div>`;
   }
 
-  /* ─── Build quote form HTML ──────────────────────────────────── */
-  function buildQuoteForm() {
-    return `
-      <div class="quote-form" id="shop-quote-form">
-        <div class="quote-form-header"><i class="fas fa-file-alt"></i> Datos para cotización</div>
-        <input class="quote-input" type="text" id="qf-name" placeholder="Nombre completo *" required>
-        <input class="quote-input" type="email" id="qf-email" placeholder="Email *" required>
-        <input class="quote-input" type="tel" id="qf-phone" placeholder="Teléfono">
-        <textarea class="quote-input" id="qf-msg" rows="2" placeholder="Mensaje opcional"></textarea>
-        <div class="quote-form-actions">
-          <button class="quote-cancel-btn" id="qf-cancel">Cancelar</button>
-          <button class="quote-submit-btn" id="qf-submit">
-            <i class="fas fa-paper-plane"></i> Enviar
-          </button>
-        </div>
-      </div>`;
-  }
+  /* ─── Conversational Quote Flow ───────────────────────── */
+  const quoteFlow = {
+    state: 'idle',  // idle | name | email | phone | note | confirm | submitting
+    data: {},
+
+    start() {
+      this.state = 'name';
+      this.data = {};
+      addBotMsg('¡Perfecto! Te voy a crear la cotización ahora mismo. ✨\n\n¿Me das tu nombre completo?');
+    },
+
+    isActive() { return this.state !== 'idle'; },
+
+    handle(text) {
+      text = text.trim();
+      switch (this.state) {
+
+        case 'name':
+          this.data.name = text;
+          this.state = 'email';
+          addBotMsg(`Un gusto, ${text.split(' ')[0]}! 👋\n\n¿Cuál es tu email para enviarte la cotización?`);
+          break;
+
+        case 'email':
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) {
+            addBotMsg('¡Hmm, ese email no parece válido! ¿Puedes revisarlo?');
+            return;
+          }
+          this.data.email = text;
+          this.state = 'phone';
+          addBotMsg('¡Listo! Y para coordinar la entrega, ¿me das tu número de WhatsApp o teléfono? (Escribe “omitir” si prefieres no darlo)');
+          break;
+
+        case 'phone':
+          this.data.phone = /^(omitir|no|skip|\.|-+)$/i.test(text) ? '' : text;
+          this.state = 'note';
+          addBotMsg('¿Tienes algún comentario especial para tu pedido? Por ejemplo: “necesito instación”, “entrega urgente”… (o escribe “listo” para continuar)');
+          break;
+
+        case 'note':
+          this.data.note = /^(listo|no|ninguno?|skip|\.|-+)$/i.test(text) ? '' : text;
+          this.state = 'confirm';
+          this._showConfirmation();
+          break;
+
+        case 'confirm':
+          if (/^(s[\u00ed]|si|confirm|ok|listo|crea|envi|dale|correcto|exacto|s)/i.test(text)) {
+            this._submit();
+          } else if (/^(cancel|no|salir|atrás|atras)/i.test(text)) {
+            this.state = 'idle';
+            addBotMsg('¡Claro! Cotización cancelada. Tus productos siguen en el carrito cuando quieras retomar. 🛒');
+          } else {
+            addBotMsg('Escribe **sí** para crear la cotización o **cancelar** si prefieres salir.');
+          }
+          break;
+      }
+    },
+
+    _showConfirmation() {
+      const lines = cart.items.map(i => `• ${i.qty}× ${i.name}`).join('\n');
+      const phone = this.data.phone ? `\n📱 ${this.data.phone}` : '';
+      const note  = this.data.note  ? `\n📝 ${this.data.note}` : '';
+      addBotMsg(`¡Perfecto! Confirma tu cotización:\n\n👤 ${this.data.name}\n📧 ${this.data.email}${phone}${note}\n\n${lines}\n\n💰 Total: **${fmt(cart.total())}**\n\nEscribe **sí** para crear o **cancelar** para salir.`);
+    },
+
+    async _submit() {
+      this.state = 'submitting';
+      addBotMsg('⚡ Creando tu cotización en el sistema…');
+      try {
+        const res = await fetch('/api/odoo/quote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: cart.items.map(i => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })),
+            customer: { name: this.data.name, email: this.data.email, phone: this.data.phone, message: this.data.note },
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          addBotMsg(`✅ ¡Cotización **${data.orderRef}** creada con éxito!\n\n💰 Total: **${fmt(data.total)}**\n\nTe contactaremos pronto al email **${this.data.email}**. ¡Gracias por confiar en RENACE! 🚀`);
+          cart.clear();
+          this.state = 'idle';
+          this.data = {};
+        } else {
+          throw new Error(data.error || 'Error desconocido');
+        }
+      } catch (e) {
+        this.state = 'confirm';
+        addBotMsg(`❌ Hubo un problema al crear la cotización: ${e.message}\n\n¿Lo intentamos de nuevo? Escribe **sí** para reintentar.`);
+      }
+    },
+  };
 
   /* ─── Escape HTML ────────────────────────────────────────────── */
   function escHtml(s) {
@@ -196,23 +271,18 @@
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
-  /* ─── Cart Badge Update ──────────────────────────────────────── */
-  function updateCartBadge() {
-    const badge = document.getElementById('rg-cart-badge');
-    const count = cart.count();
-    if (!badge) return;
-    badge.textContent = count;
-    badge.style.display = count > 0 ? 'flex' : 'none';
-    if (count > 0) badge.classList.add('pulse');
-    setTimeout(() => badge.classList.remove('pulse'), 600);
-  }
-
-  /* ─── Render cart panel (mounts inside .rg-chat-window) ────── */
+  /* ─── Render cart panel — in-place update if already open ─── */
   function renderCartPanel() {
     const existing = document.getElementById('rg-cart-panel');
+
+    // ── In-place patch when panel is already visible (avoids reset/blink) ──
+    if (existing && existing.classList.contains('open')) {
+      _patchCartPanel(existing);
+      return;
+    }
+
     if (existing) existing.remove();
 
-    // Mount inside the chat window so it overlays the conversation
     const wrapper = document.querySelector('.rg-chat-window');
     if (!wrapper) return;
 
@@ -221,30 +291,96 @@
     const panel = el.firstElementChild;
     wrapper.appendChild(panel);
     requestAnimationFrame(() => panel.classList.add('open'));
+    _bindCartPanelEvents(panel);
+  }
 
-    function closePanel() {
-      panel.classList.remove('open');
-      setTimeout(() => panel.remove(), 380);
+  /* In-place DOM update without removing the panel */
+  function _patchCartPanel(panel) {
+    const items = cart.items;
+    const body  = panel.querySelector('.cart-panel-body');
+    if (!body) return;
+
+    if (items.length === 0) {
+      // Switch to empty state
+      body.innerHTML = `<div class="cart-empty">
+        <i class="fas fa-shopping-bag"></i>
+        <p>Tu carrito está vacío.</p>
+        <button class="cart-empty-cta" id="cart-go-catalog"><i class="fas fa-store"></i> Ver catálogo</button>
+      </div>`;
+      panel.querySelector('.cart-panel-footer')?.remove();
+      panel.querySelector('#cart-clear-btn')?.remove();
+      body.querySelector('#cart-go-catalog')?.addEventListener('click', () => {
+        _closePanelAndDo(panel, () => fetchAndShowProducts(null));
+      });
+      return;
     }
 
-    panel.querySelector('#cart-panel-close')?.addEventListener('click', closePanel);
+    // Update existing rows or rebuild if count changed
+    const existingRows = body.querySelectorAll('.cart-item');
+    if (existingRows.length !== items.length) {
+      // Item was added or removed — rebuild body html only
+      body.innerHTML = items.map(i => {
+        const imgEl = i.image
+          ? `<img src="data:image/png;base64,${i.image}" class="cart-item-img" alt="${escHtml(i.name)}">`
+          : `<div class="cart-item-img-placeholder"><i class="fas fa-cube"></i></div>`;
+        return `<div class="cart-item" data-id="${i.id}">
+          ${imgEl}
+          <div class="cart-item-info"><div class="cart-item-name">${escHtml(i.name)}</div><div class="cart-item-unit-price">${fmt(i.price)} / ud.</div></div>
+          <div class="cart-item-controls">
+            <div class="cart-item-subtotal">${fmt(i.price * i.qty)}</div>
+            <div class="cart-item-qty">
+              <button class="cart-qty-btn" data-action="dec" data-id="${i.id}">−</button>
+              <span>${i.qty}</span>
+              <button class="cart-qty-btn" data-action="inc" data-id="${i.id}">+</button>
+            </div>
+            <button class="cart-remove-btn" data-id="${i.id}"><i class="fas fa-trash-alt"></i></button>
+          </div>
+        </div>`;
+      }).join('');
+    } else {
+      // Same item count — patch only qty + subtotal per row
+      existingRows.forEach(row => {
+        const id   = parseInt(row.dataset.id, 10);
+        const item = items.find(i => i.id === id);
+        if (!item) return;
+        const qtySpan = row.querySelector('.cart-item-qty span');
+        const subEl   = row.querySelector('.cart-item-subtotal');
+        if (qtySpan) qtySpan.textContent = item.qty;
+        if (subEl)   subEl.textContent   = fmt(item.price * item.qty);
+      });
+    }
+
+    // Update footer total + count
+    const totalEl = panel.querySelector('.cart-total');
+    const labelEl = panel.querySelector('.cart-summary-label');
+    if (totalEl) totalEl.textContent = fmt(cart.total());
+    if (labelEl) labelEl.textContent = `Total (${cart.count()} artículo${cart.count() !== 1 ? 's' : ''})`;
+
+    // Ensure clear button is shown
+    const actionsEl = panel.querySelector('.cart-panel-actions');
+    if (actionsEl && !panel.querySelector('#cart-clear-btn')) {
+      const clearBtn = document.createElement('button');
+      clearBtn.className = 'cart-clear-btn'; clearBtn.id = 'cart-clear-btn';
+      clearBtn.innerHTML = '<i class="fas fa-trash"></i> Vaciar';
+      clearBtn.addEventListener('click', () => { cart.clear(); _patchCartPanel(panel); });
+      actionsEl.insertBefore(clearBtn, actionsEl.querySelector('.cart-panel-close'));
+    }
+  }
+
+  function _closePanelAndDo(panel, fn) {
+    panel.classList.remove('open');
+    setTimeout(() => { panel.remove(); if (fn) fn(); }, 380);
+  }
+
+  function _bindCartPanelEvents(panel) {
+    panel.querySelector('#cart-panel-close')?.addEventListener('click', () => _closePanelAndDo(panel));
 
     panel.querySelector('#cart-clear-btn')?.addEventListener('click', () => {
-      cart.clear();
-      renderCartPanel();
+      cart.clear(); _patchCartPanel(panel);
     });
+    panel.querySelector('#cart-go-catalog')?.addEventListener('click', () => _closePanelAndDo(panel, () => fetchAndShowProducts(null)));
+    panel.querySelector('#cart-keep-shopping')?.addEventListener('click', () => _closePanelAndDo(panel, () => fetchAndShowProducts(null)));
 
-    panel.querySelector('#cart-go-catalog')?.addEventListener('click', () => {
-      closePanel();
-      setTimeout(() => fetchAndShowProducts(null), 390);
-    });
-
-    panel.querySelector('#cart-keep-shopping')?.addEventListener('click', () => {
-      closePanel();
-      setTimeout(() => fetchAndShowProducts(null), 390);
-    });
-
-    // Qty controls & remove
     panel.querySelector('.cart-panel-body')?.addEventListener('click', (e) => {
       const qBtn = e.target.closest('[data-action]');
       if (qBtn) {
@@ -252,92 +388,32 @@
         const item = cart.items.find(i => i.id === id);
         if (!item) return;
         cart.updateQty(id, qBtn.dataset.action === 'inc' ? item.qty + 1 : item.qty - 1);
-        renderCartPanel(); return;
+        return;
       }
       const rm = e.target.closest('.cart-remove-btn');
-      if (rm) { cart.remove(parseInt(rm.dataset.id, 10)); renderCartPanel(); }
+      if (rm) cart.remove(parseInt(rm.dataset.id, 10));
     });
 
-    panel.querySelector('#cart-quote-btn')?.addEventListener('click', () => {
-      closePanel();
-      setTimeout(() => showQuoteForm(), 390);
+    panel.querySelector('#cart-quote-btn')?.addEventListener('click', () => _closePanelAndDo(panel, () => quoteFlow.start()));
+
+    // Patch when cart changes (badge, qty, total) while panel is open
+    cart.on(() => {
+      if (panel.isConnected) _patchCartPanel(panel);
     });
   }
 
-  /* ─── Show quote form in chat ────────────────────────────────── */
-  function showQuoteForm() {
-    const messagesEl = document.getElementById('rg-chat-messages');
-    if (!messagesEl) return;
+  /* ─── Start conversational quote (replaces form) ─────────── */
+  function showQuoteForm() { quoteFlow.start(); }
 
-    const li = document.createElement('li');
-    li.className = 'rg-chat-message rg-chat-bot';
-    const bubble = document.createElement('div');
-    bubble.className = 'rg-chat-bubble';
-    bubble.innerHTML = buildQuoteForm();
-    li.appendChild(bubble);
-    messagesEl.appendChild(li);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-
-    bubble.querySelector('#qf-cancel')?.addEventListener('click', () => li.remove());
-    bubble.querySelector('#qf-submit')?.addEventListener('click', () => submitQuote(bubble));
+  /* ─── Scroll helper (matches app.js scrollToBottom logic) ──── */
+  function chatScrollBottom() {
+    const body = document.querySelector('.rg-chat-body');
+    const msgs = document.getElementById('rg-chat-messages');
+    if (body) body.scrollTop = body.scrollHeight;
+    else if (msgs) msgs.scrollTop = msgs.scrollHeight;
   }
 
-  /* ─── Submit quote to backend ────────────────────────────────── */
-  async function submitQuote(formEl) {
-    const name = formEl.querySelector('#qf-name')?.value?.trim();
-    const email = formEl.querySelector('#qf-email')?.value?.trim();
-    const phone = formEl.querySelector('#qf-phone')?.value?.trim();
-    const message = formEl.querySelector('#qf-msg')?.value?.trim();
-
-    if (!name || !email) {
-      const err = formEl.querySelector('.quote-form-error') || document.createElement('p');
-      err.className = 'quote-form-error';
-      err.textContent = 'Nombre y email son requeridos.';
-      formEl.querySelector('.quote-form-actions').before(err);
-      return;
-    }
-
-    const submitBtn = formEl.querySelector('#qf-submit');
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando…';
-
-    try {
-      const res = await fetch('/api/odoo/quote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: cart.items.map(i => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })),
-          customer: { name, email, phone, message },
-        }),
-      });
-
-      const data = await res.json();
-
-      if (data.success) {
-        formEl.closest('.rg-chat-bubble').innerHTML = `
-          <div class="quote-success">
-            <div class="quote-success-icon"><i class="fas fa-check-circle"></i></div>
-            <div class="quote-success-title">¡Cotización creada!</div>
-            <div class="quote-success-ref">Referencia: <strong>${escHtml(data.orderRef)}</strong></div>
-            <div class="quote-success-total">Total: <strong>${fmt(data.total)}</strong></div>
-            <p class="quote-success-msg">Te contactaremos pronto al email <strong>${escHtml(email)}</strong>.</p>
-          </div>`;
-        cart.clear();
-        addBotMsg(`✅ Cotización **${data.orderRef}** creada por **${fmt(data.total)}**. Te contactaremos pronto.`);
-      } else {
-        throw new Error(data.error || 'Error desconocido');
-      }
-    } catch (err) {
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar';
-      const e = document.createElement('p');
-      e.className = 'quote-form-error';
-      e.textContent = 'Error: ' + (err.message || 'No se pudo enviar.');
-      formEl.querySelector('.quote-form-actions').before(e);
-    }
-  }
-
-  /* ─── Add bot message helper ─────────────────────────────────── */
+  /* ─── Add bot message helper ────────────────────────────── */
   function addBotMsg(text) {
     const messagesEl = document.getElementById('rg-chat-messages');
     if (!messagesEl) return;
@@ -345,13 +421,14 @@
     li.className = 'rg-chat-message rg-chat-bot';
     const bubble = document.createElement('div');
     bubble.className = 'rg-chat-bubble';
-    bubble.textContent = text;
+    // simple markdown bold (**text**)
+    bubble.innerHTML = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
     li.appendChild(bubble);
     messagesEl.appendChild(li);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+    chatScrollBottom();
   }
 
-  /* ─── Add HTML bot message helper ───────────────────────────── */
+  /* ─── Add HTML bot message helper ──────────────────────── */
   function addBotHtml(html) {
     const messagesEl = document.getElementById('rg-chat-messages');
     if (!messagesEl) return;
@@ -362,7 +439,7 @@
     bubble.innerHTML = html;
     li.appendChild(bubble);
     messagesEl.appendChild(li);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+    chatScrollBottom();
 
     // Stagger the materialization animation per card
     // (returns bubble for caller to attach extra handlers)
@@ -475,6 +552,11 @@
       if (!cart.items.length) return null;
       return cart.items.map(i => `${i.qty}x ${i.name} (${fmt(i.price)} c/u)`).join(', ');
     },
+
+    // Conversational quote flow
+    isInQuoteFlow:    ()     => quoteFlow.isActive(),
+    handleQuoteInput: (text) => quoteFlow.handle(text),
+    startQuoteFlow:   ()     => quoteFlow.start(),
   };
 
   /* ─── Typing indicator helpers ───────────────────────────────── */
@@ -485,7 +567,7 @@
     li.className = 'rg-chat-message rg-chat-bot shop-typing';
     li.innerHTML = `<div class="rg-chat-bubble"><span class="typing-dots"><span></span><span></span><span></span></span> Cargando catálogo…</div>`;
     messagesEl.appendChild(li);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+    chatScrollBottom();
     return li;
   }
 
