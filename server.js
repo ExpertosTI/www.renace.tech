@@ -483,8 +483,8 @@ function getCategory(ext) {
 // ── Odoo Reverse Proxy ──────────────────────────────────────────
 // Best practices: proxy_mode=True in odoo.conf (already set),
 // strip /odoo prefix, forward real IP/proto headers, rewrite redirects.
-const ODOO_URL        = process.env.ODOO_URL         || 'http://host.docker.internal:7015';
-const ODOO_LONGPOLL_URL = process.env.ODOO_LONGPOLL_URL || 'http://host.docker.internal:7018';
+const ODOO_URL          = process.env.ODOO_URL          || 'http://85.31.224.232:7015';
+const ODOO_LONGPOLL_URL = process.env.ODOO_LONGPOLL_URL || 'http://85.31.224.232:7018';
 const HOP_BY_HOP = new Set([
   'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
   'te', 'trailers', 'transfer-encoding', 'upgrade',
@@ -561,6 +561,137 @@ function odooProxy(req, res, targetBase, stripPrefix) {
     proxyReq.end();
   }
 }
+
+// ── Odoo JSON-RPC API Client ────────────────────────────────────
+let _odooSession = null; // { cookie, uid, expiresAt }
+
+async function odooRpc(endpoint, params) {
+  const target = new URL(ODOO_URL);
+  const body = JSON.stringify({ jsonrpc: '2.0', method: 'call', id: Date.now(), params });
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: target.hostname,
+      port: parseInt(target.port) || 7015,
+      path: endpoint,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+        ...(_odooSession?.cookie ? { Cookie: _odooSession.cookie } : {}),
+      },
+    };
+    const lib = target.protocol === 'https:' ? https : http;
+    const req = lib.request(options, (res) => {
+      let data = '';
+      res.on('data', c => { data += c; });
+      res.on('end', () => {
+        const sc = res.headers['set-cookie'];
+        if (sc) {
+          const sid = (Array.isArray(sc) ? sc : [sc]).find(c => c.startsWith('session_id='));
+          if (sid) _odooSession = { ..._odooSession, cookie: sid.split(';')[0] };
+        }
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.error) reject(new Error(parsed.error.data?.message || 'Odoo RPC error'));
+          else resolve(parsed.result);
+        } catch { reject(new Error('Odoo response parse error')); }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(12000, () => req.destroy(new Error('Odoo timeout')));
+    req.write(body);
+    req.end();
+  });
+}
+
+async function odooAuthenticate() {
+  if (_odooSession?.uid && Date.now() < (_odooSession.expiresAt || 0)) return true;
+  const db = process.env.ODOO_DB;
+  const login = process.env.ODOO_API_USER;
+  const password = process.env.ODOO_API_PASSWORD;
+  if (!db || !login || !password) return false;
+  try {
+    const result = await odooRpc('/web/session/authenticate', { db, login, password });
+    if (!result?.uid) return false;
+    _odooSession = { ..._odooSession, uid: result.uid, expiresAt: Date.now() + 3_600_000 };
+    console.log(`✓ Odoo session OK (uid=${result.uid})`);
+    return true;
+  } catch (e) {
+    console.error('[Odoo auth]', e.message);
+    return false;
+  }
+}
+
+// GET /api/odoo/products
+app.get('/api/odoo/products', apiLimiter, async (req, res) => {
+  try {
+    if (!await odooAuthenticate()) return res.status(503).json({ error: 'Odoo credentials not configured (ODOO_DB, ODOO_API_USER, ODOO_API_PASSWORD)' });
+    const products = await odooRpc('/web/dataset/call_kw', {
+      model: 'product.template',
+      method: 'search_read',
+      args: [],
+      kwargs: {
+        domain: [['sale_ok', '=', true], ['active', '=', true]],
+        fields: ['id', 'name', 'list_price', 'description_sale', 'image_128', 'categ_id', 'type'],
+        limit: 24,
+        order: 'name asc',
+      },
+    });
+    res.json(products || []);
+  } catch (e) {
+    console.error('[Odoo products]', e.message);
+    res.status(502).json({ error: 'No se pudieron obtener los productos' });
+  }
+});
+
+// POST /api/odoo/quote
+app.post('/api/odoo/quote', apiLimiter, async (req, res) => {
+  const { items, customer } = req.body || {};
+  if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'Items requeridos' });
+  try {
+    if (!await odooAuthenticate()) return res.status(503).json({ error: 'Odoo credentials not configured' });
+    let partnerId = parseInt(process.env.ODOO_DEFAULT_PARTNER || '3', 10);
+    if (customer?.email) {
+      const existing = await odooRpc('/web/dataset/call_kw', {
+        model: 'res.partner', method: 'search_read',
+        args: [[['email', '=', customer.email]]],
+        kwargs: { fields: ['id'], limit: 1 },
+      });
+      if (existing?.length) {
+        partnerId = existing[0].id;
+      } else {
+        partnerId = await odooRpc('/web/dataset/call_kw', {
+          model: 'res.partner', method: 'create',
+          args: [{ name: customer.name || customer.email, email: customer.email, phone: customer.phone || '' }],
+          kwargs: {},
+        });
+      }
+    }
+    const orderId = await odooRpc('/web/dataset/call_kw', {
+      model: 'sale.order', method: 'create',
+      args: [{
+        partner_id: partnerId,
+        note: customer?.message || 'Cotización creada desde web chat RENACE.TECH',
+        order_line: items.map(item => [0, 0, {
+          product_id: item.id,
+          product_uom_qty: item.qty || 1,
+          price_unit: item.price,
+          name: item.name,
+        }]),
+      }],
+      kwargs: {},
+    });
+    const order = await odooRpc('/web/dataset/call_kw', {
+      model: 'sale.order', method: 'search_read',
+      args: [[['id', '=', orderId]]],
+      kwargs: { fields: ['name', 'amount_total'], limit: 1 },
+    });
+    res.json({ success: true, orderId, orderRef: order?.[0]?.name || `SO-${orderId}`, total: order?.[0]?.amount_total || 0 });
+  } catch (e) {
+    console.error('[Odoo quote]', e.message);
+    res.status(502).json({ error: 'No se pudo crear la cotización: ' + e.message });
+  }
+});
 
 // Longpolling (gevent port 7018) — must be before the generic /odoo route
 app.use('/odoo/longpolling', (req, res) => odooProxy(req, res, ODOO_LONGPOLL_URL, '/odoo/longpolling'));

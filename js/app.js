@@ -854,6 +854,12 @@ function initRgChat() {
     input.value = '';
     input.style.height = '';
     updateSendState();
+
+    // Intercept product / catalog queries → Odoo shop
+    if (window.odooShop?.isProductQuery(text)) {
+      await window.odooShop.showProducts();
+      return;
+    }
     await sendMessageToN8n(text);
   }
 
