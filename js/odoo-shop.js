@@ -46,8 +46,16 @@
   }
 
   /* ─── Build product card HTML ────────────────────────────────── */
+  function getImgSrc(p) {
+    if (p.image_1920) return `data:image/png;base64,${p.image_1920}`;
+    if (p.image_128)  return `data:image/png;base64,${p.image_128}`;
+    if (p.image_url)  return p.image_url;
+    if (p.id)         return `/api/odoo/image/${p.id}`;
+    return '';
+  }
+
   function buildProductCard(p) {
-    const imgSrc = p.image_128 ? `data:image/png;base64,${p.image_128}` : (p.id ? `/api/odoo/image/${p.id}` : '');
+    const imgSrc = getImgSrc(p);
     const img = imgSrc
       ? `<img src="${imgSrc}" alt="${escHtml(p.name)}" class="shop-card-img" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
       : '';
@@ -292,19 +300,32 @@
           }),
         });
         const data = await res.json();
-        if (data.success) {
-          const savedEmail = this.data.email;
-          const savedItems = cart.items.map(i => ({ ...i }));
-          cart.clear();
-          this.state = 'idle';
-          this.data = {};
-          addBotHtml(buildReceiptHTML(data.orderRef, data.total, savedItems, savedEmail));
-        } else {
-          throw new Error(data.error || 'Error desconocido');
-        }
+        if (!res.ok || !data?.success) throw new Error(data?.error || 'No se pudo crear la cotización');
+
+        // Success — show receipt
+        const receiptHtml = buildReceiptHTML(data.orderRef, data.total, cart.items, this.data.email);
+        addBotHtml(receiptHtml);
+        cart.clear();
+        updateCartBadge();
+        this.state = 'idle';
       } catch (e) {
         this.state = 'confirm';
-        addBotMsg(`❌ Hubo un problema al crear la cotización: ${e.message}\n\n¿Lo intentamos de nuevo? Escribe **sí** para reintentar.`);
+        addBotMsg(`❌ Hubo un problema al crear la cotización: ${e.message || e}.`);
+        const retryBubble = addBotHtml(`
+          <div class="qf-confirm-btns">
+            <button class="qf-confirm-btn qf-confirm-btn--ok"><i class="fas fa-redo"></i> Reintentar</button>
+            <button class="qf-confirm-btn qf-confirm-btn--cancel"><i class="fas fa-times"></i> Cancelar</button>
+          </div>`);
+        setTimeout(() => {
+          retryBubble?.querySelector('.qf-confirm-btn--ok')?.addEventListener('click', () => {
+            retryBubble.closest('li')?.remove();
+            quoteFlow.handle('sí');
+          });
+          retryBubble?.querySelector('.qf-confirm-btn--cancel')?.addEventListener('click', () => {
+            retryBubble.closest('li')?.remove();
+            quoteFlow.handle('cancelar');
+          });
+        }, 50);
       }
     },
   };
@@ -377,7 +398,7 @@
   function buildProductPickerHTML(products, qty) {
     const cards = products.slice(0, 5).map((p, idx) => `
       <div class="bpp-card" data-idx="${idx}">
-        <img class="bpp-thumb" src="${p.image_128 ? `data:image/png;base64,${p.image_128}` : `/api/odoo/image/${p.id}`}" alt="" loading="lazy">
+        <img class="bpp-thumb" src="${getImgSrc(p)}" alt="" loading="lazy">
         <div class="bpp-info">
           <span class="bpp-name">${escHtml(p.name)}</span>
           <span class="bpp-price">${fmt(p.list_price)}</span>
@@ -435,7 +456,7 @@
         }
         if (products.length === 1) {
           const p = products[0];
-          const imgSrc = p.image_128 ? `data:image/png;base64,${p.image_128}` : `/api/odoo/image/${p.id}`;
+          const imgSrc = getImgSrc(p);
           for (let n = 0; n < qty; n++) cart.add({ id: p.id, name: p.name, price: p.list_price, image: imgSrc });
           addBotMsg(`✅ ${qty > 1 ? qty + '× ' : ''}**${p.name}** agregado al carrito! 🛒\n\n💰 Total: **${fmt(cart.total())}**`);
         } else {
@@ -449,7 +470,7 @@
                 const name  = btn.dataset.name;
                 const price = parseFloat(btn.dataset.price);
                 const q2    = parseInt(btn.dataset.qty);
-                const imgSrc = p.image_128 ? `data:image/png;base64,${p.image_128}` : `/api/odoo/image/${id}`;
+                const imgSrc = getImgSrc(p);
                 for (let n = 0; n < q2; n++) cart.add({ id, name, price, image: imgSrc });
                 addBotMsg(`✅ ${q2 > 1 ? q2 + '× ' : ''}**${name}** agregado al carrito! 🛒\n\n💰 Total: **${fmt(cart.total())}**`);
                 bubble.closest('li')?.remove();
@@ -515,7 +536,7 @@
         const src = i.image || (i.id ? `/api/odoo/image/${i.id}` : '');
         const imgEl = src
           ? `<img src="${src}" class="cart-item-img" alt="${escHtml(i.name)}" loading="lazy">`
-          : `<div class="cart-item-img-placeholder"><i class="fas a-cube"></i></div>`;
+          : `<div class="cart-item-img-placeholder"><i class="fas fa-cube"></i></div>`;
         return `<div class="cart-item" data-id="${i.id}">
           ${imgEl}
           <div class="cart-item-info"><div class="cart-item-name">${escHtml(i.name)}</div><div class="cart-item-unit-price">${fmt(i.price)} / ud.</div></div>

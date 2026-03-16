@@ -782,7 +782,11 @@ app.get('/api/odoo/products', apiLimiter, async (req, res) => {
         context: { bin_size: false }
       }
     );
-    res.json(products || []);
+    const withUrls = (products || []).map(p => ({
+      ...p,
+      image_url: p.id ? `/api/odoo/image/${p.id}` : ''
+    }));
+    res.json(withUrls);
   } catch (e) {
     console.error('[Odoo products]', e.message);
     res.status(502).json({ error: e.message });
