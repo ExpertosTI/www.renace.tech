@@ -3005,6 +3005,20 @@ class TerminalAnimator {
             await this.wait(50);
         }
 
+        const actions = document.createElement('div');
+        actions.className = 'terminal-actions';
+        actions.innerHTML = `
+            <button class="terminal-btn primary pulse-button" onclick="startProject()">
+                <i class="fas fa-rocket"></i>
+                Iniciar Proyecto
+            </button>
+            <button class="terminal-btn secondary" onclick="scrollToFiles()">
+                <i class="fas fa-folder"></i>
+                Ver Documentos
+            </button>
+        `;
+        this.container.appendChild(actions);
+        this.scrollToBottom();
     }
 }
 
