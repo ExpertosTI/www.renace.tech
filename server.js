@@ -562,128 +562,173 @@ function odooProxy(req, res, targetBase, stripPrefix) {
   }
 }
 
-// ── Odoo JSON-RPC API Client ────────────────────────────────────
-// Supports API key auth (Odoo 14+): set ODOO_API_KEY env var.
-// DB name is auto-discovered if ODOO_DB is not set.
-let _odooSession = null; // { cookie, uid, db, expiresAt }
-let _odooDbCache = null;
+// ── Odoo External API Client ─────────────────────────────────────
+// Per docs: https://www.odoo.com/documentation/19.0/developer/reference/external_api.html
+//
+// Mode 1 — JSON-2 (Odoo 17+/19):
+//   POST /json/2/<model>/<method>
+//   Headers: Authorization: bearer <API_KEY>
+//            X-Odoo-Database: <db>
+//   Body: direct JSON params (domain, fields, ids, etc.)
+//
+// Mode 2 — Legacy JSON-RPC (Odoo 14-18, still works in 19):
+//   POST /jsonrpc  (service: common → authenticate → uid)
+//   POST /jsonrpc  (service: object → execute_kw → [db,uid,apikey,model,method,args,kwargs])
+//   Completely stateless — no session cookie needed.
+//
+// Required env vars: ODOO_API_USER, ODOO_API_KEY
+// Optional:          ODOO_DB (auto-detected via /jsonrpc db.list if not set)
 
-function odooRawRequest(path, bodyStr, extraHeaders) {
-  const target = new URL(ODOO_URL);
+let _odooDbCache  = null;
+let _odooUidCache = null;   // uid for legacy mode
+let _odooApiMode  = null;   // 'json2' | 'legacy' — detected on first call
+
+function odooHttpPost(path, bodyObj, extraHeaders) {
+  const target  = new URL(ODOO_URL);
+  const bodyStr = JSON.stringify(bodyObj);
   return new Promise((resolve, reject) => {
-    const options = {
+    const lib = target.protocol === 'https:' ? https : http;
+    const req = lib.request({
       hostname: target.hostname,
-      port: parseInt(target.port) || 7015,
+      port:     parseInt(target.port) || 7015,
       path,
-      method: 'POST',
+      method:   'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type':   'application/json; charset=utf-8',
         'Content-Length': Buffer.byteLength(bodyStr),
         ...extraHeaders,
       },
-    };
-    const lib = target.protocol === 'https:' ? https : http;
-    const req = lib.request(options, (res) => {
+    }, (res) => {
       let data = '';
       res.on('data', c => { data += c; });
-      res.on('end', () => {
-        // Capture session cookie from any response
-        const sc = res.headers['set-cookie'];
-        if (sc) {
-          const sid = (Array.isArray(sc) ? sc : [sc]).find(c => c.startsWith('session_id='));
-          if (sid) _odooSession = { ..._odooSession, cookie: sid.split(';')[0] };
-        }
-        resolve({ status: res.statusCode, body: data });
-      });
+      res.on('end', () => resolve({ status: res.statusCode, body: data }));
     });
     req.on('error', reject);
-    req.setTimeout(14000, () => req.destroy(new Error('Odoo timeout')));
+    req.setTimeout(15000, () => req.destroy(new Error('Odoo timeout')));
     req.write(bodyStr);
     req.end();
   });
 }
 
-async function odooRpc(endpoint, params) {
-  const body = JSON.stringify({ jsonrpc: '2.0', method: 'call', id: Date.now(), params });
-  const headers = _odooSession?.cookie ? { Cookie: _odooSession.cookie } : {};
-  const { body: raw, status } = await odooRawRequest(endpoint, body, headers);
-  if (status === 404) throw new Error(`Odoo endpoint not found: ${endpoint}`);
-  let parsed;
-  try { parsed = JSON.parse(raw); } catch { throw new Error('Odoo response parse error: ' + raw.substring(0, 120)); }
-  if (parsed.error) throw new Error(parsed.error.data?.message || parsed.error.message || 'Odoo RPC error');
-  return parsed.result;
-}
-
 async function odooGetDb() {
   if (_odooDbCache) return _odooDbCache;
   if (process.env.ODOO_DB) { _odooDbCache = process.env.ODOO_DB; return _odooDbCache; }
+  // Auto-detect via legacy JSON-RPC db service
   try {
-    const body = JSON.stringify({ jsonrpc: '2.0', method: 'call', id: 1, params: {} });
-    const { body: raw } = await odooRawRequest('/web/database/list', body, {});
-    const result = JSON.parse(raw);
-    const dbs = result.result;
-    if (Array.isArray(dbs) && dbs.length > 0) {
-      _odooDbCache = dbs[0];
-      console.log(`[Odoo] Auto-detected DB: ${_odooDbCache}`);
+    const { body } = await odooHttpPost('/jsonrpc',
+      { jsonrpc: '2.0', method: 'call', id: 1, params: { service: 'db', method: 'list', args: [] } });
+    const r = JSON.parse(body);
+    if (Array.isArray(r.result) && r.result.length) {
+      _odooDbCache = r.result[0];
+      console.log(`[Odoo] Auto-detected DB: "${_odooDbCache}"`);
       return _odooDbCache;
     }
   } catch (e) {
-    console.warn('[Odoo] DB auto-detect failed:', e.message);
+    console.warn('[Odoo] DB auto-detect error:', e.message);
   }
   return null;
 }
 
-async function odooAuthenticate() {
-  if (_odooSession?.uid && Date.now() < (_odooSession.expiresAt || 0)) return true;
-  _odooSession = null; // reset stale session
-
-  const login    = process.env.ODOO_API_USER;
-  const password = process.env.ODOO_API_KEY || process.env.ODOO_API_PASSWORD;
-  if (!login || !password) {
-    console.error('[Odoo] Missing ODOO_API_USER and ODOO_API_KEY env vars');
-    return false;
+// Legacy: authenticate once → get integer uid
+async function odooLegacyAuth(db, login, apikey) {
+  if (_odooUidCache) return _odooUidCache;
+  const { body, status } = await odooHttpPost('/jsonrpc', {
+    jsonrpc: '2.0', method: 'call', id: Date.now(),
+    params: { service: 'common', method: 'authenticate', args: [db, login, apikey, {}] },
+  });
+  if (status !== 200) throw new Error(`Odoo auth HTTP ${status}: ${body.substring(0, 200)}`);
+  const r = JSON.parse(body);
+  if (r.error) throw new Error(r.error.data?.message || r.error.message || 'Odoo auth error');
+  if (!r.result || typeof r.result !== 'number') {
+    throw new Error('Auth failed — check ODOO_API_USER and ODOO_API_KEY (got: ' + JSON.stringify(r.result) + ')');
   }
+  _odooUidCache = r.result;
+  console.log(`✓ Odoo legacy auth OK (uid=${_odooUidCache}, db=${db})`);
+  return _odooUidCache;
+}
+
+// Legacy: stateless call with [db, uid, apikey, model, method, args, kwargs]
+async function odooLegacyExecute(model, method, args, kwargs, db, uid, apikey) {
+  const { body, status } = await odooHttpPost('/jsonrpc', {
+    jsonrpc: '2.0', method: 'call', id: Date.now(),
+    params: { service: 'object', method: 'execute_kw', args: [db, uid, apikey, model, method, args, kwargs] },
+  });
+  if (status !== 200) throw new Error(`Odoo execute HTTP ${status}`);
+  const r = JSON.parse(body);
+  if (r.error) throw new Error(r.error.data?.message || r.error.message || 'Odoo execute error');
+  return r.result;
+}
+
+// JSON-2: POST /json/2/<model>/<method> with bearer token
+async function odooJson2Execute(model, method, params, db, apikey) {
+  const { body, status } = await odooHttpPost(`/json/2/${model}/${method}`, params, {
+    Authorization:      `bearer ${apikey}`,
+    'X-Odoo-Database':  db,
+    'User-Agent':       'RENACE.TECH NodeProxy/1.0',
+  });
+  if (status === 404) return { notFound: true };
+  if (status === 401) throw new Error('API key inválida o usuario sin permisos (401)');
+  if (status >= 400) {
+    let msg = `HTTP ${status}`;
+    try { msg = JSON.parse(body)?.message || msg; } catch {}
+    throw new Error(`Odoo JSON-2 error: ${msg}`);
+  }
+  return { result: JSON.parse(body) };
+}
+
+// Main entry — auto-detects API mode, transparently retries legacy on 404
+async function odooExecute(model, method, args = [], kwargs = {}) {
+  const login  = process.env.ODOO_API_USER;
+  const apikey = process.env.ODOO_API_KEY;
+  if (!login || !apikey) throw new Error('Faltan env vars: ODOO_API_USER y ODOO_API_KEY');
 
   const db = await odooGetDb();
-  if (!db) {
-    console.error('[Odoo] No database found. Set ODOO_DB env var.');
-    return false;
+  if (!db) throw new Error('No se encontró base de datos. Define ODOO_DB en el .env.');
+
+  // Try JSON-2 unless already confirmed legacy
+  if (_odooApiMode !== 'legacy') {
+    // Translate to JSON-2 flat body: kwargs keys become top-level, ids = args[0]
+    const body = { context: { lang: 'es_419' }, ...kwargs };
+    if (args.length && Array.isArray(args[0])) body.domain = args[0]; // search/search_read
+    else if (args.length)                       body.ids    = args[0]; // read/write/unlink
+    try {
+      const resp = await odooJson2Execute(model, method, body, db, apikey);
+      if (!resp.notFound) {
+        if (_odooApiMode !== 'json2') {
+          _odooApiMode = 'json2';
+          console.log('[Odoo] ✓ Using JSON-2 API (/json/2/)');
+        }
+        return resp.result;
+      }
+      // 404 → JSON-2 not available in this Odoo version
+      _odooApiMode = 'legacy';
+      _odooUidCache = null;
+      console.log('[Odoo] JSON-2 not available (404), switching to legacy /jsonrpc');
+    } catch (e) {
+      if (_odooApiMode === 'json2') throw e; // confirmed json2 already, real error
+      _odooApiMode = 'legacy';
+      _odooUidCache = null;
+      console.warn('[Odoo] JSON-2 attempt failed, using legacy:', e.message);
+    }
   }
 
-  try {
-    const result = await odooRpc('/web/session/authenticate', { db, login, password });
-    if (!result?.uid) {
-      console.error('[Odoo] Auth failed — check ODOO_API_USER and ODOO_API_KEY');
-      return false;
-    }
-    _odooSession = { ..._odooSession, uid: result.uid, db, expiresAt: Date.now() + 3_600_000 };
-    console.log(`✓ Odoo session OK (uid=${result.uid}, db=${db})`);
-    return true;
-  } catch (e) {
-    console.error('[Odoo auth]', e.message);
-    return false;
-  }
+  // Legacy JSON-RPC
+  const uid = await odooLegacyAuth(db, login, apikey);
+  return odooLegacyExecute(model, method, args, kwargs, db, uid, apikey);
 }
 
 // GET /api/odoo/products
 app.get('/api/odoo/products', apiLimiter, async (req, res) => {
   try {
-    if (!await odooAuthenticate()) return res.status(503).json({ error: 'Odoo no autenticado. Configura ODOO_API_USER y ODOO_API_KEY en el .env del servidor.' });
-    const products = await odooRpc('/web/dataset/call_kw', {
-      model: 'product.template',
-      method: 'search_read',
-      args: [],
-      kwargs: {
-        domain: [['sale_ok', '=', true], ['active', '=', true]],
-        fields: ['id', 'name', 'list_price', 'description_sale', 'image_128', 'categ_id', 'type'],
-        limit: 24,
-        order: 'name asc',
-      },
-    });
+    const products = await odooExecute(
+      'product.template', 'search_read',
+      [[['sale_ok', '=', true], ['active', '=', true]]],
+      { fields: ['id', 'name', 'list_price', 'description_sale', 'image_128', 'categ_id', 'type'], limit: 24, order: 'name asc' }
+    );
     res.json(products || []);
   } catch (e) {
     console.error('[Odoo products]', e.message);
-    res.status(502).json({ error: 'No se pudieron obtener los productos' });
+    res.status(502).json({ error: e.message });
   }
 });
 
@@ -692,43 +737,34 @@ app.post('/api/odoo/quote', apiLimiter, async (req, res) => {
   const { items, customer } = req.body || {};
   if (!Array.isArray(items) || !items.length) return res.status(400).json({ error: 'Items requeridos' });
   try {
-    if (!await odooAuthenticate()) return res.status(503).json({ error: 'Odoo credentials not configured' });
     let partnerId = parseInt(process.env.ODOO_DEFAULT_PARTNER || '3', 10);
     if (customer?.email) {
-      const existing = await odooRpc('/web/dataset/call_kw', {
-        model: 'res.partner', method: 'search_read',
-        args: [[['email', '=', customer.email]]],
-        kwargs: { fields: ['id'], limit: 1 },
-      });
+      const existing = await odooExecute('res.partner', 'search_read',
+        [[['email', '=', customer.email]]],
+        { fields: ['id'], limit: 1 });
       if (existing?.length) {
         partnerId = existing[0].id;
       } else {
-        partnerId = await odooRpc('/web/dataset/call_kw', {
-          model: 'res.partner', method: 'create',
-          args: [{ name: customer.name || customer.email, email: customer.email, phone: customer.phone || '' }],
-          kwargs: {},
-        });
+        const created = await odooExecute('res.partner', 'create',
+          [{ name: customer.name || customer.email, email: customer.email, phone: customer.phone || '' }]);
+        partnerId = Array.isArray(created) ? created[0] : created;
       }
     }
-    const orderId = await odooRpc('/web/dataset/call_kw', {
-      model: 'sale.order', method: 'create',
-      args: [{
-        partner_id: partnerId,
-        note: customer?.message || 'Cotización creada desde web chat RENACE.TECH',
-        order_line: items.map(item => [0, 0, {
-          product_id: item.id,
-          product_uom_qty: item.qty || 1,
-          price_unit: item.price,
-          name: item.name,
-        }]),
-      }],
-      kwargs: {},
-    });
-    const order = await odooRpc('/web/dataset/call_kw', {
-      model: 'sale.order', method: 'search_read',
-      args: [[['id', '=', orderId]]],
-      kwargs: { fields: ['name', 'amount_total'], limit: 1 },
-    });
+    const orderVals = {
+      partner_id: partnerId,
+      note: customer?.message || 'Cotización creada desde web chat RENACE.TECH',
+      order_line: items.map(item => [0, 0, {
+        product_id: item.id,
+        product_uom_qty: item.qty || 1,
+        price_unit: item.price,
+        name: item.name,
+      }]),
+    };
+    const created = await odooExecute('sale.order', 'create', [orderVals]);
+    const orderId = Array.isArray(created) ? created[0] : created;
+    const order = await odooExecute('sale.order', 'search_read',
+      [[['id', '=', orderId]]],
+      { fields: ['name', 'amount_total'], limit: 1 });
     res.json({ success: true, orderId, orderRef: order?.[0]?.name || `SO-${orderId}`, total: order?.[0]?.amount_total || 0 });
   } catch (e) {
     console.error('[Odoo quote]', e.message);
