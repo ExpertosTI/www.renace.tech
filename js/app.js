@@ -984,7 +984,7 @@ class TerminalAnimator {
       </button>
     `;
     this.container.appendChild(actions);
-    this.scrollToBottom();
+    this.container.scrollTop = this.container.scrollHeight;
   }
 }
 
