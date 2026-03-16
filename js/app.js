@@ -399,34 +399,72 @@ function initDocumentsList() {
   updateDocumentsFilter();
 }
 
+function showConfirmModal({ title, message, confirmText = 'Confirmar', cancelText = 'Cancelar', onConfirm }) {
+  const existing = document.getElementById('app-confirm-modal');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'app-confirm-modal';
+  overlay.className = 'app-modal-overlay';
+  overlay.innerHTML = `
+    <div class="app-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="app-modal-icon"><i class="fas fa-exclamation-triangle"></i></div>
+      <h3 class="app-modal-title" id="modal-title">${title}</h3>
+      <p class="app-modal-message">${message}</p>
+      <div class="app-modal-actions">
+        <button class="app-modal-btn app-modal-btn--cancel" id="modal-cancel">${cancelText}</button>
+        <button class="app-modal-btn app-modal-btn--confirm" id="modal-confirm">${confirmText}</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('visible'));
+
+  const close = () => { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); };
+  overlay.querySelector('#modal-cancel').addEventListener('click', close);
+  overlay.querySelector('#modal-confirm').addEventListener('click', () => { close(); onConfirm(); });
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  document.addEventListener('keydown', function esc(e) {
+    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); }
+  });
+}
+
 function deleteDocument(id, name) {
   if (!_adminCredential) {
     showNotification('Desbloquea con el PIN de administrador para eliminar.', 'error');
     return;
   }
-  if (!confirm(`¿Eliminar "${name}"? Esta acción no se puede deshacer.`)) return;
 
-  fetch(`/api/documents/${id}`, {
-    method: 'DELETE',
-    headers: { 'x-admin-pin': _adminCredential }
-  })
-    .then(async r => {
-      if (!r.ok) {
-        const d = await r.json().catch(() => ({}));
-        throw new Error(d.error || 'Error al eliminar');
-      }
-      return r.json();
-    })
-    .then(() => {
-      showNotification(`"${name}" eliminado correctamente.`, 'success');
-      loadDocuments();
-    })
-    .catch(err => {
-      if ((err.message || '').toLowerCase().includes('no autorizado')) {
-        _adminCredential = '';
-      }
-      showNotification(err.message || 'Error al eliminar.', 'error');
-    });
+  showConfirmModal({
+    title: 'Eliminar archivo',
+    message: `¿Eliminar <strong>${utils.escapeHtml(name)}</strong>? Esta acción no se puede deshacer.`,
+    confirmText: 'Eliminar',
+    cancelText: 'Cancelar',
+    onConfirm: () => {
+      fetch(`/api/documents/${id}`, {
+        method: 'DELETE',
+        headers: { 'x-admin-pin': _adminCredential }
+      })
+        .then(async r => {
+          if (!r.ok) {
+            const d = await r.json().catch(() => ({}));
+            throw new Error(d.error || 'Error al eliminar');
+          }
+          return r.json();
+        })
+        .then(() => {
+          showNotification(`"${name}" eliminado correctamente.`, 'success');
+          loadDocuments();
+        })
+        .catch(err => {
+          if ((err.message || '').toLowerCase().includes('no autorizado')) {
+            _adminCredential = '';
+          }
+          showNotification(err.message || 'Error al eliminar.', 'error');
+        });
+    }
+  });
 }
 
 function loadDocuments() {

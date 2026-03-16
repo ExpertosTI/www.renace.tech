@@ -1194,6 +1194,67 @@ a *, button *, [onclick] *, .finder-control *, .control *, .terminal-btn *, .btn
   .rg-chat-window { width: calc(100vw - 2rem); right: -0.5rem; }
 }
 
+/* --- Custom Confirm Modal --- */
+.app-modal-overlay {
+  position: fixed; inset: 0; z-index: 10100;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity 0.2s ease;
+  padding: 1rem;
+}
+.app-modal-overlay.visible { opacity: 1; }
+.app-modal {
+  background: rgba(22, 27, 34, 0.97);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.04);
+  padding: 2rem 1.75rem 1.5rem;
+  max-width: 380px; width: 100%;
+  text-align: center;
+  transform: scale(0.95) translateY(8px);
+  transition: transform 0.2s var(--ease-spring);
+}
+.app-modal-overlay.visible .app-modal { transform: scale(1) translateY(0); }
+.app-modal-icon {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 1rem;
+  font-size: 1.3rem; color: #ef4444;
+}
+.app-modal-title {
+  font-size: 1rem; font-weight: 600;
+  color: var(--text-primary); margin: 0 0 0.5rem;
+}
+.app-modal-message {
+  font-size: 0.85rem; color: var(--text-secondary);
+  margin: 0 0 1.5rem; line-height: 1.6;
+}
+.app-modal-message strong { color: var(--text-primary); }
+.app-modal-actions {
+  display: flex; gap: 0.75rem; justify-content: center;
+}
+.app-modal-btn {
+  flex: 1; padding: 0.6rem 1rem; border-radius: var(--radius-sm);
+  font-size: 0.85rem; font-weight: 500; cursor: pointer;
+  border: 1px solid var(--border-color);
+  transition: all var(--transition-fast);
+}
+.app-modal-btn--cancel {
+  background: rgba(255,255,255,0.05); color: var(--text-secondary);
+}
+.app-modal-btn--cancel:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+.app-modal-btn--confirm {
+  background: rgba(239, 68, 68, 0.15); color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+.app-modal-btn--confirm:hover {
+  background: #ef4444; color: #fff;
+  border-color: #ef4444;
+}
+
 /* --- Notifications --- */
 .notification {
   position: fixed; top: -60px; right: 1.5rem; z-index: 10001;
