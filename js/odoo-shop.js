@@ -259,7 +259,22 @@
       const lines = cart.items.map(i => `• ${i.qty}× ${i.name}`).join('\n');
       const phone = this.data.phone ? `\n📱 ${this.data.phone}` : '';
       const note  = this.data.note  ? `\n📝 ${this.data.note}` : '';
-      addBotMsg(`¡Perfecto! Confirma tu cotización:\n\n👤 ${this.data.name}\n📧 ${this.data.email}${phone}${note}\n\n${lines}\n\n💰 Total: **${fmt(cart.total())}**\n\nEscribe **sí** para crear o **cancelar** para salir.`);
+      addBotMsg(`¡Perfecto! Confirma tu cotización:\n\n👤 ${this.data.name}\n📧 ${this.data.email}${phone}${note}\n\n${lines}\n\n💰 Total: **${fmt(cart.total())}**`);
+      const btnBubble = addBotHtml(`
+        <div class="qf-confirm-btns">
+          <button class="qf-confirm-btn qf-confirm-btn--ok"><i class="fas fa-check"></i> Crear cotización</button>
+          <button class="qf-confirm-btn qf-confirm-btn--cancel"><i class="fas fa-times"></i> Cancelar</button>
+        </div>`);
+      setTimeout(() => {
+        btnBubble?.querySelector('.qf-confirm-btn--ok')?.addEventListener('click', () => {
+          btnBubble.closest('li')?.remove();
+          quoteFlow.handle('sí');
+        });
+        btnBubble?.querySelector('.qf-confirm-btn--cancel')?.addEventListener('click', () => {
+          btnBubble.closest('li')?.remove();
+          quoteFlow.handle('cancelar');
+        });
+      }, 50);
     },
 
     async _submit() {

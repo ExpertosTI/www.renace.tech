@@ -854,6 +854,35 @@ app.get('/odoo', (req, res) => res.redirect(301, '/odoo/web'));
 // All other /odoo/** → Odoo HTTP port 7015
 app.use('/odoo', (req, res) => odooProxy(req, res, ODOO_URL, '/odoo'));
 
+// ── /web/** → Odoo (native Odoo paths: /web/login, /web/assets, etc.) ──
+// These are Odoo's own URLs — must NOT be handled by Node.js catch-all.
+app.use('/web', (req, res) => {
+  const target = new URL(ODOO_URL);
+  const lib    = target.protocol === 'https:' ? https : http;
+  const upstreamPath = '/web' + (req.url === '/' ? '' : req.url);
+  const proxyReq = lib.request({
+    hostname: target.hostname,
+    port:     target.port || (target.protocol === 'https:' ? 443 : 80),
+    path:     upstreamPath,
+    method:   req.method,
+    headers:  { ...buildOdooProxyHeaders(req), host: target.host },
+  }, (proxyRes) => {
+    const outHeaders = {};
+    for (const [k, v] of Object.entries(proxyRes.headers)) {
+      if (HOP_BY_HOP.has(k.toLowerCase())) continue;
+      outHeaders[k] = v; // keep Location as-is for /web paths
+    }
+    res.writeHead(proxyRes.statusCode, outHeaders);
+    proxyRes.pipe(res, { end: true });
+  });
+  proxyReq.on('error', (err) => {
+    console.error('[Odoo /web proxy]', err.message);
+    if (!res.headersSent) res.status(502).send('Odoo unavailable');
+  });
+  if (['POST', 'PUT', 'PATCH'].includes(req.method)) req.pipe(proxyReq, { end: true });
+  else proxyReq.end();
+});
+
 // ── Global Error Handler ──
 app.use((err, req, res, _next) => {
   if (err instanceof multer.MulterError) {
