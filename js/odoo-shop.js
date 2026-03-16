@@ -212,11 +212,28 @@
           }, 50);
           break;
 
-        case 'phone':
+        case 'phone': {
           this.data.phone = /^(omitir|no|skip|\.|-+)$/i.test(text) ? '' : text;
           this.state = 'note';
-          addBotMsg('¿Tienes algún comentario especial para tu pedido? Por ejemplo: “necesito instación”, “entrega urgente”… (o escribe “listo” para continuar)');
+          addBotMsg('¿Tienes algún comentario especial para tu pedido?');
+          const noteBubble = addBotHtml(`
+            <div class="qf-note-tags">
+              <button class="qf-note-tag" data-val="Necesito instalación">🔧 Necesito instalación</button>
+              <button class="qf-note-tag" data-val="Entrega urgente">⚡ Entrega urgente</button>
+              <button class="qf-note-tag" data-val="Requiero factura fiscal">🧾 Factura fiscal</button>
+              <button class="qf-note-tag" data-val="Producto de regalo">🎁 Regalo</button>
+              <button class="qf-note-tag qf-note-tag--skip" data-val="listo">✔️ Sin comentarios</button>
+            </div>`);
+          setTimeout(() => {
+            noteBubble?.querySelectorAll('.qf-note-tag').forEach(btn => {
+              btn.addEventListener('click', () => {
+                noteBubble.closest('li')?.remove();
+                quoteFlow.handle(btn.dataset.val);
+              });
+            });
+          }, 50);
           break;
+        }
 
         case 'note':
           this.data.note = /^(listo|no|ninguno?|skip|\.|-+)$/i.test(text) ? '' : text;
@@ -282,11 +299,17 @@
 
   /* ─── Build receipt / ticket card HTML ─────────────────── */
   function buildReceiptHTML(orderRef, total, items, email) {
-    const rows = items.map(i => `
+    const rows = items.map(i => {
+      const thumb = i.image
+        ? `<img class="qt-item-thumb" src="data:image/png;base64,${i.image}" alt="">`
+        : `<div class="qt-item-thumb qt-item-thumb--empty"><i class="fas fa-box"></i></div>`;
+      return `
       <div class="qt-item">
+        ${thumb}
         <span class="qt-item-name">${escHtml((i.qty > 1 ? i.qty + '× ' : '') + i.name)}</span>
         <span class="qt-item-price">${fmt(i.price * i.qty)}</span>
-      </div>`).join('');
+      </div>`;
+    }).join('');
     return `
       <div class="quote-ticket">
         <div class="qt-header">
