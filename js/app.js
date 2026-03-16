@@ -255,6 +255,7 @@ function closeFolder() {
 // ═══════════════════════════════════════════════════════════════
 let DOCUMENTS_DATA = [];
 let documentsViewState = { view: 'list', filter: 'all', search: '' };
+let _adminCredential = '';
 
 function getSafeDocumentUrl(doc) {
   if (!doc || typeof doc.file !== 'string') return null;
@@ -366,6 +367,7 @@ function initDocumentsList() {
     const sizeLabel = doc?.size || '';
     const infoText = typeLabel && sizeLabel ? `${typeLabel} • ${sizeLabel}` : typeLabel || sizeLabel;
 
+    const docId = doc?.id || null;
     item.innerHTML = `
       <div class="document-icon ${typeClass}"><i class="fas ${iconClass}"></i></div>
       <div class="document-meta">
@@ -373,8 +375,19 @@ function initDocumentsList() {
         ${infoText ? `<div class="document-info">${utils.escapeHtml(infoText)}</div>` : ''}
       </div>
       ${url ? '<div class="document-download"><i class="fas fa-download"></i></div>' : ''}
+      ${docId ? `<button class="document-delete-btn" title="Eliminar documento" data-id="${docId}" aria-label="Eliminar ${utils.escapeHtml(nameText)}"><i class="fas fa-trash"></i></button>` : ''}
     `;
     item.title = `${nameText}${infoText ? ' — ' + infoText : ''}`;
+    if (docId) {
+      const delBtn = item.querySelector('.document-delete-btn');
+      if (delBtn) {
+        delBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          deleteDocument(docId, nameText);
+        });
+      }
+    }
     list.appendChild(item);
   });
 
@@ -384,6 +397,36 @@ function initDocumentsList() {
   emptyFilter.style.display = 'none';
   list.appendChild(emptyFilter);
   updateDocumentsFilter();
+}
+
+function deleteDocument(id, name) {
+  if (!_adminCredential) {
+    showNotification('Desbloquea con el PIN de administrador para eliminar.', 'error');
+    return;
+  }
+  if (!confirm(`¿Eliminar "${name}"? Esta acción no se puede deshacer.`)) return;
+
+  fetch(`/api/documents/${id}`, {
+    method: 'DELETE',
+    headers: { 'x-admin-pin': _adminCredential }
+  })
+    .then(async r => {
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        throw new Error(d.error || 'Error al eliminar');
+      }
+      return r.json();
+    })
+    .then(() => {
+      showNotification(`"${name}" eliminado correctamente.`, 'success');
+      loadDocuments();
+    })
+    .catch(err => {
+      if ((err.message || '').toLowerCase().includes('no autorizado')) {
+        _adminCredential = '';
+      }
+      showNotification(err.message || 'Error al eliminar.', 'error');
+    });
 }
 
 function loadDocuments() {
@@ -447,7 +490,6 @@ function initDocumentsUpload() {
   const uploadNavBtn = document.querySelector('.finder-nav-btn[data-view="upload"]');
   const submitBtn = form?.querySelector('button[type="submit"]');
   let adminUnlocked = false;
-  let adminCredential = '';
 
   function setAdminVisibility(visible) {
     if (uploadNavBtn) uploadNavBtn.style.display = visible ? 'inline-flex' : 'none';
@@ -479,6 +521,7 @@ function initDocumentsUpload() {
         setAdminVisibility(true);
         if (pinInput) { pinInput.disabled = false; pinInput.focus(); }
       } else {
+        _adminCredential = '';
         setAdminUnlocked(false);
         if (pinInput) pinInput.value = '';
         showNotification('Panel bloqueado.', 'info');
@@ -491,7 +534,7 @@ function initDocumentsUpload() {
     unlockBtn.addEventListener('click', () => {
       const nextCredential = pinInput.value.trim();
       if (nextCredential) {
-        adminCredential = nextCredential;
+        _adminCredential = nextCredential;
         setAdminUnlocked(true);
         setAdminVisibility(true);
         showNotification('Credencial cargada. Se validará al subir.', 'success');
@@ -503,7 +546,7 @@ function initDocumentsUpload() {
 
   if (lockBackBtn) {
     lockBackBtn.addEventListener('click', () => {
-      adminCredential = '';
+      _adminCredential = '';
       setAdminUnlocked(false);
       if (pinInput) pinInput.value = '';
       setAdminVisibility(false);
@@ -543,14 +586,14 @@ function initDocumentsUpload() {
       if (!adminUnlocked) { showNotification('Desbloquea con el PIN primero.', 'error'); return; }
       const files = Array.from(input.files || []);
       if (!files.length) { showNotification('Selecciona al menos un archivo.', 'error'); return; }
-      if (!adminCredential) { showNotification('Ingresa tu credencial de administrador.', 'error'); return; }
+      if (!_adminCredential) { showNotification('Ingresa tu credencial de administrador.', 'error'); return; }
 
       const formData = new FormData();
       files.forEach(f => formData.append('files', f));
 
       fetch('/api/documents', {
         method: 'POST',
-        headers: { 'x-admin-pin': adminCredential },
+        headers: { 'x-admin-pin': _adminCredential },
         body: formData
       })
         .then(async r => {
@@ -567,7 +610,7 @@ function initDocumentsUpload() {
         })
         .catch(err => {
           if ((err.message || '').toLowerCase().includes('no autorizado')) {
-            adminCredential = '';
+            _adminCredential = '';
             setAdminUnlocked(false);
             if (pinInput) {
               pinInput.value = '';
@@ -928,18 +971,6 @@ class TerminalAnimator {
       await this.wait(60);
     }
 
-    await this.wait(300);
-    const actions = document.createElement('div');
-    actions.className = 'terminal-actions';
-    actions.innerHTML = `
-      <button class="terminal-btn primary pulse-button" onclick="startProject()">
-        <i class="fas fa-rocket"></i> Iniciar Proyecto
-      </button>
-      <button class="terminal-btn secondary" onclick="scrollToFiles()">
-        <i class="fas fa-folder"></i> Ver Documentos
-      </button>
-    `;
-    this.container.appendChild(actions);
   }
 }
 

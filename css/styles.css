@@ -846,6 +846,17 @@ a *, button *, [onclick] *, .finder-control *, .control *, .terminal-btn *, .btn
 }
 .document-item:hover .document-download { color: var(--accent-blue); background: rgba(56, 189, 248, 0.1); }
 
+.document-delete-btn {
+  display: none; flex-shrink: 0; width: 32px; height: 32px;
+  align-items: center; justify-content: center;
+  color: var(--text-muted); font-size: 0.75rem;
+  border-radius: 6px; background: transparent; border: none;
+  cursor: pointer; transition: all var(--transition-fast);
+  margin-left: 0.25rem;
+}
+.document-delete-btn:hover { color: #ef4444; background: rgba(239, 68, 68, 0.12); }
+.finder-window.documents-admin-unlocked .document-delete-btn { display: flex; }
+
 .document-empty { text-align: center; padding: 3rem 1rem; color: var(--text-muted); font-size: 0.9rem; }
 
 /* Upload Form */
