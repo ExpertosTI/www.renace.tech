@@ -621,7 +621,7 @@ function odooProxy(req, res, targetBase, stripPrefix) {
 
 let _odooDbCache  = null;
 let _odooUidCache = null;   // uid for legacy mode
-let _odooApiMode  = null;   // 'json2' | 'legacy' — detected on first call
+let _odooApiMode  = 'legacy';   // force legacy to avoid lang errors
 
 function odooHttpPost(path, bodyObj, extraHeaders) {
   const target  = new URL(ODOO_URL);
@@ -725,40 +725,10 @@ async function odooExecute(model, method, args = [], kwargs = {}) {
   const db = await odooGetDb();
   if (!db) throw new Error('No se encontró base de datos. Define ODOO_DB en el .env.');
 
-  // Try JSON-2 unless already confirmed legacy
-  if (_odooApiMode !== 'legacy') {
-    // Translate to JSON-2 flat body: kwargs keys become top-level, ids = args[0]
-    const body = { context: { lang: DEFAULT_LANG }, ...kwargs };
-    if (args.length && Array.isArray(args[0])) body.domain = args[0]; // search/search_read
-    else if (args.length)                       body.ids    = args[0]; // read/write/unlink
-    try {
-      const resp = await odooJson2Execute(model, method, body, db, apikey);
-      if (!resp.notFound) {
-        if (_odooApiMode !== 'json2') {
-          _odooApiMode = 'json2';
-          console.log('[Odoo] ✓ Using JSON-2 API (/json/2/)');
-        }
-        return resp.result;
-      }
-      // 404 → JSON-2 not available in this Odoo version
-      _odooApiMode = 'legacy';
-      _odooUidCache = null;
-      console.log('[Odoo] JSON-2 not available (404), switching to legacy /jsonrpc');
-    } catch (e) {
-      if (_odooApiMode === 'json2') throw e; // confirmed json2 already, real error
-      const msg = e.message || '';
-      const invalidLang = msg.includes('Invalid language code');
-      _odooApiMode = 'legacy';
-      _odooUidCache = null;
-      console.log(invalidLang
-        ? '[Odoo] JSON-2 invalid lang, switching to legacy /jsonrpc'
-        : '[Odoo] JSON-2 not available (404), switching to legacy /jsonrpc');
-    }
-  }
-
-  // Legacy JSON-RPC
+  // Legacy JSON-RPC (forced)
   const uid = await odooLegacyAuth(db, login, apikey);
-  return odooLegacyExecute(model, method, args, kwargs, db, uid, apikey);
+  const ctxMerged = { ...kwargs, context: { lang: DEFAULT_LANG, ...(kwargs?.context || {}) } };
+  return odooLegacyExecute(model, method, args, ctxMerged, db, uid, apikey);
 }
 
 // Force legacy execution (skip JSON-2) — used for sale.order create to avoid lang issues
@@ -873,15 +843,15 @@ app.post('/api/odoo/quote', apiLimiter, async (req, res) => {
     const validItems = items.filter(i => priceMap[i.id]);
     if (!validItems.length) return res.status(400).json({ error: 'Ningún producto válido en el pedido' });
 
-    // ── Partner lookup / creation ──
+    // ── Partner lookup / creation (force legacy) ──
     let partnerId = parseInt(process.env.ODOO_DEFAULT_PARTNER || '3', 10);
     if (email) {
-      const existing = await odooExecute('res.partner', 'search_read',
+      const existing = await odooForceLegacy('res.partner', 'search_read',
         [[['email', '=', email]]], { fields: ['id'], limit: 1 });
       if (existing?.length) {
         partnerId = existing[0].id;
       } else {
-        const created = await odooExecute('res.partner', 'create',
+        const created = await odooForceLegacy('res.partner', 'create',
           [{ name: name || email, email, phone }]);
         partnerId = Array.isArray(created) ? created[0] : created;
       }
@@ -896,7 +866,7 @@ app.post('/api/odoo/quote', apiLimiter, async (req, res) => {
         price_unit: priceMap[item.id].price,  // server-side price
         name: priceMap[item.id].name,         // server-side name
       }]),
-      partner_lang: 'es_ES',
+      partner_lang: DEFAULT_LANG,
     };
 
     // Use legacy explicitly to avoid JSON-2 language issues
