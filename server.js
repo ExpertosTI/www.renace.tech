@@ -761,6 +761,17 @@ async function odooExecute(model, method, args = [], kwargs = {}) {
   return odooLegacyExecute(model, method, args, kwargs, db, uid, apikey);
 }
 
+// Force legacy execution (skip JSON-2) — used for sale.order create to avoid lang issues
+async function odooForceLegacy(model, method, args = [], kwargs = {}) {
+  const login  = process.env.ODOO_API_USER;
+  const apikey = process.env.ODOO_API_KEY;
+  if (!login || !apikey) throw new Error('Faltan env vars: ODOO_API_USER y ODOO_API_KEY');
+  const db = await odooGetDb();
+  if (!db) throw new Error('No se encontró base de datos. Define ODOO_DB en el .env.');
+  const uid = await odooLegacyAuth(db, login, apikey);
+  return odooLegacyExecute(model, method, args, kwargs, db, uid, apikey);
+}
+
 // GET /api/odoo/products[?q=search&categ=name&limit=24]
 app.get('/api/odoo/products', apiLimiter, async (req, res) => {
   try {
@@ -888,9 +899,10 @@ app.post('/api/odoo/quote', apiLimiter, async (req, res) => {
       partner_lang: 'es_ES',
     };
 
-    const created = await odooExecute('sale.order', 'create', [orderVals]);
+    // Use legacy explicitly to avoid JSON-2 language issues
+    const created = await odooForceLegacy('sale.order', 'create', [orderVals]);
     const orderId = Array.isArray(created) ? created[0] : created;
-    const order   = await odooExecute('sale.order', 'search_read',
+    const order   = await odooForceLegacy('sale.order', 'search_read',
       [[['id', '=', orderId]]], { fields: ['name', 'amount_total'], limit: 1 });
     res.json({ success: true, orderId, orderRef: order?.[0]?.name || `SO-${orderId}`, total: order?.[0]?.amount_total || 0 });
   } catch (e) {
