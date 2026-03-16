@@ -563,21 +563,23 @@ function odooProxy(req, res, targetBase, stripPrefix) {
 }
 
 // ── Odoo JSON-RPC API Client ────────────────────────────────────
-let _odooSession = null; // { cookie, uid, expiresAt }
+// Supports API key auth (Odoo 14+): set ODOO_API_KEY env var.
+// DB name is auto-discovered if ODOO_DB is not set.
+let _odooSession = null; // { cookie, uid, db, expiresAt }
+let _odooDbCache = null;
 
-async function odooRpc(endpoint, params) {
+function odooRawRequest(path, bodyStr, extraHeaders) {
   const target = new URL(ODOO_URL);
-  const body = JSON.stringify({ jsonrpc: '2.0', method: 'call', id: Date.now(), params });
   return new Promise((resolve, reject) => {
     const options = {
       hostname: target.hostname,
       port: parseInt(target.port) || 7015,
-      path: endpoint,
+      path,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(body),
-        ...(_odooSession?.cookie ? { Cookie: _odooSession.cookie } : {}),
+        'Content-Length': Buffer.byteLength(bodyStr),
+        ...extraHeaders,
       },
     };
     const lib = target.protocol === 'https:' ? https : http;
@@ -585,36 +587,77 @@ async function odooRpc(endpoint, params) {
       let data = '';
       res.on('data', c => { data += c; });
       res.on('end', () => {
+        // Capture session cookie from any response
         const sc = res.headers['set-cookie'];
         if (sc) {
           const sid = (Array.isArray(sc) ? sc : [sc]).find(c => c.startsWith('session_id='));
           if (sid) _odooSession = { ..._odooSession, cookie: sid.split(';')[0] };
         }
-        try {
-          const parsed = JSON.parse(data);
-          if (parsed.error) reject(new Error(parsed.error.data?.message || 'Odoo RPC error'));
-          else resolve(parsed.result);
-        } catch { reject(new Error('Odoo response parse error')); }
+        resolve({ status: res.statusCode, body: data });
       });
     });
     req.on('error', reject);
-    req.setTimeout(12000, () => req.destroy(new Error('Odoo timeout')));
-    req.write(body);
+    req.setTimeout(14000, () => req.destroy(new Error('Odoo timeout')));
+    req.write(bodyStr);
     req.end();
   });
 }
 
+async function odooRpc(endpoint, params) {
+  const body = JSON.stringify({ jsonrpc: '2.0', method: 'call', id: Date.now(), params });
+  const headers = _odooSession?.cookie ? { Cookie: _odooSession.cookie } : {};
+  const { body: raw, status } = await odooRawRequest(endpoint, body, headers);
+  if (status === 404) throw new Error(`Odoo endpoint not found: ${endpoint}`);
+  let parsed;
+  try { parsed = JSON.parse(raw); } catch { throw new Error('Odoo response parse error: ' + raw.substring(0, 120)); }
+  if (parsed.error) throw new Error(parsed.error.data?.message || parsed.error.message || 'Odoo RPC error');
+  return parsed.result;
+}
+
+async function odooGetDb() {
+  if (_odooDbCache) return _odooDbCache;
+  if (process.env.ODOO_DB) { _odooDbCache = process.env.ODOO_DB; return _odooDbCache; }
+  try {
+    const body = JSON.stringify({ jsonrpc: '2.0', method: 'call', id: 1, params: {} });
+    const { body: raw } = await odooRawRequest('/web/database/list', body, {});
+    const result = JSON.parse(raw);
+    const dbs = result.result;
+    if (Array.isArray(dbs) && dbs.length > 0) {
+      _odooDbCache = dbs[0];
+      console.log(`[Odoo] Auto-detected DB: ${_odooDbCache}`);
+      return _odooDbCache;
+    }
+  } catch (e) {
+    console.warn('[Odoo] DB auto-detect failed:', e.message);
+  }
+  return null;
+}
+
 async function odooAuthenticate() {
   if (_odooSession?.uid && Date.now() < (_odooSession.expiresAt || 0)) return true;
-  const db = process.env.ODOO_DB;
-  const login = process.env.ODOO_API_USER;
-  const password = process.env.ODOO_API_PASSWORD;
-  if (!db || !login || !password) return false;
+  _odooSession = null; // reset stale session
+
+  const login    = process.env.ODOO_API_USER;
+  const password = process.env.ODOO_API_KEY || process.env.ODOO_API_PASSWORD;
+  if (!login || !password) {
+    console.error('[Odoo] Missing ODOO_API_USER and ODOO_API_KEY env vars');
+    return false;
+  }
+
+  const db = await odooGetDb();
+  if (!db) {
+    console.error('[Odoo] No database found. Set ODOO_DB env var.');
+    return false;
+  }
+
   try {
     const result = await odooRpc('/web/session/authenticate', { db, login, password });
-    if (!result?.uid) return false;
-    _odooSession = { ..._odooSession, uid: result.uid, expiresAt: Date.now() + 3_600_000 };
-    console.log(`✓ Odoo session OK (uid=${result.uid})`);
+    if (!result?.uid) {
+      console.error('[Odoo] Auth failed — check ODOO_API_USER and ODOO_API_KEY');
+      return false;
+    }
+    _odooSession = { ..._odooSession, uid: result.uid, db, expiresAt: Date.now() + 3_600_000 };
+    console.log(`✓ Odoo session OK (uid=${result.uid}, db=${db})`);
     return true;
   } catch (e) {
     console.error('[Odoo auth]', e.message);
@@ -625,7 +668,7 @@ async function odooAuthenticate() {
 // GET /api/odoo/products
 app.get('/api/odoo/products', apiLimiter, async (req, res) => {
   try {
-    if (!await odooAuthenticate()) return res.status(503).json({ error: 'Odoo credentials not configured (ODOO_DB, ODOO_API_USER, ODOO_API_PASSWORD)' });
+    if (!await odooAuthenticate()) return res.status(503).json({ error: 'Odoo no autenticado. Configura ODOO_API_USER y ODOO_API_KEY en el .env del servidor.' });
     const products = await odooRpc('/web/dataset/call_kw', {
       model: 'product.template',
       method: 'search_read',
