@@ -1,11 +1,37 @@
 <?php
-// upload.php - Maneja carga de archivos al directorio docs
+// upload.php - Maneja carga de archivos al directorio docs (privado con auth básica)
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 
 $docsDir = __DIR__ . DIRECTORY_SEPARATOR . 'docs';
-$allowedExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'jpg', 'jpeg', 'png', 'gif', 'svg', 'zip', 'exe', 'msi', 'rar', '7z'];
-$maxFileSize = 20 * 1024 * 1024; // 20MB
+$maxFileSize = 400 * 1024 * 1024; // 400MB
+
+function require_basic_auth(): void
+{
+    $user = getenv('RENACE_BASIC_USER');
+    $pass = getenv('RENACE_BASIC_PASS');
+
+    if (!$user || !$pass) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Auth no configurada']);
+        exit;
+    }
+
+    if (!isset($_SERVER['PHP_AUTH_USER'], $_SERVER['PHP_AUTH_PW'])) {
+        header('WWW-Authenticate: Basic realm="Renace Upload"');
+        http_response_code(401);
+        echo json_encode(['error' => 'No autorizado']);
+        exit;
+    }
+
+    if (!hash_equals($user, $_SERVER['PHP_AUTH_USER']) || !hash_equals($pass, $_SERVER['PHP_AUTH_PW'])) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Credenciales inválidas']);
+        exit;
+    }
+}
+
+require_basic_auth();
 
 if (!is_dir($docsDir)) {
     http_response_code(500);
@@ -40,14 +66,8 @@ for ($i = 0; $i < count($files['name']); $i++) {
         continue;
     }
 
-    $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-    if (!in_array($ext, $allowedExtensions, true)) {
-        $errors[] = "$name: extensión no permitida";
-        continue;
-    }
-
     if ($size > $maxFileSize) {
-        $errors[] = "$name: supera el tamaño máximo de 20MB";
+        $errors[] = "$name: supera el tamaño máximo de 400MB";
         continue;
     }
 
@@ -57,7 +77,8 @@ for ($i = 0; $i < count($files['name']); $i++) {
     // Evitar sobrescribir: agregar sufijo si existe
     $counter = 1;
     $baseName = pathinfo($safeName, PATHINFO_FILENAME);
-    $extPart = $ext ? '.' . $ext : '';
+    $extPart = pathinfo($safeName, PATHINFO_EXTENSION);
+    $extPart = $extPart ? '.' . $extPart : '';
     while (file_exists($targetPath)) {
         $targetPath = $docsDir . DIRECTORY_SEPARATOR . $baseName . '_' . $counter . $extPart;
         $counter++;

@@ -19,36 +19,177 @@ const fs = require('fs');
 const http = require('http');
 const https = require('https');
 const { URL } = require('url');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const isProd = process.env.NODE_ENV === 'production';
 const FORM_DATA_PATH = path.join(__dirname, 'form', 'data.json');
-const allowedUploadTypes = {
-  pdf: ['application/pdf', 'application/octet-stream'],
-  doc: ['application/msword', 'application/octet-stream'],
-  docx: ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/octet-stream'],
-  xls: ['application/vnd.ms-excel', 'application/octet-stream'],
-  xlsx: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/octet-stream'],
-  ppt: ['application/vnd.ms-powerpoint', 'application/octet-stream'],
-  pptx: ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/octet-stream'],
-  txt: ['text/plain', 'application/octet-stream'],
-  csv: ['text/csv', 'application/csv', 'application/vnd.ms-excel', 'text/plain', 'application/octet-stream'],
-  jpg: ['image/jpeg', 'application/octet-stream'],
-  jpeg: ['image/jpeg', 'application/octet-stream'],
-  png: ['image/png', 'application/octet-stream'],
-  gif: ['image/gif', 'application/octet-stream'],
-  svg: ['image/svg+xml', 'text/plain', 'application/octet-stream'],
-  zip: ['application/zip', 'application/x-zip-compressed', 'multipart/x-zip', 'application/octet-stream'],
-  rar: ['application/vnd.rar', 'application/x-rar-compressed', 'application/octet-stream'],
-  '7z': ['application/x-7z-compressed', 'application/octet-stream'],
-};
 const blockedStaticPathPattern = /(?:^\/(?:server\.js|package(?:-lock)?\.json|docker-compose\.yml|Dockerfile|deploy\.sh)$|\.(?:php|env|yml|yaml|sh|sql|log|bak|md)$)/i;
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'expertostird@gmail.com';
+const ADMIN_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+const ADMIN_CODE_TTL_MS = 10 * 60 * 1000; // 10 min
+
+const adminCodes = new Map(); // email -> { code, exp }
+const adminTokens = new Map(); // token -> { email, exp }
 
 // Enable trust proxy for rate limiting behind Traefik
 if (isProd) {
   app.set('trust proxy', 1);
 }
+
+// ── Admin analytics helpers ──
+async function readAccessLogTail(limitLines = ADMIN_ANALYTICS_LIMIT) {
+  try {
+    const data = await fs.promises.readFile(ACCESS_LOG_PATH, 'utf8');
+    const lines = data.trim().split(/\r?\n/);
+    return lines.slice(-limitLines);
+  } catch (e) {
+    console.warn('[analytics] No se pudo leer access log:', e.message);
+    return [];
+  }
+}
+
+function parseNginxLine(line) {
+  // ej: 1.2.3.4 - - [19/Mar/2024:10:00:00 +0000] "GET /path HTTP/1.1" 200 123 "-" "UA"
+  const match = line.match(/^[^ ]+ [^ ]+ [^ ]+ \[([^\]]+)\] "[A-Z]+ ([^" ]+)/);
+  const statusMatch = line.match(/" \s*(\d{3})/);
+  if (!match || !statusMatch) return null;
+  const tsStr = match[1];
+  const pathStr = match[2] || '/';
+  const status = parseInt(statusMatch[1], 10);
+  const date = parseNginxDate(tsStr);
+  return { date, path: pathStr, status };
+}
+
+function parseNginxDate(str) {
+  // formato: 19/Mar/2024:10:00:00 +0000
+  const parts = str.match(/(\d{2})\/(\w{3})\/(\d{4}):(\d{2}):(\d{2}):(\d{2}) ([+-]\d{4})/);
+  if (!parts) return null;
+  const [_, d, mon, y, hh, mm, ss, offset] = parts;
+  const months = { Jan:0, Feb:1, Mar:2, Apr:3, May:4, Jun:5, Jul:6, Aug:7, Sep:8, Oct:9, Nov:10, Dec:11 };
+  const dt = new Date(Date.UTC(parseInt(y), months[mon], parseInt(d), parseInt(hh), parseInt(mm), parseInt(ss)));
+  // offset ignored for simplicity
+  return dt;
+}
+
+async function summarizeVisits() {
+  const lines = await readAccessLogTail();
+  const summary = { total: 0, last24h: 0, byStatus: {}, topPaths: [] };
+  const pathCount = {};
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  for (const line of lines) {
+    const parsed = parseNginxLine(line);
+    if (!parsed) continue;
+    summary.total += 1;
+    if (parsed.date && parsed.date.getTime() >= cutoff) summary.last24h += 1;
+    summary.byStatus[parsed.status] = (summary.byStatus[parsed.status] || 0) + 1;
+    pathCount[parsed.path] = (pathCount[parsed.path] || 0) + 1;
+  }
+  summary.topPaths = Object.entries(pathCount)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([path, count]) => ({ path, count }));
+  return summary;
+}
+
+async function summarizeSales() {
+  try {
+    const orders = await odooExecute('sale.order', 'search_read', [[['state', 'not in', ['cancel']]]], { fields: ['amount_total', 'date_order'], limit: 50, order: 'date_order desc' });
+    const totalAmount = orders.reduce((acc, o) => acc + (o.amount_total || 0), 0);
+    return { count: orders.length, totalAmount, sample: orders.slice(0, 5).map(o => ({ amount: o.amount_total, date: o.date_order })) };
+  } catch (e) {
+    console.warn('[analytics] Odoo sales error:', e.message);
+    return { degraded: true, error: e.message };
+  }
+}
+
+// ── Admin endpoint ──
+function cleanupAdminTokens() {
+  const now = Date.now();
+  for (const [token, info] of adminTokens.entries()) {
+    if (info.exp <= now) adminTokens.delete(token);
+  }
+}
+
+function cleanupAdminCodes() {
+  const now = Date.now();
+  for (const [email, info] of adminCodes.entries()) {
+    if (info.exp <= now) adminCodes.delete(email);
+  }
+}
+
+function generateCode(len = 6) {
+  const digits = '0123456789';
+  let out = '';
+  for (let i = 0; i < len; i++) {
+    out += digits[Math.floor(Math.random() * digits.length)];
+  }
+  return out;
+}
+
+async function sendAdminCode(email, code) {
+  if (!transporter) return false;
+  try {
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || 'noreply@renace.tech',
+      to: email,
+      subject: 'Código de acceso dashboard Renace',
+      text: `Tu código de acceso es: ${code} (válido por 10 minutos).`,
+    });
+    return true;
+  } catch (e) {
+    console.warn('[admin code email]', e.message);
+    return false;
+  }
+}
+
+app.post('/api/admin/login/request-code', apiLimiter, async (req, res) => {
+  const email = (req.body?.email || '').trim().toLowerCase();
+  if (email !== ADMIN_EMAIL.toLowerCase()) return res.status(403).json({ error: 'No autorizado' });
+  const code = generateCode();
+  const exp = Date.now() + ADMIN_CODE_TTL_MS;
+  adminCodes.set(email, { code, exp });
+  const sent = await sendAdminCode(email, code);
+  if (!sent) return res.status(500).json({ error: 'No se pudo enviar el código' });
+  res.json({ status: 'ok', message: 'Código enviado' });
+});
+
+app.post('/api/admin/login/verify-code', apiLimiter, (req, res) => {
+  const email = (req.body?.email || '').trim().toLowerCase();
+  const code = (req.body?.code || '').trim();
+  cleanupAdminCodes();
+  const stored = adminCodes.get(email);
+  if (!stored || stored.code !== code) return res.status(401).json({ error: 'Código inválido o expirado' });
+  const token = crypto.randomBytes(24).toString('hex');
+  adminTokens.set(token, { email, exp: Date.now() + ADMIN_TOKEN_TTL_MS });
+  adminCodes.delete(email);
+  res.json({ token, ttlMs: ADMIN_TOKEN_TTL_MS });
+});
+
+function requireAdminToken(req, res) {
+  cleanupAdminTokens();
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  if (!token || !adminTokens.has(token)) {
+    res.status(401).json({ error: 'Token inválido o expirado' });
+    return false;
+  }
+  return true;
+}
+
+app.get('/api/admin/analytics', apiLimiter, async (req, res) => {
+  if (!requireAdminToken(req, res)) return;
+  try {
+    const [visits, sales] = await Promise.all([
+      summarizeVisits(),
+      summarizeSales(),
+    ]);
+    res.json({ visits, sales, chats: { note: 'Proxy /api/chat sin métrica local' } });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // ── Security Headers (Helmet) ──
 app.use((req, res, next) => {
@@ -93,6 +234,16 @@ const uploadLimiter = rateLimit({
   max: 20,
   message: { error: 'Demasiadas subidas, intenta más tarde.' },
 });
+
+const chatLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 30,
+  message: { error: 'Chat limitado, intenta más tarde.' },
+});
+
+// ── Paths ──
+const ACCESS_LOG_PATH = process.env.NGINX_ACCESS_LOG || '/var/log/nginx/renace.access.log';
+const ADMIN_ANALYTICS_LIMIT = 1000; // líneas máximas a procesar del log
 
 // ── Database ──
 const pool = new Pool({
@@ -160,17 +311,7 @@ const upload = multer({
   storage: multer.memoryStorage(),
   // Allow files up to 400MB
   limits: { fileSize: 400 * 1024 * 1024, files: 10 },
-  fileFilter: (req, file, cb) => {
-    const ext = path.extname(file.originalname).replace('.', '').toLowerCase();
-    const allowedMimeTypes = allowedUploadTypes[ext];
-    if (!allowedMimeTypes) {
-      return cb(new Error('Tipo de archivo no permitido'), false);
-    }
-    if (!allowedMimeTypes.includes(file.mimetype)) {
-      return cb(new Error('Tipo de archivo no permitido'), false);
-    }
-    cb(null, true);
-  },
+  fileFilter: (_req, _file, cb) => cb(null, true),
 });
 const documentUpload = upload.fields([
   { name: 'files', maxCount: 10 },
@@ -192,6 +333,31 @@ function getAdminCredential(req) {
 
 function getRequestClientIp(req) {
   return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
+}
+
+function requireBasicAuth(req, res) {
+  const user = process.env.RENACE_BASIC_USER;
+  const pass = process.env.RENACE_BASIC_PASS;
+  if (!user || !pass) {
+    res.status(500).json({ error: 'Auth no configurada' });
+    return false;
+  }
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Basic ') ? header.slice(6) : '';
+  const decoded = Buffer.from(token, 'base64').toString('utf8');
+  const [u = '', p = ''] = decoded.split(':');
+  const userBuf = Buffer.from(user);
+  const passBuf = Buffer.from(pass);
+  const uBuf = Buffer.from(u);
+  const pBuf = Buffer.from(p);
+  const valid = uBuf.length === userBuf.length && pBuf.length === passBuf.length
+    && crypto.timingSafeEqual(uBuf, userBuf) && crypto.timingSafeEqual(pBuf, passBuf);
+  if (!valid) {
+    res.set('WWW-Authenticate', 'Basic realm="Renace"');
+    res.status(401).json({ error: 'No autorizado' });
+    return false;
+  }
+  return true;
 }
 
 async function sendDocumentsList(res) {
@@ -330,7 +496,8 @@ app.get('/api/health', async (req, res) => {
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 // Proxy chat webhook to avoid CORS from frontend
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', chatLimiter, async (req, res) => {
+  if (!requireBasicAuth(req, res)) return;
   if (!CHAT_WEBHOOK) return res.status(500).json({ error: 'CHAT_WEBHOOK no configurado' });
   try {
     const upstream = new URL(CHAT_WEBHOOK);
@@ -380,6 +547,7 @@ app.get('/documents.php', apiLimiter, async (req, res) => sendDocumentsList(res)
 app.post('/upload.php', uploadLimiter, documentUpload, async (req, res) => handleDocumentUpload(req, res));
 app.post('/contact.php', contactLimiter, upload.none(), async (req, res) => handleContactSubmission(req, res));
 app.get('/form/guardar.php', apiLimiter, async (req, res) => {
+  if (!requireBasicAuth(req, res)) return;
   try {
     res.json(await readFormEntries());
   } catch {
@@ -387,6 +555,7 @@ app.get('/form/guardar.php', apiLimiter, async (req, res) => {
   }
 });
 app.post('/form/guardar.php', apiLimiter, async (req, res) => {
+  if (!requireBasicAuth(req, res)) return;
   const payload = req.body;
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     return res.status(400).json({ status: 'error', message: 'JSON inválido' });
@@ -531,7 +700,7 @@ function getCategory(ext) {
 // strip /odoo prefix, forward real IP/proto headers, rewrite redirects.
 const ODOO_URL          = process.env.ODOO_URL          || 'http://85.31.224.232:7015';
 const ODOO_LONGPOLL_URL = process.env.ODOO_LONGPOLL_URL || 'http://85.31.224.232:7018';
-const CHAT_WEBHOOK      = process.env.CHAT_WEBHOOK      || 'https://ai.renace.tech/webhook/499666c3-d807-4bb7-8195-43932f64a91f/chat';
+const CHAT_WEBHOOK      = process.env.CHAT_WEBHOOK      || '';
 const DEFAULT_LANG      = process.env.ODOO_LANG         || 'en_US';
 const HOP_BY_HOP = new Set([
   'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
