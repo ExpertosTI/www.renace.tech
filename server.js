@@ -192,6 +192,17 @@ async function sendAdminCode(email, code) {
   }
 }
 
+// ── Middleware ──
+// Skip body parsing for Odoo proxy routes (stream must be unparsed)
+app.use((req, res, next) => {
+  if (req.path.startsWith('/odoo')) return next();
+  express.json({ limit: '1mb' })(req, res, next);
+});
+app.use((req, res, next) => {
+  if (req.path.startsWith('/odoo')) return next();
+  express.urlencoded({ extended: true, limit: '1mb' })(req, res, next);
+});
+
 // ── Security Headers (Helmet) ──
 app.use((req, res, next) => {
   if (req.path.startsWith('/odoo')) return next();
@@ -214,6 +225,9 @@ app.use((req, res, next) => {
     hsts: isProd ? { maxAge: 63072000, includeSubDomains: true, preload: true } : false,
   })(req, res, next);
 });
+
+// Disable X-Powered-By (helmet does this, but belt-and-suspenders)
+app.disable('x-powered-by');
 
 // ── Rate Limiting ──
 const apiLimiter = rateLimit({
@@ -430,19 +444,6 @@ if (process.env.SMTP_HOST) {
 }
 
 // ── Middleware ──
-// Skip body parsing for Odoo proxy routes (stream must be unparsed)
-app.use((req, res, next) => {
-  if (req.path.startsWith('/odoo')) return next();
-  express.json({ limit: '1mb' })(req, res, next);
-});
-app.use((req, res, next) => {
-  if (req.path.startsWith('/odoo')) return next();
-  express.urlencoded({ extended: true, limit: '1mb' })(req, res, next);
-});
-
-// Disable X-Powered-By (helmet does this, but belt-and-suspenders)
-app.disable('x-powered-by');
-
 const upload = multer({
   storage: multer.memoryStorage(),
   // Allow files up to 400MB

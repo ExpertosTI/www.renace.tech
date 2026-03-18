@@ -118,7 +118,18 @@
     // Quote tokens
     const tokens = quotes.tokens || data.tokens || [];
     tokensList.innerHTML = tokens.length
-      ? tokens.map(t => `<li><span>${t.label || 'Token'}</span><span class="muted">${t.token} · expira ${new Date(t.exp).toLocaleString()}</span></li>`).join('')
+      ? tokens.map(t => {
+          const link = `https://renace.tech/cotizacion.html?token=${encodeURIComponent(t.token)}`;
+          const wa = `https://wa.me/?text=${encodeURIComponent('Completa la solicitud de cotización aquí: ' + link)}`;
+          return `<li style="align-items:center; gap:8px; display:flex; justify-content:space-between; flex-wrap:wrap;">
+            <span>${t.label || 'Token'}</span>
+            <span class="muted">${t.token} · expira ${new Date(t.exp).toLocaleString()}</span>
+            <div style="display:flex; gap:6px;">
+              <button class="secondary" style="padding:4px 8px;" onclick="navigator.clipboard.writeText('${link}').then(()=>{}).catch(()=>{})">Copiar link</button>
+              <a class="secondary" style="padding:6px 8px; text-decoration:none; border-radius:8px; background:#1f2937; color:#d1d5db;" href="${wa}" target="_blank" rel="noopener">WhatsApp</a>
+            </div>
+          </li>`;
+        }).join('')
       : '<li><span class="muted">Sin tokens</span></li>';
 
     // Submissions
