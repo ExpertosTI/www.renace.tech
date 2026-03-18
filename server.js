@@ -25,12 +25,60 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const isProd = process.env.NODE_ENV === 'production';
 const FORM_DATA_PATH = path.join(__dirname, 'form', 'data.json');
+const QUOTE_DATA_PATH = path.join(__dirname, 'data', 'quotes.json');
 const blockedStaticPathPattern = /(?:^\/(?:server\.js|package(?:-lock)?\.json|docker-compose\.yml|Dockerfile|deploy\.sh)$|\.(?:php|env|yml|yaml|sh|sql|log|bak|md)$)/i;
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'expertostird@gmail.com';
 const ADMIN_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const ADMIN_CODE_TTL_MS = 10 * 60 * 1000; // 10 min
+const QUOTE_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
 
 const adminCodes = new Map(); // email -> { code, exp }
+
+// ── Quote request storage helpers ──
+async function loadQuoteData() {
+  try {
+    const raw = await fs.promises.readFile(QUOTE_DATA_PATH, 'utf8');
+    const parsed = JSON.parse(raw);
+    return {
+      tokens: Array.isArray(parsed.tokens) ? parsed.tokens : [],
+      submissions: Array.isArray(parsed.submissions) ? parsed.submissions : [],
+    };
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      await fs.promises.mkdir(path.dirname(QUOTE_DATA_PATH), { recursive: true });
+      await fs.promises.writeFile(QUOTE_DATA_PATH, JSON.stringify({ tokens: [], submissions: [] }, null, 2));
+      return { tokens: [], submissions: [] };
+    }
+    throw err;
+  }
+}
+
+// ── Quote token management ──
+async function createQuoteToken(label = 'Solicitud') {
+  const data = await loadQuoteData();
+  const token = generateToken(12);
+  const exp = Date.now() + QUOTE_TOKEN_TTL_MS;
+  data.tokens.push({ token, label, exp, createdAt: new Date().toISOString() });
+  await saveQuoteData(data);
+  return { token, exp };
+}
+
+async function validateQuoteToken(token) {
+  const data = await loadQuoteData();
+  const now = Date.now();
+  data.tokens = data.tokens.filter(t => t.exp > now);
+  const found = data.tokens.find(t => t.token === token && t.exp > now);
+  await saveQuoteData(data);
+  return !!found;
+}
+
+async function saveQuoteData(data) {
+  await fs.promises.writeFile(QUOTE_DATA_PATH, JSON.stringify(data, null, 2));
+}
+
+function generateToken(len = 24) {
+  return crypto.randomBytes(len).toString('hex');
+}
 const adminTokens = new Map(); // token -> { email, exp }
 
 // Enable trust proxy for rate limiting behind Traefik
@@ -181,11 +229,98 @@ function requireAdminToken(req, res) {
 app.get('/api/admin/analytics', apiLimiter, async (req, res) => {
   if (!requireAdminToken(req, res)) return;
   try {
-    const [visits, sales] = await Promise.all([
+    const [visits, sales, quotes] = await Promise.all([
       summarizeVisits(),
       summarizeSales(),
+      loadQuoteData().then(data => ({ tokens: data.tokens, submissions: data.submissions.slice(-100).reverse() })),
     ]);
-    res.json({ visits, sales, chats: { note: 'Proxy /api/chat sin métrica local' } });
+    res.json({ visits, sales, quotes, chats: { note: 'Proxy /api/chat sin métrica local' } });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Explicit HTML routes to avoid download disposition ──
+app.get('/admin-dashboard.html', (req, res) => {
+  res.type('html');
+  res.sendFile(path.join(__dirname, 'admin-dashboard.html'));
+});
+
+app.get('/cotizacion.html', (req, res) => {
+  res.type('html');
+  res.sendFile(path.join(__dirname, 'cotizacion.html'));
+});
+
+// ── Quote endpoints ──
+app.post('/api/admin/quote-tokens', apiLimiter, async (req, res) => {
+  if (!requireAdminToken(req, res)) return;
+  const label = sanitizeText(req.body?.label || 'Solicitud');
+  try {
+    const { token, exp } = await createQuoteToken(label);
+    res.json({ token, exp });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/admin/quotes', apiLimiter, async (req, res) => {
+  if (!requireAdminToken(req, res)) return;
+  try {
+    const data = await loadQuoteData();
+    res.json({ tokens: data.tokens, submissions: data.submissions.slice(-100).reverse() });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/quote/validate', apiLimiter, async (req, res) => {
+  const token = String(req.query.token || '').trim();
+  if (!token) return res.status(400).json({ error: 'Falta token' });
+  const valid = await validateQuoteToken(token);
+  if (!valid) return res.status(401).json({ error: 'Token inválido o expirado' });
+  res.json({ ok: true });
+});
+
+app.post('/api/quote/submit', apiLimiter, async (req, res) => {
+  const payload = req.body || {};
+  const token = String(payload.token || '').trim();
+  if (!token) return res.status(400).json({ error: 'Falta token' });
+  const valid = await validateQuoteToken(token);
+  if (!valid) return res.status(401).json({ error: 'Token inválido o expirado' });
+
+  const name = sanitizeText(payload.name || '');
+  const email = sanitizeText(payload.email || '');
+  const phone = sanitizeText(payload.phone || '');
+  const business = sanitizeText(payload.business || '');
+  const cashiers = sanitizeText(payload.cashiers || '');
+  const employees = sanitizeText(payload.employees || '');
+  const revenue = sanitizeText(payload.revenue || '');
+  const message = sanitizeText(payload.message || '');
+
+  if (!name || !email || !business) {
+    return res.status(400).json({ error: 'Nombre, email y modelo de negocio son obligatorios' });
+  }
+
+  try {
+    const data = await loadQuoteData();
+    const submission = {
+      id: `quote_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      token,
+      name,
+      email,
+      phone,
+      business,
+      cashiers,
+      employees,
+      revenue,
+      message,
+      ip: getRequestClientIp(req),
+      userAgent: sanitizeText(req.headers['user-agent'] || 'Unknown'),
+      createdAt: new Date().toISOString(),
+    };
+    data.submissions.push(submission);
+    await saveQuoteData(data);
+    res.json({ status: 'ok', id: submission.id });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

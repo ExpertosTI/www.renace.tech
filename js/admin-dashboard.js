@@ -7,6 +7,9 @@
   const loginStatus = document.getElementById('login-status');
   const statsCard = document.getElementById('stats');
   const lists = document.getElementById('lists');
+  const btnNewToken = document.getElementById('btn-new-token');
+  const tokensList = document.getElementById('quote-tokens');
+  const submissionsList = document.getElementById('quote-submissions');
 
   let token = localStorage.getItem('admin_token') || '';
 
@@ -90,6 +93,7 @@
   function renderAnalytics(data) {
     const visits = data.visits || {};
     const sales = data.sales || {};
+    const quotes = data.quotes || {};
     document.getElementById('visits-total').textContent = visits.total ?? '-';
     document.getElementById('visits-24h').textContent = visits.last24h ? `${visits.last24h} en 24h` : '-';
     document.getElementById('sales-count').textContent = sales.count ?? '-';
@@ -111,12 +115,44 @@
       .map(s => `<li><span>${new Date(s.date).toLocaleString()}</span><span class="muted">${s.amount}</span></li>`)
       .join('') || '<li><span class="muted">Sin datos</span></li>';
 
+    // Quote tokens
+    const tokens = quotes.tokens || data.tokens || [];
+    tokensList.innerHTML = tokens.length
+      ? tokens.map(t => `<li><span>${t.label || 'Token'}</span><span class="muted">${t.token} · expira ${new Date(t.exp).toLocaleString()}</span></li>`).join('')
+      : '<li><span class="muted">Sin tokens</span></li>';
+
+    // Submissions
+    const submissions = quotes.submissions || data.submissions || [];
+    submissionsList.innerHTML = submissions.length
+      ? submissions.map(s => `<li><span>${s.name} (${s.email})</span><span class="muted">${new Date(s.createdAt).toLocaleString()}</span></li>`).join('')
+      : '<li><span class="muted">Sin solicitudes</span></li>';
+
     statsCard.style.display = 'block';
     lists.style.display = 'grid';
   }
 
   btnRequest.addEventListener('click', requestCode);
   btnVerify.addEventListener('click', verifyCode);
+
+  btnNewToken?.addEventListener('click', async () => {
+    if (!token) {
+      setMessage('Primero autentícate', 'error');
+      return;
+    }
+    try {
+      const res = await fetch('/api/admin/quote-tokens', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ label: 'Cotización' })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'No se pudo generar token');
+      setMessage(`Token generado: ${data.token}`, 'success');
+      await loadAnalytics();
+    } catch (e) {
+      setMessage(e.message, 'error');
+    }
+  });
 
   // Intentar reusar token guardado
   if (token) {

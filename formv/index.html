@@ -298,7 +298,8 @@
                     maintainAspectRatio: false,
                     scales: {
                         r: {
-                            min: 0, max: 5,
+                            min: 0,
+                            max: 5,
                             grid: { color: '#1e293b' },
                             angleLines: { color: '#1e293b' },
                             pointLabels: { color: '#e2e8f0' }
@@ -308,39 +309,8 @@
             });
         }
 
-        function renderComments(entries) {
-            const container = document.getElementById('comments-list');
-            container.innerHTML = '';
-
-            const comments = entries.filter(e => e.comments && e.comments.length > 2).reverse();
-
-            if (comments.length === 0) {
-                container.innerHTML = '<div class="text-gray-500 text-sm italic">No hay comentarios aún.</div>';
-                return;
-            }
-
-            comments.forEach(c => {
-                const el = document.createElement('div');
-                el.className = 'bg-black/30 p-4 rounded-lg border border-gray-800';
-                el.innerHTML = `
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="font-bold text-cyan-400 text-xs">${c.evaluator.name}</span>
-                        <span class="text-gray-600 text-[10px]">${c.evaluator.role}</span>
-                    </div>
-                    <p class="text-gray-300 text-sm">"${c.comments}"</p>
-                    <div class="mt-2 text-right">
-                        <span class="text-xs bg-gray-800 px-2 py-1 rounded text-gray-400">Votó: ${c.winner}</span>
-                    </div>
-                `;
-                container.appendChild(el);
-            });
-        }
-
-        // Init
+        // Lanzar carga inicial
         loadData();
-        // Auto refresh every 30s
-        setInterval(loadData, 30000);
-
     </script>
 </body>
 
