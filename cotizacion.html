@@ -830,42 +830,108 @@
       max-width: 25vw;
       filter: drop-shadow(0 2px 12px rgba(56, 189, 248, 0.28));
     }
-    .terminal-line {
-      border-radius: 11px;
-      border: 1px solid rgba(56, 189, 248, 0.16);
-      background: rgba(2, 6, 16, 0.84);
-      padding: 9px 11px;
-      color: #a5f3fc;
-      font-family: 'Sora', sans-serif;
-      font-size: 12px;
+    .terminal-console {
+      border-radius: 14px;
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      background: radial-gradient(circle at 0% 0%, rgba(8, 47, 73, 0.24), transparent 42%), rgba(2, 6, 16, 0.95);
+      box-shadow: inset 0 0 0 1px rgba(14, 165, 233, 0.12);
+      padding: 10px 12px;
+      display: grid;
+      gap: 8px;
+    }
+    .terminal-log {
+      display: grid;
+      gap: 6px;
+      max-height: 126px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+    .terminal-log-line {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 11px;
+      line-height: 1.45;
       letter-spacing: 0.02em;
+      color: #86efac;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
-    .terminal-line strong {
-      color: #22d3ee;
+    .terminal-log-line.prompt {
+      color: #67e8f9;
     }
-
-    .exec-top {
+    .terminal-log-line.busy {
+      color: #facc15;
+    }
+    .terminal-log-line.done {
+      color: #4ade80;
+    }
+    .terminal-log-line .term-state {
+      color: #93c5fd;
+      opacity: 0.8;
+      font-size: 10px;
+    }
+    .terminal-log-line .term-time {
+      color: #64748b;
+      min-width: 54px;
+      font-size: 10px;
+    }
+    .terminal-cursor {
+      display: inline-block;
+      width: 8px;
+      height: 12px;
+      background: #22d3ee;
+      border-radius: 2px;
+      animation: terminalBlink 1s steps(1, end) infinite;
+      vertical-align: middle;
+      margin-left: 6px;
+    }
+    @keyframes terminalBlink {
+      50% { opacity: 0; }
+    }
+    .terminal-status {
+      border-top: 1px solid rgba(56, 189, 248, 0.16);
+      padding-top: 8px;
       display: flex;
       justify-content: space-between;
-      gap: 10px;
       align-items: center;
-      padding: 10px 12px;
-      border-radius: 12px;
-      border: 1px solid rgba(59, 130, 246, 0.35);
-      background: linear-gradient(120deg, rgba(30, 58, 138, 0.4), rgba(14, 116, 144, 0.28));
+      gap: 8px;
     }
-
-    .exec-top strong {
-      font-size: 12px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: #dbeafe;
+    .terminal-meter {
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.18);
+    }
+    .terminal-meter-fill {
+      height: 100%;
+      width: 12%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #0ea5e9, #22d3ee, #4ade80);
+      transition: width 0.35s ease;
     }
 
     .exec-progress {
       font-size: 12px;
       color: #93c5fd;
       font-weight: 700;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      letter-spacing: 0.04em;
+    }
+    .exec-finish {
+      display: grid;
+      gap: 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(74, 222, 128, 0.3);
+      background: linear-gradient(160deg, rgba(2, 44, 34, 0.55), rgba(4, 12, 24, 0.96));
+      padding: 16px;
+    }
+    .exec-finish strong {
+      color: #86efac;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      letter-spacing: 0.03em;
     }
 
     .exec-slide {
@@ -1502,6 +1568,9 @@
     let compareArchitectures = [];
     let executiveSlides = [];
     let executiveIndex = 0;
+    let terminalExecutionNonce = 0;
+    let terminalRenderedStep = -1;
+    let redirectTimer = null;
     const assistantState = {
       loading: false,
       hash: '',
@@ -2032,6 +2101,107 @@
       }
     }
 
+    function getExecutiveCommand(step, index, mode = 'step') {
+      if (mode === 'save') return `commit_answer --question=${index + 1} --status=ok`;
+      if (mode === 'boot') return 'boot_quote_console --profile=client';
+      if (mode === 'finalize') return 'package_quote_payload --encrypt --notify-team';
+      if (mode === 'redirect') return 'open_home_window --source=quote_terminal';
+      const map = {
+        name: 'set_contact_name',
+        email: 'set_contact_email',
+        sector: 'scan_sector_model',
+        business: 'parse_business_model',
+        locations: 'map_operational_sites',
+        revenue: 'estimate_revenue_band',
+        currentSystem: 'inspect_current_stack',
+        objective: 'prioritize_business_goal',
+        timeline: 'sync_delivery_timeline',
+        modules: 'compile_solution_modules',
+        migration: 'check_data_migration',
+        training: 'plan_team_enablement',
+        message: 'append_special_notes'
+      };
+      const key = step?.kind || step?.field || 'context';
+      const cmd = map[key] || 'sync_context';
+      return `${cmd} --question=${index + 1} --mode=interactive`;
+    }
+
+    function getTerminalClock() {
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      const ss = String(now.getSeconds()).padStart(2, '0');
+      return `${hh}:${mm}:${ss}`;
+    }
+
+    function setTerminalMeter(value) {
+      const fill = executiveFlowEl.querySelector('[data-terminal-meter-fill]');
+      if (!fill) return;
+      fill.style.width = `${Math.max(6, Math.min(100, value))}%`;
+    }
+
+    function runTerminalCommand(mode = 'step') {
+      const logEl = executiveFlowEl.querySelector('[data-terminal-log]');
+      if (!logEl) return;
+      const step = executiveSlides[executiveIndex];
+      const command = getExecutiveCommand(step, executiveIndex, mode);
+      const line = document.createElement('div');
+      line.className = 'terminal-log-line prompt busy';
+      line.innerHTML = `<span class="term-time">${getTerminalClock()}</span><span>client@renace:~$</span><span>${escapeHtml(command)}</span><span class="term-state">running</span>`;
+      logEl.append(line);
+      while (logEl.children.length > 6) {
+        logEl.removeChild(logEl.firstChild);
+      }
+      logEl.scrollTop = logEl.scrollHeight;
+      const loadTarget = mode === 'save'
+        ? 78
+        : mode === 'finalize'
+          ? 94
+          : mode === 'redirect'
+            ? 100
+            : Math.min(86, 22 + ((executiveIndex + 1) / Math.max(executiveSlides.length, 1)) * 64);
+      setTerminalMeter(loadTarget);
+      const nonce = ++terminalExecutionNonce;
+      setTimeout(() => {
+        if (nonce !== terminalExecutionNonce) return;
+        line.classList.remove('busy');
+        line.classList.add('done');
+        const state = line.querySelector('.term-state');
+        if (state) {
+          state.textContent = mode === 'save'
+            ? 'saved'
+            : mode === 'boot'
+              ? 'ready'
+              : mode === 'redirect'
+                ? 'redirecting'
+                : mode === 'finalize'
+                  ? 'synced'
+                  : 'loaded';
+        }
+      }, mode === 'save' ? 320 : 540);
+    }
+
+    function renderFinalTerminalState(shortName) {
+      const controls = executiveFlowEl.querySelector('.exec-controls');
+      if (controls) controls.style.display = 'none';
+      const progressEl = executiveFlowEl.querySelector('[data-exec-progress]');
+      if (progressEl) progressEl.textContent = 'DONE';
+      runTerminalCommand('finalize');
+      const current = executiveSlides[executiveIndex];
+      if (current?.slide) {
+        current.slide.classList.add('active');
+        current.slide.innerHTML = `
+          <div class="exec-finish">
+            <strong>STATUS::SUCCESS</strong>
+            <h3>Solicitud enviada, ${escapeHtml(shortName)}.</h3>
+            <p>Conectando con la ventana principal para continuar tu experiencia...</p>
+          </div>
+        `;
+      }
+      setTimeout(() => runTerminalCommand('redirect'), 160);
+      setTerminalMeter(100);
+    }
+
     function renderExecutiveFlow() {
       const total = executiveSlides.length;
       executiveSlides.forEach((step, idx) => {
@@ -2041,11 +2211,15 @@
       const progressEl = executiveFlowEl.querySelector('[data-exec-progress]');
       const backBtn = executiveFlowEl.querySelector('[data-exec-back]');
       const nextBtn = executiveFlowEl.querySelector('[data-exec-next]');
-      if (progressEl) progressEl.textContent = `Paso ${executiveIndex + 1} de ${total}`;
+      if (progressEl) progressEl.textContent = `Q${String(executiveIndex + 1).padStart(2, '0')}/${String(total).padStart(2, '0')}`;
       if (backBtn) backBtn.disabled = executiveIndex === 0;
       if (nextBtn) {
         const isLast = executiveIndex === total - 1;
-        nextBtn.textContent = isLast ? 'Enviar solicitud' : 'Continuar';
+        nextBtn.textContent = isLast ? 'Ejecutar envío' : 'Siguiente comando';
+      }
+      if (terminalRenderedStep !== executiveIndex) {
+        runTerminalCommand('step');
+        terminalRenderedStep = executiveIndex;
       }
       focusExecutiveStep(executiveIndex);
       renderJourneyState();
@@ -2163,10 +2337,13 @@
           <div class="terminal-dots"><span></span><span></span><span></span></div>
           <img src="images/renacelogo.svg" alt="Renace" class="terminal-brand">
         </div>
-        <div class="terminal-line"><strong>client@renace.tech:~$</strong> completar_solicitud --guiada</div>
-        <div class="exec-top">
-          <strong>Flujo ejecutivo</strong>
-          <span class="exec-progress" data-exec-progress>Paso 1 de 1</span>
+        <div class="terminal-console">
+          <div class="terminal-log" data-terminal-log></div>
+          <div class="terminal-meter"><div class="terminal-meter-fill" data-terminal-meter-fill></div></div>
+          <div class="terminal-status">
+            <span class="terminal-log-line">core_process::quote_interactive <span class="terminal-cursor"></span></span>
+            <span class="exec-progress" data-exec-progress>Q01/01</span>
+          </div>
         </div>
       `;
       buildExecutiveSlides();
@@ -2182,6 +2359,7 @@
         if (executiveIndex === 0) return;
         executiveIndex -= 1;
         setMsg('', 'muted');
+        terminalRenderedStep = -1;
         renderExecutiveFlow();
       });
       controls.querySelector('[data-exec-next]').addEventListener('click', () => {
@@ -2192,13 +2370,16 @@
           return;
         }
         setMsg('', 'muted');
+        runTerminalCommand('save');
         if (executiveIndex >= executiveSlides.length - 1) {
           submitBtn.click();
           return;
         }
         executiveIndex += 1;
+        terminalRenderedStep = -1;
         renderExecutiveFlow();
       });
+      runTerminalCommand('boot');
       renderExecutiveFlow();
     }
 
@@ -2231,6 +2412,7 @@
       }
       setMsg('Enviando...', 'muted');
       submitBtn.disabled = true;
+      let keepSubmitDisabled = false;
       const selectedModules = getSelectedModules();
       const payload = {
         token,
@@ -2261,19 +2443,15 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Error al enviar');
         const shortName = payload.name.split(' ')[0] || 'cliente';
-        setMsg(`¡Gracias ${shortName}! Recibimos tu solicitud correctamente. Nuestro equipo te contactará muy pronto para presentarte la propuesta ideal.`, 'success');
-        form.reset();
-        moduleInputs.forEach(input => { input.checked = false; });
-        revenueChoices.forEach(btn => btn.classList.remove('active'));
-        activeStep = 0;
-        renderJourneyState();
-        executiveIndex = 0;
-        renderExecutiveFlow();
-        setTimeout(() => { window.location.href = 'https://renace.tech'; }, 3800);
+        setMsg('', 'muted');
+        keepSubmitDisabled = true;
+        renderFinalTerminalState(shortName);
+        if (redirectTimer) clearTimeout(redirectTimer);
+        redirectTimer = setTimeout(() => { window.location.href = 'https://renace.tech'; }, 1200);
       } catch (e) {
         setMsg(e.message, 'error');
       } finally {
-        submitBtn.disabled = false;
+        submitBtn.disabled = keepSubmitDisabled;
       }
     }
 
