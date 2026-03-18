@@ -3,6 +3,12 @@
   const codeInput = document.getElementById('code');
   const btnRequest = document.getElementById('btn-request');
   const btnVerify = document.getElementById('btn-verify');
+  const btnPresentation = document.getElementById('btn-presentation');
+  const visitsKpi = document.getElementById('visits-kpi');
+  const visitModal = document.getElementById('visit-modal');
+  const visitModalClose = document.getElementById('visit-modal-close');
+  const visitModalMeta = document.getElementById('visit-modal-meta');
+  const visitDetailList = document.getElementById('visit-detail-list');
   const loginMessage = document.getElementById('login-message');
   const loginStatus = document.getElementById('login-status');
   const statsCard = document.getElementById('stats');
@@ -19,6 +25,8 @@
 
   let token = localStorage.getItem('admin_token') || '';
   let autoRefreshTimer = null;
+  let presentationMode = localStorage.getItem('admin_presentation_mode') === '1';
+  let visitDetailsLoading = false;
 
   function setMessage(text, type = 'muted') {
     loginMessage.textContent = text;
@@ -52,6 +60,25 @@
     if (source === 'nginx') return 'NGINX';
     if (source === 'live') return 'LIVE';
     return '-';
+  }
+
+  function formatVisitTime(input) {
+    const date = new Date(input);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleString();
+  }
+
+  function formatLocation(loc) {
+    if (!loc) return 'Sin locación';
+    const bits = [loc.city, loc.region, loc.country].filter(Boolean);
+    return bits.length ? bits.join(', ') : 'Sin locación';
+  }
+
+  function formatUserAgent(ua) {
+    const value = String(ua || '').trim();
+    if (!value) return 'Sin user-agent';
+    if (value.length <= 90) return value;
+    return `${value.slice(0, 90)}…`;
   }
 
   function toNumber(value) {
@@ -258,18 +285,83 @@
 
   function renderReports(insights, visitsSource) {
     const conversionNote = insights.conversions >= 3
-      ? `Conversión saludable: ${insights.conversions.toFixed(2)}%. Mantén el volumen de tráfico actual.`
-      : `Conversión baja: ${insights.conversions.toFixed(2)}%. Conviene optimizar copy y seguimiento comercial.`;
+      ? `${insights.conversions.toFixed(2)}% sólida y estable.`
+      : `${insights.conversions.toFixed(2)}% con espacio para subir.`;
     const moduleLead = insights.topModules[0] ? `${insights.topModules[0][0].replaceAll('_', ' ')} (${insights.topModules[0][1]})` : 'sin módulo dominante';
     const demandPeak = Object.entries(insights.timelineCount).sort((a, b) => b[1] - a[1])[0];
-    const demandText = demandPeak ? `${String(demandPeak[0]).replaceAll('_', ' ')} lidera con ${demandPeak[1]} casos.` : 'No hay demanda suficiente.';
+    const demandText = demandPeak ? `${String(demandPeak[0]).replaceAll('_', ' ')} lidera (${demandPeak[1]}).` : 'Demanda insuficiente.';
     const riskText = insights.expiringSoon > 0
-      ? `${insights.expiringSoon} token(es) vence(n) en 48h. Riesgo de perder solicitudes.`
-      : 'No se detectan vencimientos críticos de tokens en 48h.';
+      ? `${insights.expiringSoon} token(es) vencen en 48h.`
+      : 'Sin vencimientos críticos en 48h.';
     document.getElementById('report-conversion').textContent = conversionNote;
-    document.getElementById('report-channel').textContent = `Tráfico principal desde ${visitsSource}. Módulo más demandado: ${moduleLead}.`;
+    document.getElementById('report-channel').textContent = `${visitsSource} + ${moduleLead}.`;
     document.getElementById('report-demand').textContent = demandText;
     document.getElementById('report-risk').textContent = riskText;
+  }
+
+  function renderPresentationDeck(insights, visits) {
+    document.getElementById('present-visits').textContent = visits.total ?? '-';
+    document.getElementById('present-visits-sub').textContent = `${insights.visits24h} en 24h`;
+    document.getElementById('present-submissions').textContent = insights.submissions.length;
+    document.getElementById('present-submissions-sub').textContent = `${insights.submissions24h} nuevas en 24h`;
+    document.getElementById('present-conversion').textContent = `${insights.conversions.toFixed(2)}%`;
+    document.getElementById('present-conversion-sub').textContent = `Fuente ${formatVisitSource(visits.source)}`;
+    document.getElementById('present-forecast').textContent = formatMoney(insights.forecast);
+    document.getElementById('present-forecast-sub').textContent = `Pipeline ${insights.pipelineHealth}%`;
+  }
+
+  function setPresentationMode(enabled) {
+    presentationMode = !!enabled;
+    localStorage.setItem('admin_presentation_mode', presentationMode ? '1' : '0');
+    document.body.classList.toggle('presentation', presentationMode);
+    if (btnPresentation) {
+      btnPresentation.innerHTML = presentationMode
+        ? '<i class="fa-solid fa-grip"></i> Modo completo'
+        : '<i class="fa-solid fa-display"></i> Modo presentación';
+    }
+  }
+
+  function closeVisitModal() {
+    visitModal?.classList.remove('open');
+  }
+
+  async function openVisitModal() {
+    if (!visitModal || !visitDetailList || !token || visitDetailsLoading) return;
+    visitModal.classList.add('open');
+    visitDetailList.innerHTML = '<div class="muted">Cargando detalle de visitas...</div>';
+    visitDetailsLoading = true;
+    try {
+      const res = await fetch('/api/admin/visit-details?limit=120&detailed=1', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'No se pudo cargar detalle de visitas');
+      const items = Array.isArray(data.items) ? data.items : [];
+      visitModalMeta.textContent = `${items.length} registros · fuente ${formatVisitSource(data.source)}`;
+      visitDetailList.innerHTML = items.length
+        ? items.map(item => {
+            const loc = formatLocation(item.location);
+            const org = item.location?.org ? ` · ${item.location.org}` : '';
+            const ref = item.referrer ? item.referrer : 'Sin referer';
+            return `<article class="visit-row">
+              <div class="visit-top">
+                <strong>${escapeHtml(item.ip || 'IP n/d')} · ${escapeHtml(item.method || 'GET')} ${escapeHtml(item.path || '/')}</strong>
+                <span class="tag ${Number(item.status) >= 400 ? 'bad' : Number(item.status) >= 300 ? 'warn' : 'good'}">${escapeHtml(item.status || '-')}</span>
+              </div>
+              <div class="visit-meta">
+                <span>${escapeHtml(formatVisitTime(item.at || item.ts))}</span>
+                <span>${escapeHtml(loc)}${escapeHtml(org)}</span>
+                <span>${escapeHtml(ref)}</span>
+              </div>
+              <div class="muted">${escapeHtml(formatUserAgent(item.userAgent))}</div>
+            </article>`;
+          }).join('')
+        : '<div class="muted">Sin visitas disponibles.</div>';
+    } catch (e) {
+      visitDetailList.innerHTML = `<div class="error">${escapeHtml(e.message)}</div>`;
+    } finally {
+      visitDetailsLoading = false;
+    }
   }
 
   function startAutoRefresh() {
@@ -372,6 +464,7 @@
     document.getElementById('expiring-tokens').textContent = insights.expiringSoon ? `${insights.expiringSoon} vencen pronto` : 'Sin vencimientos inmediatos';
     document.getElementById('pipeline-health').textContent = `${insights.pipelineHealth}%`;
     document.getElementById('forecast-value').textContent = formatMoney(insights.forecast);
+    renderPresentationDeck(insights, visits);
 
     const topPaths = visits.topPaths || [];
     const tp = document.getElementById('top-paths');
@@ -469,6 +562,15 @@
 
   btnRequest.addEventListener('click', requestCode);
   btnVerify.addEventListener('click', verifyCode);
+  btnPresentation?.addEventListener('click', () => setPresentationMode(!presentationMode));
+  visitsKpi?.addEventListener('click', openVisitModal);
+  visitModalClose?.addEventListener('click', closeVisitModal);
+  visitModal?.addEventListener('click', event => {
+    if (event.target === visitModal) closeVisitModal();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') closeVisitModal();
+  });
 
   btnNewToken?.addEventListener('click', async () => {
     if (!token) {
@@ -503,7 +605,7 @@
     }
   });
 
-  // Intentar reusar token guardado
+  setPresentationMode(presentationMode);
   if (token) {
     setLoginStatus('Autenticado (token guardado)');
     loadAnalytics();

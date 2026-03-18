@@ -35,6 +35,7 @@ const REQUEST_METRICS_MAX = 10000;
 
 const adminCodes = new Map(); // email -> { code, exp }
 const requestMetrics = [];
+const visitGeoCache = new Map();
 
 // ── Quote request storage helpers ──
 async function loadQuoteData() {
@@ -101,15 +102,26 @@ async function readAccessLogTail(limitLines = ADMIN_ANALYTICS_LIMIT) {
 }
 
 function parseNginxLine(line) {
-  // ej: 1.2.3.4 - - [19/Mar/2024:10:00:00 +0000] "GET /path HTTP/1.1" 200 123 "-" "UA"
-  const match = line.match(/^[^ ]+ [^ ]+ [^ ]+ \[([^\]]+)\] "[A-Z]+ ([^" ]+)/);
+  const full = line.match(/^(\S+) \S+ \S+ \[([^\]]+)\] "([A-Z]+) ([^" ]+)[^"]*" (\d{3}) \S+ "([^"]*)" "([^"]*)"/);
+  if (full) {
+    const ip = full[1] || '';
+    const tsStr = full[2];
+    const method = full[3] || 'GET';
+    const pathStr = full[4] || '/';
+    const status = parseInt(full[5], 10);
+    const referrer = full[6] && full[6] !== '-' ? full[6] : '';
+    const userAgent = full[7] && full[7] !== '-' ? full[7] : '';
+    const date = parseNginxDate(tsStr);
+    return { date, method, path: pathStr, status, ip, referrer, userAgent };
+  }
+  const basic = line.match(/^[^ ]+ [^ ]+ [^ ]+ \[([^\]]+)\] "[A-Z]+ ([^" ]+)/);
   const statusMatch = line.match(/" \s*(\d{3})/);
-  if (!match || !statusMatch) return null;
-  const tsStr = match[1];
-  const pathStr = match[2] || '/';
+  if (!basic || !statusMatch) return null;
+  const tsStr = basic[1];
+  const pathStr = basic[2] || '/';
   const status = parseInt(statusMatch[1], 10);
   const date = parseNginxDate(tsStr);
-  return { date, path: pathStr, status };
+  return { date, method: 'GET', path: pathStr, status, ip: '', referrer: '', userAgent: '' };
 }
 
 function parseNginxDate(str) {
@@ -159,6 +171,125 @@ function summarizeLiveVisits() {
     .slice(0, 10)
     .map(([path, count]) => ({ path, count }));
   return summary;
+}
+
+function formatVisitDetailRecord(item) {
+  const ts = item.date instanceof Date ? item.date.getTime() : Number(item.ts || Date.now());
+  return {
+    ip: item.ip || '',
+    method: item.method || 'GET',
+    path: item.path || '/',
+    status: Number(item.status || 0),
+    referrer: item.referrer || '',
+    userAgent: item.userAgent || '',
+    ts,
+    at: new Date(ts).toISOString(),
+    countryHint: item.countryHint || '',
+  };
+}
+
+function isPrivateIp(ipRaw) {
+  const ip = String(ipRaw || '').trim().toLowerCase();
+  if (!ip) return true;
+  if (ip === '::1' || ip === 'localhost') return true;
+  if (ip.startsWith('127.')) return true;
+  if (ip.startsWith('10.')) return true;
+  if (ip.startsWith('192.168.')) return true;
+  if (ip.startsWith('169.254.')) return true;
+  if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(ip)) return true;
+  if (ip.startsWith('fc') || ip.startsWith('fd') || ip.startsWith('fe80:')) return true;
+  return false;
+}
+
+function normalizeIp(ipRaw) {
+  const raw = String(ipRaw || '').trim();
+  if (!raw) return '';
+  return raw.replace('::ffff:', '');
+}
+
+async function resolveIpLocation(ipRaw, countryHint = '') {
+  const ip = normalizeIp(ipRaw);
+  if (!ip || isPrivateIp(ip)) {
+    return {
+      country: countryHint || 'Local',
+      region: '',
+      city: '',
+      org: '',
+      timezone: '',
+      lat: null,
+      lon: null,
+      source: 'local',
+    };
+  }
+  const cached = visitGeoCache.get(ip);
+  if (cached && cached.exp > Date.now()) return cached.value;
+
+  let value = {
+    country: countryHint || 'Desconocido',
+    region: '',
+    city: '',
+    org: '',
+    timezone: '',
+    lat: null,
+    lon: null,
+    source: 'none',
+  };
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 1800);
+    const res = await fetch(`https://ipapi.co/${encodeURIComponent(ip)}/json/`, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (res.ok) {
+      const data = await res.json();
+      value = {
+        country: data.country_name || countryHint || 'Desconocido',
+        region: data.region || '',
+        city: data.city || '',
+        org: data.org || data.asn || '',
+        timezone: data.timezone || '',
+        lat: Number.isFinite(Number(data.latitude)) ? Number(data.latitude) : null,
+        lon: Number.isFinite(Number(data.longitude)) ? Number(data.longitude) : null,
+        source: 'ipapi',
+      };
+    }
+  } catch (_e) {}
+
+  visitGeoCache.set(ip, { exp: Date.now() + 6 * 60 * 60 * 1000, value });
+  return value;
+}
+
+async function collectNginxVisitDetails(limit = 80) {
+  const lines = await readAccessLogTail(Math.max(limit * 12, 500));
+  const items = [];
+  for (let i = lines.length - 1; i >= 0 && items.length < limit; i -= 1) {
+    const parsed = parseNginxLine(lines[i]);
+    if (!parsed) continue;
+    items.push(formatVisitDetailRecord(parsed));
+  }
+  return items;
+}
+
+function collectLiveVisitDetails(limit = 80) {
+  return requestMetrics
+    .slice(-limit)
+    .reverse()
+    .map(item => formatVisitDetailRecord(item));
+}
+
+async function collectVisitDetails(limit = 80) {
+  const nginxItems = await collectNginxVisitDetails(limit);
+  if (nginxItems.length) return { source: 'nginx', items: nginxItems };
+  return { source: 'live', items: collectLiveVisitDetails(limit) };
+}
+
+async function enrichVisitDetails(items) {
+  return Promise.all(items.map(async item => {
+    const location = await resolveIpLocation(item.ip, item.countryHint);
+    return {
+      ...item,
+      location,
+    };
+  }));
 }
 
 function shouldTrackVisit(req) {
@@ -235,10 +366,21 @@ app.use((req, res, next) => {
 app.use((req, res, next) => {
   if (!shouldTrackVisit(req)) return next();
   res.on('finish', () => {
+    const forwardedCountry = String(
+      req.headers['cf-ipcountry'] ||
+      req.headers['x-country-code'] ||
+      req.headers['x-vercel-ip-country'] ||
+      ''
+    ).trim();
     requestMetrics.push({
       path: String(req.path || '/'),
+      method: String(req.method || 'GET'),
       status: Number(res.statusCode || 0),
       ts: Date.now(),
+      ip: getRequestClientIp(req),
+      referrer: String(req.headers.referer || ''),
+      userAgent: String(req.headers['user-agent'] || ''),
+      countryHint: forwardedCountry || '',
     });
     if (requestMetrics.length > REQUEST_METRICS_MAX) {
       requestMetrics.splice(0, requestMetrics.length - REQUEST_METRICS_MAX);
@@ -344,6 +486,20 @@ app.get('/api/admin/analytics', apiLimiter, async (req, res) => {
       loadQuoteData().then(data => ({ tokens: data.tokens, submissions: data.submissions.slice(-100).reverse() })),
     ]);
     res.json({ visits, sales, quotes, chats: { note: 'Proxy /api/chat sin métrica local' } });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/admin/visit-details', apiLimiter, async (req, res) => {
+  if (!requireAdminToken(req, res)) return;
+  try {
+    const rawLimit = Number(req.query.limit || 80);
+    const limit = Math.min(Math.max(rawLimit || 80, 20), 200);
+    const detailed = req.query.detailed !== '0';
+    const details = await collectVisitDetails(limit);
+    const items = detailed ? await enrichVisitDetails(details.items) : details.items;
+    res.json({ source: details.source, total: items.length, items });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

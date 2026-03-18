@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard Admin Pro - Renace</title>
+  <title>Dashboard Ejecutivo - Renace</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
@@ -11,14 +11,15 @@
   <style>
     :root {
       color-scheme: dark;
-      --bg: #020617;
-      --surface: rgba(7, 16, 37, 0.84);
-      --surface-strong: rgba(7, 15, 34, 0.95);
-      --line: rgba(148, 163, 184, 0.22);
-      --line-strong: rgba(56, 189, 248, 0.45);
-      --text: #e2e8f0;
-      --muted: #94a3b8;
-      --good: #4ade80;
+      --bg: #040912;
+      --surface: rgba(9, 16, 30, 0.72);
+      --surface-soft: rgba(12, 20, 38, 0.64);
+      --line: rgba(148, 163, 184, 0.16);
+      --line-strong: rgba(125, 211, 252, 0.34);
+      --text: #dce6f4;
+      --muted: #8ea2bf;
+      --accent: #7dd3fc;
+      --good: #34d399;
       --warn: #fbbf24;
       --bad: #f87171;
     }
@@ -29,104 +30,99 @@
       font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
       color: var(--text);
       background:
-        radial-gradient(circle at 8% 10%, rgba(2, 132, 199, 0.24), transparent 30%),
-        radial-gradient(circle at 90% 14%, rgba(37, 99, 235, 0.2), transparent 34%),
-        radial-gradient(circle at 50% 96%, rgba(13, 148, 136, 0.12), transparent 30%),
+        radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.14), transparent 30%),
+        radial-gradient(circle at 100% 0%, rgba(34, 211, 238, 0.11), transparent 28%),
         var(--bg);
-      padding: 20px;
+      padding: 18px;
     }
-    .wrap { width: min(1440px, 100%); margin: 0 auto; display: grid; gap: 14px; }
+    .wrap { width: min(1360px, 100%); margin: 0 auto; display: grid; gap: 12px; }
     .card {
-      background: linear-gradient(160deg, rgba(8, 16, 39, 0.95), rgba(5, 11, 28, 0.94));
+      background: linear-gradient(160deg, rgba(8, 15, 29, 0.9), rgba(7, 13, 24, 0.88));
       border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 16px;
-      box-shadow: 0 20px 62px rgba(2, 6, 23, 0.5);
-      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      padding: 14px;
+      backdrop-filter: blur(8px);
     }
     .header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 14px;
-      border-radius: 18px;
-      position: sticky;
-      top: 8px;
-      z-index: 6;
+      gap: 10px;
     }
     .badge {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 5px 10px;
+      padding: 4px 9px;
       border-radius: 999px;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 700;
       letter-spacing: 0.05em;
       text-transform: uppercase;
-      color: #dbeafe;
-      background: linear-gradient(120deg, #1d4ed8, #0ea5e9);
-      border: 1px solid rgba(191, 219, 254, 0.4);
+      color: #d7eeff;
+      background: rgba(37, 99, 235, 0.22);
+      border: 1px solid rgba(125, 211, 252, 0.33);
     }
     h1 {
-      margin: 9px 0 5px;
+      margin: 8px 0 4px;
       font-family: 'Sora', sans-serif;
-      font-size: clamp(1.4rem, 3.1vw, 2rem);
+      font-size: clamp(1.22rem, 2.7vw, 1.72rem);
       letter-spacing: -0.02em;
     }
     h2, h3, h4 { margin: 0; font-family: 'Sora', sans-serif; letter-spacing: -0.01em; }
-    .muted { color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .muted { color: var(--muted); font-size: 11px; line-height: 1.4; }
     .status-pill {
       border-radius: 10px;
       border: 1px solid var(--line);
-      background: rgba(15, 23, 42, 0.74);
-      padding: 8px 10px;
-      font-size: 12px;
-      color: #93c5fd;
+      background: rgba(15, 23, 42, 0.52);
+      padding: 7px 10px;
+      font-size: 11px;
+      color: #a8c9e8;
       white-space: nowrap;
     }
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
     .auth-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
       align-items: end;
     }
     label {
       display: block;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: #93c5fd;
+      color: #8fb5d8;
       margin-bottom: 6px;
     }
     input {
       width: 100%;
       border-radius: 10px;
-      border: 1px solid rgba(59, 130, 246, 0.32);
-      background: rgba(3, 10, 25, 0.9);
+      border: 1px solid rgba(125, 211, 252, 0.22);
+      background: rgba(5, 11, 22, 0.74);
       color: var(--text);
-      padding: 11px 12px;
-      font-size: 14px;
+      padding: 10px 11px;
+      font-size: 13px;
       font-family: inherit;
     }
     input:focus {
       outline: none;
       border-color: var(--line-strong);
-      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.16);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14);
     }
     .actions { display: flex; gap: 8px; flex-wrap: wrap; }
     button, .btn-link {
       border: none;
       border-radius: 10px;
-      background: linear-gradient(120deg, #1d4ed8, #0ea5e9);
-      color: #eff6ff;
+      background: linear-gradient(120deg, #2746a3, #17698e);
+      color: #e6f5ff;
       font-weight: 700;
       font-family: inherit;
-      font-size: 13px;
-      padding: 10px 14px;
+      font-size: 12px;
+      padding: 9px 12px;
       cursor: pointer;
-      transition: transform 0.18s, filter 0.2s, opacity 0.2s;
+      transition: transform 0.2s ease, opacity 0.2s ease, border-color 0.2s ease;
       text-decoration: none;
       display: inline-flex;
       align-items: center;
@@ -134,129 +130,152 @@
       gap: 6px;
     }
     button.secondary, .btn-link.secondary {
-      background: rgba(15, 23, 42, 0.9);
-      color: #dbeafe;
-      border: 1px solid rgba(100, 116, 139, 0.38);
+      background: rgba(11, 18, 34, 0.86);
+      color: #d4e6f9;
+      border: 1px solid rgba(148, 163, 184, 0.26);
     }
-    button:hover, .btn-link:hover { transform: translateY(-1px); filter: brightness(1.05); }
+    button.ghost {
+      background: rgba(10, 16, 29, 0.5);
+      border: 1px solid rgba(125, 211, 252, 0.22);
+      color: #b8d7f4;
+    }
+    button:hover, .btn-link:hover { transform: translateY(-1px); }
     button:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
     .error { color: #fca5a5; font-size: 13px; margin-top: 8px; }
     .success { color: #86efac; font-size: 13px; margin-top: 8px; }
-    .section-title {
-      font-size: 13px;
-      color: #93c5fd;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      font-weight: 800;
-      margin-bottom: 10px;
+    .deck {
       display: flex;
+      justify-content: space-between;
       align-items: center;
       gap: 8px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    .deck-title {
+      font-size: 12px;
+      color: #a9c9e5;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 800;
     }
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 10px;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
     }
     .kpi {
-      border-radius: 14px;
+      border-radius: 12px;
       border: 1px solid var(--line);
-      background: var(--surface);
-      padding: 12px;
+      background: var(--surface-soft);
+      padding: 10px;
       display: grid;
-      gap: 5px;
+      gap: 4px;
+      cursor: default;
+      opacity: 0;
+      transform: translateY(8px);
+      animation: cardIn 0.45s ease forwards;
+    }
+    .kpi.clickable { cursor: pointer; }
+    .kpi.clickable:hover { border-color: var(--line-strong); }
+    .kpi:nth-child(1) { animation-delay: .04s; }
+    .kpi:nth-child(2) { animation-delay: .08s; }
+    .kpi:nth-child(3) { animation-delay: .12s; }
+    .kpi:nth-child(4) { animation-delay: .16s; }
+    .kpi:nth-child(5) { animation-delay: .2s; }
+    .kpi:nth-child(6) { animation-delay: .24s; }
+    @keyframes cardIn {
+      to { opacity: 1; transform: translateY(0); }
     }
     .kpi-head {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
     }
     .kpi-label {
-      font-size: 11px;
-      color: #93c5fd;
+      font-size: 10px;
+      color: #93b7d5;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
     .kpi-icon {
-      color: #c7d2fe;
-      opacity: 0.9;
-      font-size: 12px;
+      color: #9eb9d6;
+      opacity: 0.7;
+      font-size: 11px;
     }
     .stat {
-      font-size: clamp(1.35rem, 2.7vw, 1.9rem);
+      font-size: clamp(1.1rem, 2vw, 1.45rem);
       font-weight: 800;
       line-height: 1.1;
-      color: #f8fafc;
+      color: #f1f7ff;
     }
     .kpi-help {
-      color: #9fb4d8;
-      font-size: 11px;
-      line-height: 1.45;
+      color: #8ca5c2;
+      font-size: 10px;
+      line-height: 1.3;
     }
-    .insight-grid {
+    .insights {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 10px;
-      margin-top: 12px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 8px;
     }
     .insight {
-      border-radius: 12px;
+      border-radius: 10px;
       border: 1px solid var(--line);
-      background: rgba(7, 17, 41, 0.85);
-      padding: 11px;
+      background: rgba(10, 18, 33, 0.5);
+      padding: 9px;
       display: grid;
-      gap: 6px;
+      gap: 4px;
     }
-    .insight h4 {
-      font-size: 12px;
-      color: #bfdbfe;
+    .insight h4 { font-size: 10px;
+      color: #a7c5e0;
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
     .insight p {
       margin: 0;
-      font-size: 12px;
-      color: #dbeafe;
-      line-height: 1.45;
+      font-size: 11px;
+      color: #d1e3f5;
+      line-height: 1.35;
     }
     .cards-grid {
       display: grid;
       grid-template-columns: repeat(12, 1fr);
-      gap: 12px;
+      gap: 10px;
     }
-    .span-3 { grid-column: span 3; }
     .span-4 { grid-column: span 4; }
+    .span-5 { grid-column: span 5; }
+    .span-7 { grid-column: span 7; }
     .span-6 { grid-column: span 6; }
-    .span-8 { grid-column: span 8; }
     .span-12 { grid-column: span 12; }
     .list {
       list-style: none;
       padding: 0;
-      margin: 10px 0 0;
+      margin: 8px 0 0;
       display: grid;
-      gap: 8px;
-      max-height: 360px;
+      gap: 6px;
+      max-height: 320px;
       overflow: auto;
     }
     .list li {
-      border: 1px solid rgba(100, 116, 139, 0.25);
-      border-radius: 10px;
+      border: 1px solid rgba(100, 116, 139, 0.2);
+      border-radius: 9px;
       background: var(--surface);
-      padding: 9px 10px;
+      padding: 8px 9px;
       display: flex;
       justify-content: space-between;
-      gap: 10px;
+      gap: 8px;
       align-items: center;
     }
-    .list strong { font-size: 13px; }
+    .list strong { font-size: 12px; }
     .tag {
       border-radius: 999px;
-      border: 1px solid rgba(100, 116, 139, 0.35);
-      background: rgba(15, 23, 42, 0.84);
-      color: #dbeafe;
-      font-size: 10px;
+      border: 1px solid rgba(100, 116, 139, 0.25);
+      background: rgba(15, 23, 42, 0.58);
+      color: #cfe6fb;
+      font-size: 9px;
       padding: 3px 8px;
       text-transform: uppercase;
       letter-spacing: 0.05em;
@@ -266,50 +285,157 @@
     .tag.good { border-color: rgba(74, 222, 128, 0.45); color: #bbf7d0; }
     .tag.warn { border-color: rgba(251, 191, 36, 0.45); color: #fde68a; }
     .tag.bad { border-color: rgba(248, 113, 113, 0.45); color: #fecaca; }
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 11px;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      color: #a5c4de;
+    }
     .bar-grid {
       display: grid;
-      gap: 8px;
-      margin-top: 10px;
+      gap: 6px;
+      margin-top: 8px;
     }
     .bar-row {
       display: grid;
-      gap: 6px;
+      gap: 4px;
     }
     .bar-top {
       display: flex;
       justify-content: space-between;
-      font-size: 11px;
-      color: #bfdbfe;
+      font-size: 10px;
+      color: #aac8e3;
       font-weight: 700;
     }
     .bar-track {
       width: 100%;
-      height: 8px;
+      height: 7px;
       border-radius: 999px;
-      background: rgba(30, 41, 59, 0.9);
-      border: 1px solid rgba(71, 85, 105, 0.4);
+      background: rgba(22, 31, 49, 0.8);
+      border: 1px solid rgba(71, 85, 105, 0.32);
       overflow: hidden;
     }
     .bar-fill {
       height: 100%;
       width: 0;
       border-radius: 999px;
-      background: linear-gradient(90deg, #22d3ee, #2563eb);
+      background: linear-gradient(90deg, #1e40af, #22d3ee);
       transition: width 0.4s ease;
     }
+    .present-grid {
+      display: none;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .present-card {
+      background: rgba(9, 17, 31, 0.74);
+      border: 1px solid rgba(125, 211, 252, 0.16);
+      border-radius: 14px;
+      padding: 12px;
+      display: grid;
+      gap: 6px;
+      min-height: 126px;
+      justify-content: space-between;
+    }
+    .present-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      color: #95b2cd;
+      letter-spacing: .05em;
+      font-weight: 700;
+    }
+    .present-value {
+      font-size: clamp(1.4rem, 3vw, 2.2rem);
+      line-height: 1;
+      color: #f4f9ff;
+      font-family: 'Sora', sans-serif;
+      letter-spacing: -.02em;
+    }
+    body.presentation .kpi-grid,
+    body.presentation .insights,
+    body.presentation #lists {
+      display: none !important;
+    }
+    body.presentation .present-grid {
+      display: grid;
+    }
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(3, 7, 14, 0.74);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      padding: 14px;
+    }
+    .modal.open { display: flex; }
+    .modal-card {
+      width: min(1100px, 100%);
+      max-height: 86vh;
+      overflow: auto;
+      background: rgba(7, 13, 24, 0.98);
+      border: 1px solid rgba(125, 211, 252, 0.2);
+      border-radius: 16px;
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .visit-table {
+      display: grid;
+      gap: 6px;
+    }
+    .visit-row {
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 10px;
+      background: rgba(10, 18, 34, 0.7);
+      padding: 9px;
+      display: grid;
+      gap: 4px;
+    }
+    .visit-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .visit-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      color: #9bb7d3;
+      font-size: 10px;
+    }
     @media (max-width: 1200px) {
-      .span-3 { grid-column: span 6; }
       .span-4 { grid-column: span 6; }
+      .span-5 { grid-column: span 12; }
+      .span-7 { grid-column: span 12; }
       .span-6 { grid-column: span 12; }
-      .span-8 { grid-column: span 12; }
+      .kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .insights { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .present-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 760px) {
-      body { padding: 12px; }
-      .header { flex-direction: column; align-items: flex-start; position: static; }
+      body { padding: 10px; }
+      .header { flex-direction: column; align-items: flex-start; }
       .status-pill { width: 100%; }
       .actions { width: 100%; }
       button, .btn-link { flex: 1; }
-      .span-3, .span-4, .span-6, .span-8 { grid-column: span 12; }
+      .span-4, .span-5, .span-6, .span-7 { grid-column: span 12; }
+      .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .insights { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+      .present-grid { grid-template-columns: repeat(1, minmax(0, 1fr)); }
     }
   </style>
 </head>
@@ -317,11 +443,14 @@
   <div class="wrap">
     <header class="header card">
       <div>
-        <div class="badge"><i class="fa-solid fa-shield-halved"></i> Dashboard Admin Pro</div>
+        <div class="badge"><i class="fa-solid fa-shield-halved"></i> Dashboard Ejecutivo</div>
         <h1>Renace Control Center</h1>
-        <p class="muted">Métricas de negocio, solicitudes, rastreos, notificaciones, informes y proyecciones en tiempo real.</p>
+        <p class="muted">Vista compacta, dinámica y orientada a decisión.</p>
       </div>
-      <div id="login-status" class="status-pill">No autenticado</div>
+      <div class="toolbar">
+        <button id="btn-presentation" class="ghost"><i class="fa-solid fa-display"></i> Modo presentación</button>
+        <div id="login-status" class="status-pill">No autenticado</div>
+      </div>
     </header>
 
     <div class="card" id="login-card">
@@ -347,9 +476,12 @@
     </div>
 
     <section id="stats" class="card" style="display:none;">
-      <h3 class="section-title"><i class="fa-solid fa-chart-line"></i> Métricas principales</h3>
+      <div class="deck">
+        <h3 class="deck-title"><i class="fa-solid fa-chart-line"></i> Resumen ejecutivo</h3>
+        <div class="muted">Click en visitas para ver IPs y locaciones</div>
+      </div>
       <div class="kpi-grid">
-        <article class="kpi">
+        <article class="kpi clickable" id="visits-kpi">
           <div class="kpi-head"><span class="kpi-label">Visitas totales</span><i class="fa-solid fa-globe kpi-icon"></i></div>
           <div class="stat" id="visits-total">-</div>
           <div class="kpi-help" id="visits-24h">-</div>
@@ -387,58 +519,73 @@
         <article class="kpi">
           <div class="kpi-head"><span class="kpi-label">Proyección mensual</span><i class="fa-solid fa-chart-pie kpi-icon"></i></div>
           <div class="stat" id="forecast-value">-</div>
-          <div class="kpi-help">Estimación basada en ticket promedio</div>
+          <div class="kpi-help">Forecast operativo</div>
         </article>
       </div>
-      <div class="insight-grid">
-        <article class="insight"><h4>Informe de conversión</h4><p id="report-conversion">Sin datos suficientes.</p></article>
-        <article class="insight"><h4>Informe de canal</h4><p id="report-channel">Sin datos suficientes.</p></article>
-        <article class="insight"><h4>Informe de demanda</h4><p id="report-demand">Sin datos suficientes.</p></article>
-        <article class="insight"><h4>Informe de riesgo</h4><p id="report-risk">Sin datos suficientes.</p></article>
+      <div class="insights">
+        <article class="insight"><h4>Conversión</h4><p id="report-conversion">Sin datos</p></article>
+        <article class="insight"><h4>Canal</h4><p id="report-channel">Sin datos</p></article>
+        <article class="insight"><h4>Demanda</h4><p id="report-demand">Sin datos</p></article>
+        <article class="insight"><h4>Riesgo</h4><p id="report-risk">Sin datos</p></article>
+      </div>
+      <div class="present-grid">
+        <article class="present-card"><span class="present-label">Visitas</span><div class="present-value" id="present-visits">-</div><div class="muted" id="present-visits-sub">-</div></article>
+        <article class="present-card"><span class="present-label">Solicitudes</span><div class="present-value" id="present-submissions">-</div><div class="muted" id="present-submissions-sub">-</div></article>
+        <article class="present-card"><span class="present-label">Conversión</span><div class="present-value" id="present-conversion">-</div><div class="muted" id="present-conversion-sub">-</div></article>
+        <article class="present-card"><span class="present-label">Forecast</span><div class="present-value" id="present-forecast">-</div><div class="muted" id="present-forecast-sub">-</div></article>
       </div>
     </section>
 
     <section id="lists" class="cards-grid" style="display:none;">
       <article class="card span-4">
-        <h3 class="section-title"><i class="fa-solid fa-route"></i> Top rutas</h3>
+        <h3 class="section-title"><i class="fa-solid fa-route"></i> Rutas</h3>
         <ul id="top-paths" class="list"></ul>
       </article>
       <article class="card span-4">
-        <h3 class="section-title"><i class="fa-solid fa-signal"></i> Estados HTTP</h3>
+        <h3 class="section-title"><i class="fa-solid fa-signal"></i> HTTP</h3>
         <ul id="status-codes" class="list"></ul>
       </article>
       <article class="card span-4">
-        <h3 class="section-title"><i class="fa-solid fa-receipt"></i> Ventas recientes</h3>
+        <h3 class="section-title"><i class="fa-solid fa-receipt"></i> Ventas</h3>
         <ul id="sales-sample" class="list"></ul>
       </article>
-      <article class="card span-4">
+      <article class="card span-5">
         <h3 class="section-title"><i class="fa-solid fa-bell"></i> Notificaciones</h3>
         <ul id="notifications-feed" class="list"></ul>
       </article>
-      <article class="card span-8">
+      <article class="card span-7">
         <h3 class="section-title"><i class="fa-solid fa-diagram-project"></i> Rastreo de solicitudes</h3>
-        <div class="muted">Seguimiento de las solicitudes más recientes por estado, objetivo y complejidad.</div>
         <ul id="tracking-board" class="list"></ul>
       </article>
-      <article class="card span-4">
+      <article class="card span-6">
         <div class="actions" style="justify-content:space-between; align-items:center;">
           <h3 class="section-title" style="margin:0;"><i class="fa-solid fa-key"></i> Tokens de cotización</h3>
           <button id="btn-new-token" class="secondary"><i class="fa-solid fa-plus"></i> Nuevo token</button>
         </div>
-        <div class="muted">Genera, comparte y monitorea enlaces con validez de 7 días.</div>
         <ul id="quote-tokens" class="list"></ul>
       </article>
-      <article class="card span-8">
+      <article class="card span-6">
         <h3 class="section-title"><i class="fa-solid fa-inbox"></i> Solicitudes recibidas</h3>
-        <div class="muted">Últimas 100 solicitudes con trazabilidad de sector, objetivo y horizonte.</div>
         <ul id="quote-submissions" class="list"></ul>
       </article>
       <article class="card span-12">
-        <h3 class="section-title"><i class="fa-solid fa-chart-column"></i> Proyecciones operativas</h3>
+        <h3 class="section-title"><i class="fa-solid fa-chart-column"></i> Proyecciones</h3>
         <div class="bar-grid" id="projections-bars"></div>
         <ul id="projection-notes" class="list"></ul>
       </article>
     </section>
+  </div>
+  <div class="modal" id="visit-modal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 class="section-title" style="margin:0;"><i class="fa-solid fa-map-location-dot"></i> Visitas detalladas</h3>
+        <div class="actions">
+          <div id="visit-modal-meta" class="muted"></div>
+          <button id="visit-modal-close" class="secondary"><i class="fa-solid fa-xmark"></i> Cerrar</button>
+        </div>
+      </div>
+      <div id="visit-detail-list" class="visit-table"></div>
+    </div>
   </div>
   <script src="/js/admin-dashboard.js"></script>
 </body>
