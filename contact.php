@@ -111,7 +111,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     // Email Configuration
     $to = "info@renace.tech"; // Destination email
-    $subject = "Nuevo mensaje de contacto - RENACE Tech: $name";
+    $subject = "Nuevo mensaje de contacto - RENACE.TECH: $name";
     
     // Email Content for Admin
     $email_content = "Nombre: $name\n";
@@ -119,7 +119,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email_content .= "Mensaje:\n$message\n";
 
     // Headers for Admin Email
-    $headers = "From: $name <$email>\r\n";
+    $headers = "From: RENACE.TECH <info@renace.tech>\r\n";
     $headers .= "Reply-To: $email\r\n";
 
     // Send Email to Admin
@@ -127,15 +127,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $admin_sent = mail($to, $subject, $email_content, $headers);
 
     // Confirmation Email to User
-    $user_subject = "Hemos recibido tu mensaje - RENACE Tech";
+    $user_subject = "Hemos recibido tu mensaje - RENACE.TECH";
     $user_message = "Hola $name,\n\n";
-    $user_message .= "Gracias por contactar a RENACE AI Tech. Hemos recibido tu mensaje y nuestro equipo lo revisará a la brevedad.\n\n";
+    $user_message .= "Gracias por contactar a RENACE.TECH. Hemos recibido tu mensaje y nuestro equipo lo revisará a la brevedad.\n\n";
     $user_message .= "--------------------------------------------------\n";
     $user_message .= "Tu mensaje:\n$message\n";
     $user_message .= "--------------------------------------------------\n\n";
-    $user_message .= "Saludos,\nEl equipo de RENACE AI Tech\nhttps://renace.tech";
+    $user_message .= "Saludos,\nEl equipo de RENACE.TECH\nhttps://renace.tech";
 
-    $user_headers = "From: RENACE AI Tech <info@renace.tech>\r\n";
+    $user_headers = "From: RENACE.TECH <info@renace.tech>\r\n";
     $user_headers .= "Reply-To: info@renace.tech\r\n";
 
     $user_sent = mail($email, $user_subject, $user_message, $user_headers);

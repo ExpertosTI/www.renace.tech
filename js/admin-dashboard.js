@@ -27,6 +27,9 @@
   let autoRefreshTimer = null;
   let presentationMode = localStorage.getItem('admin_presentation_mode') === '1';
   let visitDetailsLoading = false;
+  let presentationSceneTimer = null;
+  let presentationSceneIndex = 0;
+  let presentationResizeTimer = null;
 
   function setMessage(text, type = 'muted') {
     loginMessage.textContent = text;
@@ -57,9 +60,46 @@
   }
 
   function formatVisitSource(source) {
+    if (source === 'traefik') return 'TRAEFIK';
     if (source === 'nginx') return 'NGINX';
     if (source === 'live') return 'LIVE';
     return '-';
+  }
+
+  function clearPresentationScenes() {
+    if (presentationSceneTimer) {
+      clearInterval(presentationSceneTimer);
+      presentationSceneTimer = null;
+    }
+    document.querySelectorAll('.present-card').forEach(card => card.classList.remove('scene-active'));
+  }
+
+  function getPresentationSceneInterval() {
+    if (window.matchMedia('(max-width: 760px)').matches) return 6200;
+    if (window.matchMedia('(max-width: 1280px)').matches) return 5000;
+    return 3800;
+  }
+
+  function paintPresentationScene(index) {
+    const scenes = Array.from(document.querySelectorAll('.present-card'));
+    if (!scenes.length) return;
+    scenes.forEach((card, i) => {
+      card.classList.toggle('scene-active', i === index);
+    });
+  }
+
+  function startPresentationScenes() {
+    const scenes = Array.from(document.querySelectorAll('.present-card'));
+    if (!scenes.length) return;
+    clearPresentationScenes();
+    presentationSceneIndex = presentationSceneIndex % scenes.length;
+    paintPresentationScene(presentationSceneIndex);
+    const intervalMs = getPresentationSceneInterval();
+    presentationSceneTimer = setInterval(() => {
+      if (!presentationMode) return;
+      presentationSceneIndex = (presentationSceneIndex + 1) % scenes.length;
+      paintPresentationScene(presentationSceneIndex);
+    }, intervalMs);
   }
 
   function formatVisitTime(input) {
@@ -236,7 +276,7 @@
 
   function renderNotificationList(notifications) {
     notificationsFeed.innerHTML = notifications.length
-      ? notifications.map(item => `<li><div><strong>${escapeHtml(item.title)}</strong><div class="muted">${escapeHtml(item.desc)}</div></div><span class="tag ${item.level}">${escapeHtml(item.levelText)}</span></li>`).join('')
+      ? notifications.map(item => `<li><div><strong><img src="/images/logo.svg" alt="RENACE.TECH" style="width:16px;height:16px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;">RENACE.TECH · ${escapeHtml(item.title)}</strong><div class="muted">${escapeHtml(item.desc)}</div></div><span class="tag ${item.level}">${escapeHtml(item.levelText)}</span></li>`).join('')
       : '<li><span class="muted">Sin notificaciones</span></li>';
   }
 
@@ -314,6 +354,11 @@
     presentationMode = !!enabled;
     localStorage.setItem('admin_presentation_mode', presentationMode ? '1' : '0');
     document.body.classList.toggle('presentation', presentationMode);
+    if (presentationMode) {
+      startPresentationScenes();
+    } else {
+      clearPresentationScenes();
+    }
     if (btnPresentation) {
       btnPresentation.innerHTML = presentationMode
         ? '<i class="fa-solid fa-grip"></i> Modo completo'
@@ -555,6 +600,7 @@
     renderTracking(submissions);
     renderProjectionBars(insights);
     renderReports(insights, trafficSource);
+    if (presentationMode) startPresentationScenes();
 
     statsCard.style.display = 'block';
     lists.style.display = 'grid';
@@ -563,6 +609,13 @@
   btnRequest.addEventListener('click', requestCode);
   btnVerify.addEventListener('click', verifyCode);
   btnPresentation?.addEventListener('click', () => setPresentationMode(!presentationMode));
+  window.addEventListener('resize', () => {
+    if (!presentationMode) return;
+    if (presentationResizeTimer) clearTimeout(presentationResizeTimer);
+    presentationResizeTimer = setTimeout(() => {
+      startPresentationScenes();
+    }, 180);
+  });
   visitsKpi?.addEventListener('click', openVisitModal);
   visitModalClose?.addEventListener('click', closeVisitModal);
   visitModal?.addEventListener('click', event => {

@@ -71,7 +71,12 @@ function showNotification(message, type = 'info') {
   const el = document.createElement('div');
   el.className = `notification ${type}`;
   const iconMap = { success: 'fa-check-circle', error: 'fa-exclamation-circle', info: 'fa-info-circle' };
-  el.innerHTML = `<i class="fas ${iconMap[type] || iconMap.info}"></i><span>${message}</span>`;
+  el.innerHTML = `
+    <img src="/images/logo.svg" alt="RENACE.TECH" style="width:18px;height:18px;border-radius:50%;object-fit:cover;">
+    <strong style="font-size:0.72rem;letter-spacing:0.04em;">RENACE.TECH</strong>
+    <i class="fas ${iconMap[type] || iconMap.info}"></i>
+    <span>${message}</span>
+  `;
   document.body.appendChild(el);
   setTimeout(() => el.classList.add('show'), 50);
   setTimeout(() => {

@@ -98,7 +98,7 @@ try {
 
         $headers   = [];
         $fromEmail = 'no-reply@renace.tech';
-        $headers[] = 'From: RENACE Chat <' . $fromEmail . '>';
+        $headers[] = 'From: RENACE.TECH <' . $fromEmail . '>';
 
         $replyTo = filter_var($contacto, FILTER_VALIDATE_EMAIL);
         if ($replyTo) {

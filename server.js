@@ -112,7 +112,7 @@ function parseNginxLine(line) {
     const referrer = full[6] && full[6] !== '-' ? full[6] : '';
     const userAgent = full[7] && full[7] !== '-' ? full[7] : '';
     const date = parseNginxDate(tsStr);
-    return { date, method, path: pathStr, status, ip, referrer, userAgent };
+    return { date, method, path: pathStr, status, ip, referrer, userAgent, source: 'nginx' };
   }
   const basic = line.match(/^[^ ]+ [^ ]+ [^ ]+ \[([^\]]+)\] "[A-Z]+ ([^" ]+)/);
   const statusMatch = line.match(/" \s*(\d{3})/);
@@ -121,7 +121,61 @@ function parseNginxLine(line) {
   const pathStr = basic[2] || '/';
   const status = parseInt(statusMatch[1], 10);
   const date = parseNginxDate(tsStr);
-  return { date, method: 'GET', path: pathStr, status, ip: '', referrer: '', userAgent: '' };
+  return { date, method: 'GET', path: pathStr, status, ip: '', referrer: '', userAgent: '', source: 'nginx' };
+}
+
+function extractClientIp(rawAddress) {
+  const raw = String(rawAddress || '').trim();
+  if (!raw) return '';
+  const first = raw.split(',')[0].trim();
+  if (first.startsWith('[')) {
+    const closeIdx = first.indexOf(']');
+    if (closeIdx > 1) return first.slice(1, closeIdx);
+  }
+  const ipv4WithPort = first.match(/^(\d{1,3}(?:\.\d{1,3}){3}):\d+$/);
+  if (ipv4WithPort) return ipv4WithPort[1];
+  const mappedIpv4 = first.match(/(\d{1,3}(?:\.\d{1,3}){3})/);
+  if (mappedIpv4) return mappedIpv4[1];
+  return first;
+}
+
+function parseTraefikJsonLine(line) {
+  if (!line || line[0] !== '{') return null;
+  let data;
+  try {
+    data = JSON.parse(line);
+  } catch {
+    return null;
+  }
+  const status = Number(
+    data.DownstreamStatus
+    || data.OriginStatus
+    || data.status
+    || data.statusCode
+  );
+  if (!Number.isFinite(status)) return null;
+  const rawPath = data.RequestPath || data.RequestURI || data.path || '/';
+  const path = String(rawPath || '/').split('?')[0] || '/';
+  const method = data.RequestMethod || data.method || 'GET';
+  const dateRaw = data.StartUTC || data.StartLocal || data.time || data.Timestamp || data.ts;
+  const date = dateRaw ? new Date(dateRaw) : null;
+  const ip = extractClientIp(data.ClientAddr || data.ClientHost || data.RequestAddr || data.clientAddr || data.client_ip);
+  const referrer = data.request_Referer || data.RequestReferer || data.referer || '';
+  const userAgent = data.request_UserAgent || data.RequestUserAgent || data.userAgent || '';
+  return {
+    date: date instanceof Date && !Number.isNaN(date.getTime()) ? date : null,
+    method: String(method || 'GET'),
+    path,
+    status,
+    ip,
+    referrer: String(referrer || ''),
+    userAgent: String(userAgent || ''),
+    source: 'traefik',
+  };
+}
+
+function parseAccessLogLine(line) {
+  return parseTraefikJsonLine(line) || parseNginxLine(line);
 }
 
 function parseNginxDate(str) {
@@ -137,21 +191,26 @@ function parseNginxDate(str) {
 
 async function summarizeVisits() {
   const lines = await readAccessLogTail();
-  const summary = { total: 0, last24h: 0, byStatus: {}, topPaths: [], source: 'nginx' };
+  const summary = { total: 0, last24h: 0, byStatus: {}, topPaths: [], source: 'traefik' };
   const pathCount = {};
+  const sourceCount = {};
   const cutoff = Date.now() - 24 * 60 * 60 * 1000;
   for (const line of lines) {
-    const parsed = parseNginxLine(line);
+    const parsed = parseAccessLogLine(line);
     if (!parsed) continue;
     summary.total += 1;
     if (parsed.date && parsed.date.getTime() >= cutoff) summary.last24h += 1;
     summary.byStatus[parsed.status] = (summary.byStatus[parsed.status] || 0) + 1;
     pathCount[parsed.path] = (pathCount[parsed.path] || 0) + 1;
+    const source = parsed.source || 'traefik';
+    sourceCount[source] = (sourceCount[source] || 0) + 1;
   }
   summary.topPaths = Object.entries(pathCount)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10)
     .map(([path, count]) => ({ path, count }));
+  const topSource = Object.entries(sourceCount).sort((a, b) => b[1] - a[1])[0];
+  if (topSource) summary.source = topSource[0];
   if (summary.total > 0) return summary;
   return summarizeLiveVisits();
 }
@@ -185,6 +244,7 @@ function formatVisitDetailRecord(item) {
     ts,
     at: new Date(ts).toISOString(),
     countryHint: item.countryHint || '',
+    source: item.source || 'traefik',
   };
 }
 
@@ -262,7 +322,7 @@ async function collectNginxVisitDetails(limit = 80) {
   const lines = await readAccessLogTail(Math.max(limit * 12, 500));
   const items = [];
   for (let i = lines.length - 1; i >= 0 && items.length < limit; i -= 1) {
-    const parsed = parseNginxLine(lines[i]);
+    const parsed = parseAccessLogLine(lines[i]);
     if (!parsed) continue;
     items.push(formatVisitDetailRecord(parsed));
   }
@@ -278,7 +338,9 @@ function collectLiveVisitDetails(limit = 80) {
 
 async function collectVisitDetails(limit = 80) {
   const nginxItems = await collectNginxVisitDetails(limit);
-  if (nginxItems.length) return { source: 'nginx', items: nginxItems };
+  if (nginxItems.length) {
+    return { source: nginxItems[0]?.source || 'traefik', items: nginxItems };
+  }
   return { source: 'live', items: collectLiveVisitDetails(limit) };
 }
 
@@ -341,7 +403,7 @@ async function sendAdminCode(email, code) {
   if (!transporter) return false;
   try {
     await transporter.sendMail({
-      from: process.env.SMTP_FROM || 'noreply@renace.tech',
+      from: process.env.SMTP_FROM || 'RENACE.TECH <noreply@renace.tech>',
       to: email,
       subject: 'Código de acceso dashboard Renace',
       text: `Tu código de acceso es: ${code} (válido por 10 minutos).`,
@@ -689,7 +751,7 @@ app.post('/api/quote/assistant', apiLimiter, async (req, res) => {
 });
 
 // ── Paths ──
-const ACCESS_LOG_PATH = process.env.NGINX_ACCESS_LOG || '/var/log/nginx/renace.access.log';
+const ACCESS_LOG_PATH = process.env.TRAEFIK_ACCESS_LOG || process.env.NGINX_ACCESS_LOG || '/var/log/traefik/access.log';
 const ADMIN_ANALYTICS_LIMIT = 1000; // líneas máximas a procesar del log
 
 // ── Database ──
@@ -883,7 +945,7 @@ async function handleContactSubmission(req, res) {
   if (transporter) {
     try {
       await transporter.sendMail({
-        from: process.env.SMTP_FROM || 'noreply@renace.tech',
+        from: process.env.SMTP_FROM || 'RENACE.TECH <noreply@renace.tech>',
         to: process.env.SMTP_USER || 'info@renace.tech',
         subject: `Contacto de ${safeName} — renace.tech`,
         text: `Nombre: ${safeName}\nEmail: ${safeEmail}\n\n${safeMessage}`,

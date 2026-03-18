@@ -461,6 +461,8 @@ const forms = {
         notification.className = `notification ${type}`;
         notification.innerHTML = `
             <div class="notification-content">
+                <img src="/images/logo.svg" alt="RENACE.TECH" style="width:18px;height:18px;border-radius:50%;object-fit:cover;">
+                <strong style="font-size:0.72rem;letter-spacing:0.04em;">RENACE.TECH</strong>
                 <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
                 <span>${message}</span>
             </div>
@@ -2257,6 +2259,8 @@ function showNotification(message, type = 'info') {
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
     notification.innerHTML = `
+        <img src="/images/logo.svg" alt="RENACE.TECH" style="width:18px;height:18px;border-radius:50%;object-fit:cover;">
+        <strong style="font-size:0.72rem;letter-spacing:0.04em;">RENACE.TECH</strong>
         <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i>
         <span>${message}</span>
     `;

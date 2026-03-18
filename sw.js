@@ -127,10 +127,11 @@ async function syncForms() {
 
 // Manejo de notificaciones push
 self.addEventListener('push', (event) => {
+    const payloadText = event.data ? event.data.text() : 'Tienes una nueva notificación.';
     const options = {
-        body: event.data.text(),
+        body: payloadText,
         icon: '/images/logo.svg',
-        badge: '/images/badge.png',
+        badge: '/images/logo.svg',
         vibrate: [100, 50, 100],
         data: {
             dateOfArrival: Date.now(),
@@ -151,7 +152,7 @@ self.addEventListener('push', (event) => {
     };
 
     event.waitUntil(
-        self.registration.showNotification('RENACE Tech', options)
+        self.registration.showNotification('RENACE.TECH', options)
     );
 });
 
