@@ -772,6 +772,129 @@
       100% { box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.22), 0 16px 36px rgba(2, 6, 23, 0.38); }
     }
 
+    .executive-flow {
+      display: none;
+    }
+
+    .executive-mode .journey-bar,
+    .executive-mode .step-section,
+    .executive-mode .assistant {
+      display: none !important;
+    }
+
+    .executive-mode .experience-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .executive-mode .executive-flow {
+      display: grid;
+      gap: 14px;
+    }
+
+    .exec-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(59, 130, 246, 0.35);
+      background: linear-gradient(120deg, rgba(30, 58, 138, 0.4), rgba(14, 116, 144, 0.28));
+    }
+
+    .exec-top strong {
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #dbeafe;
+    }
+
+    .exec-progress {
+      font-size: 12px;
+      color: #93c5fd;
+      font-weight: 700;
+    }
+
+    .exec-slide {
+      display: none;
+      border-radius: 16px;
+      border: 1px solid rgba(96, 165, 250, 0.24);
+      background: linear-gradient(170deg, rgba(15, 23, 42, 0.94), rgba(2, 6, 23, 0.92));
+      padding: 24px;
+      box-shadow: 0 24px 48px rgba(2, 6, 23, 0.52);
+      gap: 16px;
+      animation: sectionReveal 0.26s ease;
+    }
+
+    .exec-slide.active {
+      display: grid;
+    }
+
+    .exec-slide h3 {
+      margin: 0;
+      font-size: clamp(1.3rem, 2.6vw, 2rem);
+      color: #eff6ff;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+
+    .exec-slide p {
+      margin: 0;
+      color: #93c5fd;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .exec-slide .field-wrap {
+      display: grid;
+      gap: 10px;
+    }
+
+    .exec-slide .field-wrap > div,
+    .exec-slide .field-wrap > label {
+      width: 100%;
+    }
+
+    .exec-controls {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .exec-btn {
+      border: 1px solid rgba(96, 165, 250, 0.45);
+      border-radius: 10px;
+      padding: 11px 15px;
+      font-weight: 800;
+      font-size: 12px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      cursor: pointer;
+      color: #dbeafe;
+      background: rgba(30, 41, 59, 0.72);
+      transition: transform 0.2s, filter 0.2s;
+    }
+
+    .exec-btn:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.06);
+    }
+
+    .exec-btn.primary {
+      border: none;
+      color: #f0f9ff;
+      background: linear-gradient(120deg, #2563eb, #0ea5e9);
+    }
+
+    .executive-mode .actions {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .executive-mode #submitBtn {
+      display: none;
+    }
+
     .actions {
       display: grid;
       gap: 10px;
@@ -817,6 +940,9 @@
       .token-status { width: 100%; }
       .journey-bar { grid-template-columns: repeat(2, 1fr); }
       .arch-compare { grid-template-columns: minmax(0, 1fr); }
+      .exec-slide { padding: 18px; }
+      .exec-controls { flex-direction: column-reverse; }
+      .exec-btn { width: 100%; }
     }
   </style>
 </head>
@@ -835,6 +961,7 @@
 
         <div class="experience-layout">
           <form id="quote-form" class="form">
+            <div id="executive-flow" class="executive-flow"></div>
             <div class="journey-bar" id="journey-bar">
               <div class="journey-step" data-step-indicator="0">Contacto</div>
               <div class="journey-step" data-step-indicator="1">Negocio</div>
@@ -1090,6 +1217,7 @@
     const form = document.getElementById('quote-form');
     const msgEl = document.getElementById('form-message');
     const submitBtn = document.getElementById('submitBtn');
+    const executiveFlowEl = document.getElementById('executive-flow');
     const moduleInputs = Array.from(document.querySelectorAll('input[name="modules"]'));
     const sectionEls = Array.from(document.querySelectorAll('.step-section'));
     const stepIndicators = Array.from(document.querySelectorAll('[data-step-indicator]'));
@@ -1110,6 +1238,8 @@
     let typingTimer = null;
     let typingNonce = 0;
     let compareArchitectures = [];
+    let executiveSlides = [];
+    let executiveIndex = 0;
     const assistantState = {
       loading: false,
       hash: '',
@@ -1560,6 +1690,174 @@
       return userNote ? `${userNote}\n\n${parts.join('\n')}` : parts.join('\n');
     }
 
+    function getExecutiveField(id) {
+      const input = document.getElementById(id);
+      if (!input) return null;
+      return input.closest('div');
+    }
+
+    function isExecutiveStepValid(step) {
+      if (step.kind === 'modules') {
+        return getSelectedModules().length > 0;
+      }
+      if (step.kind === 'revenue') {
+        return form.revenue.value.trim().length > 0;
+      }
+      if (!step.field) return true;
+      const el = form.elements[step.field];
+      if (!el) return true;
+      if (!step.required) return true;
+      return String(el.value || '').trim().length > 0;
+    }
+
+    function focusExecutiveStep(index) {
+      const step = executiveSlides[index];
+      if (!step) return;
+      if (step.kind === 'modules') return;
+      if (step.kind === 'revenue') return;
+      const el = form.elements[step.field];
+      if (el && typeof el.focus === 'function') {
+        el.focus({ preventScroll: true });
+      }
+    }
+
+    function renderExecutiveFlow() {
+      const total = executiveSlides.length;
+      executiveSlides.forEach((step, idx) => {
+        step.slide.classList.toggle('active', idx === executiveIndex);
+      });
+      const current = executiveSlides[executiveIndex];
+      const progressEl = executiveFlowEl.querySelector('[data-exec-progress]');
+      const backBtn = executiveFlowEl.querySelector('[data-exec-back]');
+      const nextBtn = executiveFlowEl.querySelector('[data-exec-next]');
+      if (progressEl) progressEl.textContent = `Paso ${executiveIndex + 1} de ${total}`;
+      if (backBtn) backBtn.disabled = executiveIndex === 0;
+      if (nextBtn) {
+        const isLast = executiveIndex === total - 1;
+        nextBtn.textContent = isLast ? 'Enviar solicitud' : 'Continuar';
+      }
+      focusExecutiveStep(executiveIndex);
+      renderJourneyState();
+    }
+
+    function buildExecutiveSlides() {
+      const steps = [
+        {
+          title: '¿Cómo te llamas?',
+          subtitle: 'Empecemos con una sola pregunta para personalizar tu propuesta.',
+          node: getExecutiveField('name'),
+          field: 'name',
+          required: true
+        },
+        {
+          title: '¿Cuál es tu correo empresarial?',
+          subtitle: 'Aquí te enviaremos la ruta de solución y el resumen ejecutivo.',
+          node: getExecutiveField('email'),
+          field: 'email',
+          required: true
+        },
+        {
+          title: '¿Cuál es tu sector?',
+          subtitle: 'Con esto ajustamos la arquitectura ideal para tu operación.',
+          node: getExecutiveField('sector'),
+          field: 'sector',
+          required: true
+        },
+        {
+          title: '¿Cómo es tu modelo de negocio?',
+          subtitle: 'Describe en una línea cómo vendes o atiendes clientes.',
+          node: getExecutiveField('business'),
+          field: 'business',
+          required: true
+        },
+        {
+          title: '¿Qué facturación mensual aproximada manejas?',
+          subtitle: 'Esto define el nivel de automatización recomendado.',
+          node: document.getElementById('revenue-choices')?.closest('div'),
+          kind: 'revenue',
+          required: true
+        },
+        {
+          title: '¿Qué objetivo quieres resolver primero?',
+          subtitle: 'Elegimos el frente de mayor impacto para iniciar.',
+          node: getExecutiveField('objective'),
+          field: 'objective',
+          required: true
+        },
+        {
+          title: '¿En qué horizonte quieres implementarlo?',
+          subtitle: 'Definimos un ritmo realista para ejecutar con foco.',
+          node: getExecutiveField('timeline'),
+          field: 'timeline',
+          required: true
+        },
+        {
+          title: '¿Qué módulos son prioridad para ti?',
+          subtitle: 'Selecciona los bloques que más valor te darán.',
+          node: document.getElementById('modules-grid')?.closest('div'),
+          kind: 'modules',
+          required: true
+        },
+        {
+          title: '¿Algún detalle clave adicional?',
+          subtitle: 'Si quieres, agrega notas para afinar la propuesta.',
+          node: getExecutiveField('message'),
+          field: 'message',
+          required: false
+        }
+      ].filter(step => step.node);
+      executiveSlides = [];
+      steps.forEach(step => {
+        const slide = document.createElement('section');
+        slide.className = 'exec-slide';
+        slide.innerHTML = `<h3>${escapeHtml(step.title)}</h3><p>${escapeHtml(step.subtitle)}</p><div class="field-wrap"></div>`;
+        slide.querySelector('.field-wrap').append(step.node);
+        executiveFlowEl.append(slide);
+        executiveSlides.push({ ...step, slide });
+      });
+    }
+
+    function initExecutiveFlow() {
+      document.body.classList.add('executive-mode');
+      executiveFlowEl.innerHTML = `
+        <div class="exec-top">
+          <strong>Flujo ejecutivo</strong>
+          <span class="exec-progress" data-exec-progress>Paso 1 de 1</span>
+        </div>
+      `;
+      buildExecutiveSlides();
+      if (!executiveSlides.length) return;
+      const controls = document.createElement('div');
+      controls.className = 'exec-controls';
+      controls.innerHTML = `
+        <button type="button" class="exec-btn" data-exec-back>Anterior</button>
+        <button type="button" class="exec-btn primary" data-exec-next>Continuar</button>
+      `;
+      executiveFlowEl.append(controls);
+      controls.querySelector('[data-exec-back]').addEventListener('click', () => {
+        if (executiveIndex === 0) return;
+        executiveIndex -= 1;
+        setMsg('', 'muted');
+        renderExecutiveFlow();
+      });
+      controls.querySelector('[data-exec-next]').addEventListener('click', () => {
+        const current = executiveSlides[executiveIndex];
+        if (!current) return;
+        if (!isExecutiveStepValid(current)) {
+          setMsg('Completa esta respuesta para continuar.', 'error');
+          return;
+        }
+        setMsg('', 'muted');
+        if (executiveIndex >= executiveSlides.length - 1) {
+          submitBtn.click();
+          return;
+        }
+        executiveIndex += 1;
+        renderExecutiveFlow();
+      });
+      renderExecutiveFlow();
+    }
+
     async function validateToken() {
       if (!token) {
         setTokenStatus('Token faltante', 'error');
@@ -1624,6 +1922,8 @@
         revenueChoices.forEach(btn => btn.classList.remove('active'));
         activeStep = 0;
         renderJourneyState();
+        executiveIndex = 0;
+        renderExecutiveFlow();
       } catch (e) {
         setMsg(e.message, 'error');
       } finally {
@@ -1680,6 +1980,7 @@
     });
 
     form.addEventListener('submit', submitForm);
+    initExecutiveFlow();
     renderJourneyState();
     validateToken();
   </script>
