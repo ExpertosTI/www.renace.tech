@@ -152,7 +152,7 @@ async function summarizeSales() {
   }
 }
 
-// ── Admin endpoint ──
+// ── Admin helpers ──
 function cleanupAdminTokens() {
   const now = Date.now();
   for (const [token, info] of adminTokens.entries()) {
@@ -192,6 +192,57 @@ async function sendAdminCode(email, code) {
   }
 }
 
+// ── Security Headers (Helmet) ──
+app.use((req, res, next) => {
+  if (req.path.startsWith('/odoo')) return next();
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://cdnjs.cloudflare.com", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", "https://ai.renace.tech"],
+        frameSrc: ["'none'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        scriptSrcAttr: ["'unsafe-inline'"],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+    hsts: isProd ? { maxAge: 63072000, includeSubDomains: true, preload: true } : false,
+  })(req, res, next);
+});
+
+// ── Rate Limiting ──
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 min
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiadas solicitudes, intenta más tarde.' },
+});
+
+const contactLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
+  message: { error: 'Límite de mensajes alcanzado. Intenta más tarde.' },
+});
+
+const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: 'Demasiadas subidas, intenta más tarde.' },
+});
+
+const chatLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 30,
+  message: { error: 'Chat limitado, intenta más tarde.' },
+});
+
+// ── Admin auth + analytics (after rate limiters to avoid hoisting issues) ──
 app.post('/api/admin/login/request-code', apiLimiter, async (req, res) => {
   const email = (req.body?.email || '').trim().toLowerCase();
   if (email !== ADMIN_EMAIL.toLowerCase()) return res.status(403).json({ error: 'No autorizado' });
@@ -240,7 +291,7 @@ app.get('/api/admin/analytics', apiLimiter, async (req, res) => {
   }
 });
 
-// ── Explicit HTML routes to avoid download disposition ──
+// HTML routes
 app.get('/admin-dashboard.html', (req, res) => {
   res.type('html');
   res.sendFile(path.join(__dirname, 'admin-dashboard.html'));
@@ -251,7 +302,7 @@ app.get('/cotizacion.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'cotizacion.html'));
 });
 
-// ── Quote endpoints ──
+// Quote endpoints
 app.post('/api/admin/quote-tokens', apiLimiter, async (req, res) => {
   if (!requireAdminToken(req, res)) return;
   const label = sanitizeText(req.body?.label || 'Solicitud');
@@ -324,56 +375,6 @@ app.post('/api/quote/submit', apiLimiter, async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
-});
-
-// ── Security Headers (Helmet) ──
-app.use((req, res, next) => {
-  if (req.path.startsWith('/odoo')) return next();
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://fonts.googleapis.com"],
-        fontSrc: ["'self'", "https://cdnjs.cloudflare.com", "https://fonts.gstatic.com"],
-        imgSrc: ["'self'", "data:", "https:"],
-        connectSrc: ["'self'", "https://ai.renace.tech"],
-        frameSrc: ["'none'"],
-        objectSrc: ["'none'"],
-        baseUri: ["'self'"],
-        scriptSrcAttr: ["'unsafe-inline'"],
-      },
-    },
-    crossOriginEmbedderPolicy: false,
-    hsts: isProd ? { maxAge: 63072000, includeSubDomains: true, preload: true } : false,
-  })(req, res, next);
-});
-
-// ── Rate Limiting ──
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 min
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Demasiadas solicitudes, intenta más tarde.' },
-});
-
-const contactLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5,
-  message: { error: 'Límite de mensajes alcanzado. Intenta más tarde.' },
-});
-
-const uploadLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  message: { error: 'Demasiadas subidas, intenta más tarde.' },
-});
-
-const chatLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000,
-  max: 30,
-  message: { error: 'Chat limitado, intenta más tarde.' },
 });
 
 // ── Paths ──
