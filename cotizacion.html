@@ -880,6 +880,52 @@
       box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
     }
 
+    .suggestion-bubbles {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+      opacity: 0;
+      transform: translateY(-6px);
+      pointer-events: none;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .suggestion-bubbles.visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .suggestion-bubble {
+      border: 1px solid rgba(96, 165, 250, 0.35);
+      background: linear-gradient(135deg, rgba(30, 58, 138, 0.28), rgba(37, 99, 235, 0.18));
+      color: #dbeafe;
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .suggestion-bubble:hover {
+      background: linear-gradient(135deg, rgba(30, 58, 138, 0.55), rgba(37, 99, 235, 0.38));
+      border-color: rgba(147, 197, 253, 0.6);
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.3);
+    }
+
+    .suggestion-bubble i {
+      font-size: 12px;
+      color: #7dd3fc;
+    }
+
     .selection-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -1093,7 +1139,7 @@
               <div class="grid">
                 <div class="input-with-pills">
                   <label for="sector">Sector *</label>
-                  <div class="pill-group" id="sector-pills">
+                  <div class="pill-group" id="sector-pills" data-multiple="true">
                     <button type="button" class="pill-option" data-value="Retail / Tienda de Ropa"><i class="fa-solid fa-shirt"></i> Ropa</button>
                     <button type="button" class="pill-option" data-value="Licores / Drink"><i class="fa-solid fa-wine-bottle"></i> Licores</button>
                     <button type="button" class="pill-option" data-value="Vape Shop"><i class="fa-solid fa-cloud"></i> Vapers</button>
@@ -1102,12 +1148,28 @@
                     <button type="button" class="pill-option" data-value="Servicios"><i class="fa-solid fa-briefcase"></i> Servicios</button>
                     <button type="button" class="pill-option" data-value="Salud"><i class="fa-solid fa-user-doctor"></i> Salud</button>
                     <button type="button" class="pill-option" data-value="Educación"><i class="fa-solid fa-graduation-cap"></i> Educación</button>
+                    <button type="button" class="pill-option" data-value="Supermercado"><i class="fa-solid fa-cart-shopping"></i> Supermercado</button>
+                    <button type="button" class="pill-option" data-value="Ferretería"><i class="fa-solid fa-screwdriver-wrench"></i> Ferretería</button>
+                    <button type="button" class="pill-option" data-value="Farmacia"><i class="fa-solid fa-pills"></i> Farmacia</button>
+                    <button type="button" class="pill-option" data-value="Belleza"><i class="fa-solid fa-spa"></i> Belleza</button>
+                    <button type="button" class="pill-option" data-value="Construcción"><i class="fa-solid fa-trowel-bricks"></i> Construcción</button>
+                    <button type="button" class="pill-option" data-value="Transporte"><i class="fa-solid fa-truck"></i> Transporte</button>
                   </div>
-                  <input id="sector" name="sector" required placeholder="Escribe tu sector o selecciona uno de arriba...">
+                  <input id="sector" name="sector" required placeholder="Escribe tu sector o selecciona varios de arriba...">
                 </div>
                 <div>
                   <label for="business">Modelo de negocio *</label>
                   <input id="business" name="business" required placeholder="Ej. distribuidor B2B con ventas a crédito y rutas">
+                  <div class="suggestion-bubbles" id="business-suggestions">
+                    <button type="button" class="suggestion-bubble" data-value="Venta al detal con atención en tienda"><i class="fa-solid fa-store"></i> Venta al detal</button>
+                    <button type="button" class="suggestion-bubble" data-value="E-commerce / Venta en línea"><i class="fa-solid fa-cart-flatbed"></i> E-commerce</button>
+                    <button type="button" class="suggestion-bubble" data-value="Distribuidor B2B con rutas de entrega"><i class="fa-solid fa-truck-ramp-box"></i> Distribuidor B2B</button>
+                    <button type="button" class="suggestion-bubble" data-value="Restaurante con delivery y mesa"><i class="fa-solid fa-plate-wheat"></i> Restaurante</button>
+                    <button type="button" class="suggestion-bubble" data-value="Servicios profesionales por contrato"><i class="fa-solid fa-handshake"></i> Servicios B2B</button>
+                    <button type="button" class="suggestion-bubble" data-value="Fabricación bajo pedido"><i class="fa-solid fa-gears"></i> Manufactura</button>
+                    <button type="button" class="suggestion-bubble" data-value="Venta por mayoreo y unidad"><i class="fa-solid fa-boxes-stacked"></i> Mayoreo</button>
+                    <button type="button" class="suggestion-bubble" data-value="Suscripción / Membresía recurrente"><i class="fa-solid fa-arrows-rotate"></i> Suscripción</button>
+                  </div>
                 </div>
                 <div class="input-with-pills">
                   <label for="locations">Sucursales</label>
@@ -1197,6 +1259,9 @@
                     <button type="button" class="pill-option" data-value="ERP Moderno"><i class="fa-solid fa-cloud"></i> Moderno</button>
                     <button type="button" class="pill-option" data-value="Mixto"><i class="fa-solid fa-screwdriver-wrench"></i> Mixto</button>
                     <button type="button" class="pill-option" data-value="Ninguno"><i class="fa-solid fa-ban"></i> Nada</button>
+                    <button type="button" class="pill-option" data-value="eleventa"><i class="fa-solid fa-cash-register"></i> eleventa</button>
+                    <button type="button" class="pill-option" data-value="Monica"><i class="fa-solid fa-female"></i> Monica</button>
+                    <button type="button" class="pill-option" data-value="Alegra"><i class="fa-solid fa-file-invoice-dollar"></i> Alegra</button>
                   </div>
                   <input id="currentSystem" name="currentSystem" placeholder="Describe tu sistema actual...">
                 </div>
@@ -1205,23 +1270,23 @@
               <div>
                 <label>Módulos de interés *</label>
                 <div class="modules-grid" id="modules-grid">
-                  <label class="module"><input type="checkbox" name="modules" value="crm"><span>CRM</span></label>
-                  <label class="module"><input type="checkbox" name="modules" value="ventas"><span>Ventas</span></label>
-                  <label class="module"><input type="checkbox" name="modules" value="inventario"><span>Inventario</span></label>
-                  <label class="module"><input type="checkbox" name="modules" value="compras"><span>Compras</span></label>
-                  <label class="module"><input type="checkbox" name="modules" value="contabilidad"><span>Contabilidad</span></label>
-                  <label class="module"><input type="checkbox" name="modules" value="punto_de_venta"><span>Punto de Venta</span></label>
-                  <label class="module"><input type="checkbox" name="modules" value="facturacion"><span>Facturación</span></label>
-                  <label class="module"><input type="checkbox" name="modules" value="rrhh"><span>RRHH</span></label>
-                  <label class="module"><input type="checkbox" name="modules" value="manufactura"><span>Manufactura</span></label>
-                  <label class="module"><input type="checkbox" name="modules" value="proyectos"><span>Proyectos</span></label>
-                  <label class="module"><input type="checkbox" name="modules" value="helpdesk"><span>Helpdesk</span></label>
-                  <label class="module"><input type="checkbox" name="modules" value="ecommerce"><span>eCommerce</span></label>
-                  <label class="module"><input type="checkbox" name="modules" value="bi_analytics"><span>BI & Analytics</span></label>
-                  <label class="module"><input type="checkbox" name="modules" value="automatizaciones"><span>Automatizaciones</span></label>
-                  <label class="module"><input type="checkbox" name="modules" value="integraciones_api"><span>Integraciones API</span></label>
-                  <label class="module"><input type="checkbox" name="modules" value="software_medida"><span>Software a Medida</span></label>
-                  <label class="module"><input type="checkbox" name="modules" value="agentes_ia"><span>Agentes IA</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="crm"><span><i class="fa-solid fa-users-gear"></i> CRM</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="ventas"><span><i class="fa-solid fa-chart-line"></i> Ventas</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="inventario"><span><i class="fa-solid fa-boxes-stacked"></i> Inventario</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="compras"><span><i class="fa-solid fa-cart-shopping"></i> Compras</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="contabilidad"><span><i class="fa-solid fa-calculator"></i> Contabilidad</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="punto_de_venta"><span><i class="fa-solid fa-terminal"></i> Punto de Venta</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="facturacion"><span><i class="fa-solid fa-file-invoice"></i> Facturación</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="rrhh"><span><i class="fa-solid fa-id-card"></i> RRHH</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="manufactura"><span><i class="fa-solid fa-gears"></i> Manufactura</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="proyectos"><span><i class="fa-solid fa-diagram-project"></i> Proyectos</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="helpdesk"><span><i class="fa-solid fa-headset"></i> Helpdesk</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="ecommerce"><span><i class="fa-solid fa-cart-flatbed"></i> eCommerce</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="bi_analytics"><span><i class="fa-solid fa-chart-pie"></i> BI & Analytics</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="automatizaciones"><span><i class="fa-solid fa-wand-magic-sparkles"></i> Automatizaciones</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="integraciones_api"><span><i class="fa-solid fa-plug"></i> Integraciones API</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="software_medida"><span><i class="fa-solid fa-code"></i> Software a Medida</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="agentes_ia"><span><i class="fa-solid fa-robot"></i> Agentes IA</span></label>
                 </div>
               </div>
               <div class="step-actions">
@@ -2072,6 +2137,7 @@
         renderJourneyState();
         executiveIndex = 0;
         renderExecutiveFlow();
+        setTimeout(() => { window.location.href = 'https://renace.tech'; }, 2000);
       } catch (e) {
         setMsg(e.message, 'error');
       } finally {
@@ -2138,14 +2204,30 @@
     function setupPillInput(groupId, inputId) {
       const pills = Array.from(document.querySelectorAll(`#${groupId} .pill-option`));
       const input = document.getElementById(inputId);
+      const group = document.getElementById(groupId);
       
       if (!input || !pills.length) return;
 
+      const isMultiple = group && group.dataset.multiple === 'true';
+      const selectedValues = [];
+
       pills.forEach(pill => {
         pill.addEventListener('click', () => {
-          pills.forEach(p => p.classList.remove('active'));
-          pill.classList.add('active');
-          input.value = pill.dataset.value;
+          if (isMultiple) {
+            const idx = selectedValues.indexOf(pill.dataset.value);
+            if (idx > -1) {
+              selectedValues.splice(idx, 1);
+              pill.classList.remove('active');
+            } else {
+              selectedValues.push(pill.dataset.value);
+              pill.classList.add('active');
+            }
+            input.value = selectedValues.join(', ');
+          } else {
+            pills.forEach(p => p.classList.remove('active'));
+            pill.classList.add('active');
+            input.value = pill.dataset.value;
+          }
           renderJourneyState();
         });
       });
@@ -2153,8 +2235,12 @@
       input.addEventListener('input', () => {
         const val = input.value;
         pills.forEach(p => {
-          if (p.dataset.value === val) p.classList.add('active');
-          else p.classList.remove('active');
+          if (isMultiple) {
+            p.classList.toggle('active', selectedValues.includes(p.dataset.value));
+          } else {
+            if (p.dataset.value === val) p.classList.add('active');
+            else p.classList.remove('active');
+          }
         });
       });
     }
@@ -2164,6 +2250,21 @@
     setupPillInput('currentSystem-pills', 'currentSystem');
     setupPillInput('migration-pills', 'migration');
     setupPillInput('training-pills', 'training');
+
+    const businessInput = document.getElementById('business');
+    const businessSuggestions = document.getElementById('business-suggestions');
+    if (businessInput && businessSuggestions) {
+      const bubbles = businessSuggestions.querySelectorAll('.suggestion-bubble');
+      businessInput.addEventListener('focus', () => { businessSuggestions.classList.add('visible'); });
+      businessInput.addEventListener('blur', () => { setTimeout(() => { businessSuggestions.classList.remove('visible'); }, 200); });
+      businessInput.addEventListener('input', () => { businessSuggestions.classList.add('visible'); });
+      bubbles.forEach(bubble => {
+        bubble.addEventListener('click', () => {
+          businessInput.value = bubble.dataset.value;
+          businessSuggestions.classList.remove('visible');
+        });
+      });
+    }
 
     const objectiveCards = Array.from(document.querySelectorAll('#objective-options .selection-card'));
     const timelineCards = Array.from(document.querySelectorAll('#timeline-options .selection-card'));

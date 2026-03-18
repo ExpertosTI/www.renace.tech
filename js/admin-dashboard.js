@@ -4,6 +4,7 @@
   const btnRequest = document.getElementById('btn-request');
   const btnVerify = document.getElementById('btn-verify');
   const btnPresentation = document.getElementById('btn-presentation');
+  const loginCard = document.getElementById('login-card');
   const visitsKpi = document.getElementById('visits-kpi');
   const visitModal = document.getElementById('visit-modal');
   const visitModalClose = document.getElementById('visit-modal-close');
@@ -32,6 +33,11 @@
   let presentationResizeTimer = null;
 
   let currentSubmissions = [];
+
+  // Hide login card if already authenticated
+  if (token && loginCard) {
+    loginCard.classList.add('hidden');
+  }
 
   // User Selection Logic
   const userOptions = document.querySelectorAll('.user-option');
@@ -582,6 +588,19 @@
     }
   }
 
+  async function hideLoginWithBlur() {
+    if (!loginCard) return;
+    loginCard.classList.add('hiding');
+    setTimeout(() => {
+      if (loginCard) loginCard.classList.add('hidden');
+    }, 600);
+  }
+
+  function showLogin() {
+    if (!loginCard) return;
+    loginCard.classList.remove('hidden', 'hiding');
+  }
+
   async function verifyCode() {
     setMessage('Validando código...');
     btnVerify.disabled = true;
@@ -597,6 +616,7 @@
       localStorage.setItem('admin_token', token);
       setMessage('Autenticado. Cargando métricas...', 'success');
       setLoginStatus('Autenticado');
+      await hideLoginWithBlur();
       await loadAnalytics();
       startAutoRefresh();
     } catch (e) {
@@ -604,6 +624,7 @@
       token = '';
       localStorage.removeItem('admin_token');
       setLoginStatus('No autenticado');
+      showLogin();
     } finally {
       btnVerify.disabled = false;
     }
