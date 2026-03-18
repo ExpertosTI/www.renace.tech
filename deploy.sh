@@ -53,6 +53,19 @@ docker stack deploy -c docker-compose.yml renace
 echo "📌 Recuerda: las variables sensibles (SMTP_*, ADMIN_EMAIL, etc.) vienen de .env."
 echo "📌 Si Swarm hereda valores antiguos, usa: docker service update --env-add SMTP_PASSWORD=... --env-add SMTP_PORT=... renace_app --force"
 
+# 3b. Propagar credenciales críticas al servicio (solo si existen en .env)
+if [ -n "${SMTP_HOST:-}" ]; then
+  echo "🔐 Actualizando variables SMTP/ADMIN en renace_app desde .env..."
+  docker service update \
+    --env-rm SMTP_HOST --env-add SMTP_HOST="$SMTP_HOST" \
+    --env-rm SMTP_PORT --env-add SMTP_PORT="$SMTP_PORT" \
+    --env-rm SMTP_USER --env-add SMTP_USER="$SMTP_USER" \
+    --env-rm SMTP_PASSWORD --env-add SMTP_PASSWORD="$SMTP_PASSWORD" \
+    --env-rm SMTP_FROM --env-add SMTP_FROM="$SMTP_FROM" \
+    --env-rm ADMIN_EMAIL --env-add ADMIN_EMAIL="$ADMIN_EMAIL" \
+    renace_app --force
+fi
+
 # For local Swarm without a registry, Swarm ignores the newly built 'latest' image
 # if the tag hasn't changed. We MUST force the service to restart to pick up the new code.
 echo "🔄 Forcing Swarm to restart the app and pick up the new local image..."
