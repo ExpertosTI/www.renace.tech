@@ -17,10 +17,10 @@ echo "========================================================"
 # 1. Check if project directory exists
 if [ -d "$PROJECT_DIR" ]; then
     echo "📁 Directory $PROJECT_DIR exists. Pulling latest changes..."
-    cd $PROJECT_DIR
-    git reset --hard
-    git clean -fd -e .env
-    git pull origin main
+    cd "$PROJECT_DIR"
+    git fetch origin main
+    git reset --hard origin/main
+    # Preserve local secrets: nunca tocar .env
 else
     echo "📥 Directory does not exist. Cloning repository to $PROJECT_DIR..."
     git clone $REPO_URL $PROJECT_DIR
@@ -49,6 +49,9 @@ set -a
 source .env
 set +a
 docker stack deploy -c docker-compose.yml renace
+
+echo "📌 Recuerda: las variables sensibles (SMTP_*, ADMIN_EMAIL, etc.) vienen de .env."
+echo "📌 Si Swarm hereda valores antiguos, usa: docker service update --env-add SMTP_PASSWORD=... --env-add SMTP_PORT=... renace_app --force"
 
 # For local Swarm without a registry, Swarm ignores the newly built 'latest' image
 # if the tag hasn't changed. We MUST force the service to restart to pick up the new code.

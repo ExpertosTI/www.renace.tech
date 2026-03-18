@@ -7,19 +7,20 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <style>
     :root {
       color-scheme: dark;
-      --bg: #050a14;
-      --panel: rgba(11, 19, 36, 0.92);
-      --panel-soft: rgba(16, 27, 47, 0.9);
-      --line: rgba(148, 163, 184, 0.18);
-      --line-strong: rgba(96, 165, 250, 0.5);
-      --text: #e5e7eb;
-      --muted: #9ca3af;
-      --brand: #1d4ed8;
-      --brand-soft: rgba(37, 99, 235, 0.16);
-      --accent: #3b82f6;
+      --bg: #050812;
+      --panel: rgba(12, 18, 33, 0.94);
+      --panel-soft: rgba(20, 30, 52, 0.92);
+      --line: rgba(148, 163, 184, 0.16);
+      --line-strong: rgba(147, 197, 253, 0.48);
+      --text: #e6edf8;
+      --muted: #9aa9c1;
+      --brand: #1e40af;
+      --brand-soft: rgba(37, 99, 235, 0.18);
+      --accent: #2563eb;
       --success: #10b981;
       --danger: #ef4444;
     }
@@ -31,9 +32,9 @@
       color: var(--text);
       min-height: 100vh;
       background:
-        radial-gradient(circle at 8% 8%, rgba(30, 64, 175, 0.2), transparent 30%),
-        radial-gradient(circle at 95% 12%, rgba(30, 58, 138, 0.2), transparent 32%),
-        radial-gradient(circle at 44% 96%, rgba(37, 99, 235, 0.14), transparent 35%),
+        radial-gradient(circle at 8% 8%, rgba(30, 64, 175, 0.18), transparent 30%),
+        radial-gradient(circle at 95% 12%, rgba(30, 58, 138, 0.16), transparent 32%),
+        radial-gradient(circle at 44% 96%, rgba(59, 130, 246, 0.13), transparent 35%),
         var(--bg);
       padding: 22px;
     }
@@ -47,8 +48,8 @@
       position: relative;
       border-radius: 24px;
       border: 1px solid var(--line);
-      background: linear-gradient(160deg, rgba(10, 17, 31, 0.98), rgba(5, 10, 20, 0.96));
-      box-shadow: 0 24px 64px rgba(2, 6, 23, 0.56);
+      background: linear-gradient(160deg, rgba(10, 16, 28, 0.98), rgba(6, 10, 18, 0.98));
+      box-shadow: 0 24px 64px rgba(2, 6, 23, 0.58);
       overflow: hidden;
       backdrop-filter: blur(16px);
     }
@@ -58,8 +59,8 @@
       position: absolute;
       inset: 0;
       background:
-        radial-gradient(circle at 8% 0, rgba(37, 99, 235, 0.13), transparent 28%),
-        radial-gradient(circle at 100% 100%, rgba(30, 64, 175, 0.1), transparent 40%);
+        radial-gradient(circle at 8% 0, rgba(37, 99, 235, 0.11), transparent 28%),
+        radial-gradient(circle at 100% 100%, rgba(30, 64, 175, 0.08), transparent 40%);
       pointer-events: none;
     }
 
@@ -88,7 +89,7 @@
       padding: 6px 12px;
       border-radius: 999px;
       color: #dbeafe;
-      background: linear-gradient(120deg, rgba(30, 64, 175, 0.9), rgba(37, 99, 235, 0.88));
+      background: linear-gradient(120deg, rgba(30, 58, 138, 0.9), rgba(30, 64, 175, 0.88));
       border: 1px solid rgba(147, 197, 253, 0.4);
     }
 
@@ -158,6 +159,21 @@
       border: 1px solid var(--line);
       background: rgba(5, 12, 30, 0.86);
       backdrop-filter: blur(10px);
+      overflow: hidden;
+      --progress: 0%;
+    }
+
+    .journey-bar::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: var(--progress);
+      height: 3px;
+      border-radius: 0 999px 999px 0;
+      background: linear-gradient(90deg, #38bdf8, #2563eb);
+      box-shadow: 0 0 18px rgba(56, 189, 248, 0.65);
+      transition: width 0.3s ease;
     }
 
     .journey-step {
@@ -197,6 +213,24 @@
       transition: opacity 0.28s, transform 0.28s, border-color 0.28s, box-shadow 0.28s;
     }
 
+    .section-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 10px;
+      border: 1px solid rgba(147, 197, 253, 0.35);
+      background: linear-gradient(130deg, rgba(30, 58, 138, 0.5), rgba(37, 99, 235, 0.32));
+      color: #dbeafe;
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+    }
+
     .step-section {
       opacity: 0.4;
       transform: translateY(10px);
@@ -212,6 +246,11 @@
     .step-section.active {
       border-color: rgba(56, 189, 248, 0.46);
       box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.22), 0 16px 36px rgba(2, 6, 23, 0.38);
+      animation: stepPulse 0.42s ease;
+    }
+
+    .step-section.unlocked {
+      animation: sectionReveal 0.45s ease;
     }
 
     .section-title {
@@ -288,6 +327,11 @@
       transition: border-color 0.2s, transform 0.2s, filter 0.2s;
     }
 
+    .preset i {
+      margin-right: 6px;
+      opacity: 0.9;
+    }
+
     .preset:hover {
       border-color: rgba(125, 211, 252, 0.62);
       transform: translateY(-1px);
@@ -298,6 +342,50 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 8px;
+    }
+
+    .tech-radar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .tech-card {
+      border-radius: 12px;
+      border: 1px solid rgba(71, 85, 105, 0.5);
+      background: linear-gradient(145deg, rgba(8, 17, 40, 0.88), rgba(11, 23, 52, 0.72));
+      padding: 10px;
+      cursor: pointer;
+      transition: transform 0.22s, border-color 0.22s, box-shadow 0.22s, filter 0.22s;
+    }
+
+    .tech-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(125, 211, 252, 0.62);
+      filter: brightness(1.04);
+    }
+
+    .tech-card strong {
+      display: block;
+      color: #e2e8f0;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+    }
+
+    .tech-card span {
+      display: block;
+      margin-top: 4px;
+      font-size: 11px;
+      color: #9fb4d8;
+      line-height: 1.45;
+    }
+
+    .tech-card.active {
+      border-color: rgba(56, 189, 248, 0.68);
+      box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.28), 0 8px 20px rgba(14, 116, 144, 0.16);
+      background: linear-gradient(145deg, rgba(15, 40, 94, 0.7), rgba(7, 40, 72, 0.62));
     }
 
     .module {
@@ -325,9 +413,49 @@
 
     .module input:checked + span {
       border-color: rgba(56, 189, 248, 0.6);
-      background: rgba(8, 145, 178, 0.24);
+      background: rgba(30, 64, 175, 0.34);
       color: #e0f2fe;
       box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.2);
+    }
+
+    .revenue-field {
+      display: grid;
+      gap: 9px;
+    }
+
+    .revenue-choices {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 8px;
+    }
+
+    .revenue-choice {
+      border: 1px solid rgba(100, 116, 139, 0.48);
+      background: rgba(15, 23, 42, 0.78);
+      color: #dbe7fb;
+      border-radius: 11px;
+      padding: 10px 11px;
+      text-align: left;
+      cursor: pointer;
+      transition: border-color 0.2s, transform 0.2s, background 0.2s;
+    }
+
+    .revenue-choice:hover {
+      transform: translateY(-1px);
+      border-color: rgba(147, 197, 253, 0.58);
+    }
+
+    .revenue-choice.active {
+      border-color: rgba(59, 130, 246, 0.72);
+      background: linear-gradient(130deg, rgba(30, 58, 138, 0.52), rgba(30, 64, 175, 0.34));
+      box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.2);
+    }
+
+    .revenue-choice span {
+      display: block;
+      font-size: 11px;
+      color: #a8b8d5;
+      margin-top: 4px;
     }
 
     .step-actions {
@@ -402,6 +530,61 @@
       font-weight: 700;
     }
 
+    .momentum {
+      border-radius: 11px;
+      border: 1px solid rgba(71, 85, 105, 0.46);
+      background: rgba(8, 17, 40, 0.8);
+      padding: 9px 10px;
+      display: grid;
+      gap: 7px;
+    }
+
+    .momentum-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #cbd5e1;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .momentum-track {
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(30, 41, 59, 0.95);
+      overflow: hidden;
+      border: 1px solid rgba(71, 85, 105, 0.5);
+    }
+
+    .momentum-fill {
+      width: 8%;
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #22d3ee, #3b82f6);
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.5);
+      transition: width 0.26s ease;
+    }
+
+    .momentum-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .momentum-tag {
+      border-radius: 999px;
+      border: 1px solid rgba(59, 130, 246, 0.38);
+      background: rgba(30, 58, 138, 0.24);
+      color: #dbeafe;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
     .assistant-message {
       margin: 0;
       line-height: 1.6;
@@ -411,6 +594,19 @@
       border: 1px solid rgba(59, 130, 246, 0.24);
       background: rgba(15, 23, 42, 0.72);
       padding: 10px 11px;
+      min-height: 88px;
+      position: relative;
+    }
+
+    .assistant-message.typing::after {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 14px;
+      margin-left: 4px;
+      vertical-align: -2px;
+      background: rgba(191, 219, 254, 0.8);
+      animation: blink 0.8s steps(1, end) infinite;
     }
 
     .assistant-list {
@@ -463,6 +659,96 @@
       font-weight: 500;
     }
 
+    .arch-compare {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .arch-card {
+      border-radius: 12px;
+      border: 1px solid rgba(71, 85, 105, 0.5);
+      background: linear-gradient(145deg, rgba(7, 16, 37, 0.88), rgba(11, 26, 56, 0.74));
+      padding: 10px;
+      display: grid;
+      gap: 7px;
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    }
+
+    .arch-card:hover {
+      border-color: rgba(125, 211, 252, 0.62);
+      transform: translateY(-1px);
+      box-shadow: 0 10px 24px rgba(2, 6, 23, 0.3);
+    }
+
+    .arch-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .arch-title {
+      margin: 0;
+      font-size: 12px;
+      color: #dbeafe;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+    }
+
+    .arch-score {
+      border-radius: 999px;
+      border: 1px solid rgba(56, 189, 248, 0.38);
+      background: rgba(14, 116, 144, 0.2);
+      color: #bae6fd;
+      font-size: 10px;
+      padding: 2px 7px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .arch-meta {
+      color: #9fb4d8;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .arch-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .arch-tag {
+      border-radius: 999px;
+      border: 1px solid rgba(71, 85, 105, 0.6);
+      background: rgba(15, 23, 42, 0.74);
+      color: #dbeafe;
+      padding: 3px 7px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .arch-apply {
+      border: 1px solid rgba(96, 165, 250, 0.45);
+      border-radius: 9px;
+      background: linear-gradient(120deg, rgba(29, 78, 216, 0.48), rgba(14, 116, 144, 0.42));
+      color: #e0f2fe;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      padding: 8px 9px;
+      cursor: pointer;
+      transition: filter 0.2s, transform 0.2s;
+    }
+
+    .arch-apply:hover {
+      filter: brightness(1.06);
+      transform: translateY(-1px);
+    }
+
     .assistant-label {
       margin: 2px 0;
       color: #93c5fd;
@@ -470,6 +756,20 @@
       text-transform: uppercase;
       letter-spacing: 0.06em;
       font-weight: 800;
+    }
+
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+
+    @keyframes sectionReveal {
+      0% { opacity: 0.1; transform: translateY(14px) scale(0.99); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes stepPulse {
+      0% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.36); }
+      100% { box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.22), 0 16px 36px rgba(2, 6, 23, 0.38); }
     }
 
     .actions {
@@ -516,6 +816,7 @@
       .top { flex-direction: column; }
       .token-status { width: 100%; }
       .journey-bar { grid-template-columns: repeat(2, 1fr); }
+      .arch-compare { grid-template-columns: minmax(0, 1fr); }
     }
   </style>
 </head>
@@ -525,9 +826,9 @@
       <div class="card-inner">
         <div class="top">
           <div>
-            <span class="badge">Solicitud de Cotización Odoo</span>
-            <h1>Construyamos tu plan en vivo</h1>
-            <p class="subtitle">Tu experiencia es guiada: cada respuesta abre el siguiente paso y el asistente te sugiere el camino ideal para implementar Odoo más rápido y con menos fricción.</p>
+            <span class="badge"><i class="fa-solid fa-layer-group"></i> Diagnóstico Digital Empresarial</span>
+            <h1>Diseñemos tu solución digital en vivo</h1>
+            <p class="subtitle">Esta experiencia guiada te recomienda la mejor combinación entre ERP, automatización, integraciones y software a medida según tu modelo de negocio.</p>
           </div>
           <div id="token-status" class="token-status">Validando token...</div>
         </div>
@@ -537,12 +838,15 @@
             <div class="journey-bar" id="journey-bar">
               <div class="journey-step" data-step-indicator="0">Contacto</div>
               <div class="journey-step" data-step-indicator="1">Negocio</div>
-              <div class="journey-step" data-step-indicator="2">Ruta Odoo</div>
+              <div class="journey-step" data-step-indicator="2">Ruta Tecnológica</div>
               <div class="journey-step" data-step-indicator="3">Cierre</div>
             </div>
 
             <section class="section step-section unlocked active" data-step="0">
-              <h2 class="section-title">1. Contacto principal</h2>
+              <div class="section-head">
+                <span class="section-icon"><i class="fa-solid fa-user-tie"></i></span>
+                <h2 class="section-title">1. Contacto principal</h2>
+              </div>
               <p class="section-subtitle">Comenzamos con tus datos para personalizar la recomendación.</p>
               <div class="grid">
                 <div>
@@ -564,7 +868,10 @@
             </section>
 
             <section class="section step-section" data-step="1">
-              <h2 class="section-title">2. Perfil del negocio</h2>
+              <div class="section-head">
+                <span class="section-icon"><i class="fa-solid fa-building"></i></span>
+                <h2 class="section-title">2. Perfil del negocio</h2>
+              </div>
               <p class="section-subtitle">Definimos escala y contexto para ajustar la arquitectura funcional.</p>
               <div class="grid">
                 <div>
@@ -583,7 +890,7 @@
                 </div>
                 <div>
                   <label for="business">Modelo de negocio *</label>
-                  <input id="business" name="business" required placeholder="Ej. cadena de tiendas con inventario central">
+                  <input id="business" name="business" required placeholder="Ej. distribuidor B2B con ventas a crédito y rutas">
                 </div>
                 <div>
                   <label for="locations">Sucursales</label>
@@ -606,8 +913,17 @@
                   <input id="employees" name="employees" inputmode="numeric" placeholder="Ej. 30">
                 </div>
                 <div>
-                  <label for="revenue">Facturación mensual aprox.</label>
-                  <input id="revenue" name="revenue" placeholder="Ej. US$ 50,000">
+                  <label>Facturación mensual aprox. (RD$) *</label>
+                  <div class="revenue-field">
+                    <input id="revenue" name="revenue" type="hidden" required>
+                    <div class="revenue-choices" id="revenue-choices">
+                      <button type="button" class="revenue-choice" data-revenue="RD$ 100,000 - 300,000">RD$ 100,000 - 300,000<span>Etapa inicial</span></button>
+                      <button type="button" class="revenue-choice" data-revenue="RD$ 300,001 - 1,000,000">RD$ 300,001 - 1,000,000<span>Operación en crecimiento</span></button>
+                      <button type="button" class="revenue-choice" data-revenue="RD$ 1,000,001 - 5,000,000">RD$ 1,000,001 - 5,000,000<span>Empresa consolidada</span></button>
+                      <button type="button" class="revenue-choice" data-revenue="RD$ 5,000,001+">RD$ 5,000,001+<span>Escala corporativa</span></button>
+                      <button type="button" class="revenue-choice" data-revenue="Prefiero indicarlo en llamada">Prefiero indicarlo en llamada<span>No quiero detallarlo ahora</span></button>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="step-actions">
@@ -616,13 +932,21 @@
             </section>
 
             <section class="section step-section" data-step="2">
-              <h2 class="section-title">3. Implementación guiada de Odoo</h2>
-              <p class="section-subtitle">Elige un escenario y verás una combinación sugerida de módulos en segundos.</p>
+              <div class="section-head">
+                <span class="section-icon"><i class="fa-solid fa-diagram-project"></i></span>
+                <h2 class="section-title">3. Ruta tecnológica guiada</h2>
+              </div>
+              <p class="section-subtitle">Elige un escenario y obtén una arquitectura recomendada entre ERP, automatización e iniciativas de software a medida.</p>
               <div class="preset-row">
-                <button type="button" class="preset" data-preset="retail">Sugerencia Retail</button>
-                <button type="button" class="preset" data-preset="distribucion">Sugerencia Distribución</button>
-                <button type="button" class="preset" data-preset="servicios">Sugerencia Servicios</button>
-                <button type="button" class="preset" data-preset="manufactura">Sugerencia Manufactura</button>
+                <button type="button" class="preset" data-preset="retail"><i class="fa-solid fa-store"></i>Retail inteligente</button>
+                <button type="button" class="preset" data-preset="distribucion"><i class="fa-solid fa-truck-fast"></i>Distribución conectada</button>
+                <button type="button" class="preset" data-preset="servicios"><i class="fa-solid fa-briefcase"></i>Servicios escalables</button>
+                <button type="button" class="preset" data-preset="manufactura"><i class="fa-solid fa-industry"></i>Manufactura eficiente</button>
+              </div>
+              <div class="tech-radar" id="tech-radar">
+                <button type="button" class="tech-card" data-tech="ia_agentes"><strong><i class="fa-solid fa-robot"></i> Agentes IA</strong><span>Asistentes inteligentes para ventas, soporte y backoffice.</span></button>
+                <button type="button" class="tech-card" data-tech="integracion_total"><strong><i class="fa-solid fa-plug-circle-bolt"></i> Integración total</strong><span>Conecta ERP, eCommerce, bancos y apps en tiempo real.</span></button>
+                <button type="button" class="tech-card" data-tech="analytics_plus"><strong><i class="fa-solid fa-chart-line"></i> Analytics+</strong><span>KPIs ejecutivos con tableros accionables por área.</span></button>
               </div>
               <div class="grid">
                 <div>
@@ -634,6 +958,8 @@
                     <option value="automatizar_ventas">Automatizar ventas y CRM</option>
                     <option value="unificar_contabilidad">Unificar facturación y contabilidad</option>
                     <option value="escalar_sucursales">Escalar múltiples sucursales</option>
+                    <option value="software_medida">Crear software a medida</option>
+                    <option value="agentes_ia">Activar agentes IA de negocio</option>
                   </select>
                 </div>
                 <div>
@@ -674,6 +1000,11 @@
                   <label class="module"><input type="checkbox" name="modules" value="proyectos"><span>Proyectos</span></label>
                   <label class="module"><input type="checkbox" name="modules" value="helpdesk"><span>Helpdesk</span></label>
                   <label class="module"><input type="checkbox" name="modules" value="ecommerce"><span>eCommerce</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="bi_analytics"><span>BI & Analytics</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="automatizaciones"><span>Automatizaciones</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="integraciones_api"><span>Integraciones API</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="software_medida"><span>Software a Medida</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="agentes_ia"><span>Agentes IA</span></label>
                 </div>
               </div>
               <div class="step-actions">
@@ -682,7 +1013,10 @@
             </section>
 
             <section class="section step-section" data-step="3">
-              <h2 class="section-title">4. Requerimientos clave</h2>
+              <div class="section-head">
+                <span class="section-icon"><i class="fa-solid fa-clipboard-check"></i></span>
+                <h2 class="section-title">4. Requerimientos clave</h2>
+              </div>
               <p class="section-subtitle">Cerramos con los detalles para enviarte un plan accionable y realista.</p>
               <div class="grid">
                 <div>
@@ -711,7 +1045,7 @@
               </div>
               <div>
                 <label for="message">Notas adicionales</label>
-                <textarea id="message" name="message" placeholder="Comparte restricciones, expectativas o detalles importantes..."></textarea>
+                <textarea id="message" name="message" placeholder="Comparte restricciones, expectativas o qué software especial necesitas construir..."></textarea>
               </div>
             </section>
 
@@ -725,15 +1059,22 @@
             <div class="assistant-top">
               <div class="assistant-avatar">AI</div>
               <div>
-                <h3 class="assistant-title">Asistente de Implementación</h3>
-                <p class="assistant-sub">Guía en tiempo real</p>
+                <h3 class="assistant-title">Arquitecto de Soluciones</h3>
+                <p class="assistant-sub">Guía interactiva en tiempo real</p>
               </div>
+            </div>
+            <div class="momentum">
+              <div class="momentum-top"><span>Nivel de dinamismo</span><span id="momentum-value">8%</span></div>
+              <div class="momentum-track"><div id="momentum-fill" class="momentum-fill"></div></div>
+              <div id="momentum-tags" class="momentum-tags"><span class="momentum-tag">Ruta base</span></div>
             </div>
             <p id="assistant-message" class="assistant-message"></p>
             <p class="assistant-label">Recomendaciones actuales</p>
             <ul id="assistant-reco" class="assistant-list"></ul>
             <p class="assistant-label">Opciones materializadas</p>
             <div id="assistant-options" class="assistant-options"></div>
+            <p class="assistant-label">Comparador de arquitecturas</p>
+            <div id="arch-compare" class="arch-compare"></div>
             <p class="assistant-label">Resumen que se materializa</p>
             <ul id="assistant-summary" class="assistant-list"></ul>
           </aside>
@@ -755,10 +1096,20 @@
     const assistantMessageEl = document.getElementById('assistant-message');
     const assistantRecoEl = document.getElementById('assistant-reco');
     const assistantOptionsEl = document.getElementById('assistant-options');
+    const archCompareEl = document.getElementById('arch-compare');
     const assistantSummaryEl = document.getElementById('assistant-summary');
+    const revenueChoices = Array.from(document.querySelectorAll('[data-revenue]'));
+    const techCards = Array.from(document.querySelectorAll('[data-tech]'));
+    const momentumFillEl = document.getElementById('momentum-fill');
+    const momentumValueEl = document.getElementById('momentum-value');
+    const momentumTagsEl = document.getElementById('momentum-tags');
+    const journeyBarEl = document.getElementById('journey-bar');
     let activeStep = 0;
     let tokenValid = false;
     let assistantTimer = null;
+    let typingTimer = null;
+    let typingNonce = 0;
+    let compareArchitectures = [];
     const assistantState = {
       loading: false,
       hash: '',
@@ -772,50 +1123,180 @@
         sector: 'retail',
         objective: 'automatizar_ventas',
         timeline: 'plan_60_90',
-        modules: ['ventas', 'inventario', 'punto_de_venta', 'facturacion', 'contabilidad']
+        modules: ['ventas', 'inventario', 'punto_de_venta', 'facturacion', 'contabilidad', 'automatizaciones']
       },
       distribucion: {
         sector: 'distribucion',
         objective: 'control_inventario',
         timeline: 'plan_60_90',
-        modules: ['inventario', 'compras', 'ventas', 'facturacion', 'contabilidad']
+        modules: ['inventario', 'compras', 'ventas', 'facturacion', 'integraciones_api']
       },
       servicios: {
         sector: 'servicios',
         objective: 'orden_operativa',
         timeline: 'q_siguiente',
-        modules: ['crm', 'ventas', 'proyectos', 'facturacion', 'helpdesk']
+        modules: ['crm', 'ventas', 'proyectos', 'facturacion', 'software_medida']
       },
       manufactura: {
         sector: 'manufactura',
         objective: 'escalar_sucursales',
         timeline: 'q_siguiente',
-        modules: ['manufactura', 'inventario', 'compras', 'contabilidad', 'rrhh']
+        modules: ['manufactura', 'inventario', 'compras', 'contabilidad', 'bi_analytics']
+      },
+      ia_agentes: {
+        sector: 'servicios',
+        objective: 'agentes_ia',
+        timeline: 'plan_60_90',
+        modules: ['crm', 'helpdesk', 'automatizaciones', 'integraciones_api', 'agentes_ia']
+      },
+      integracion_total: {
+        sector: 'distribucion',
+        objective: 'orden_operativa',
+        timeline: 'plan_60_90',
+        modules: ['ventas', 'inventario', 'facturacion', 'integraciones_api', 'automatizaciones']
+      },
+      analytics_plus: {
+        sector: 'retail',
+        objective: 'automatizar_ventas',
+        timeline: 'q_siguiente',
+        modules: ['ventas', 'contabilidad', 'bi_analytics', 'automatizaciones']
       }
     };
 
     const assistantLibrary = {
       default: {
-        message: 'Te voy guiando paso a paso. Cuando completes lo clave de este bloque, desbloqueamos el siguiente.',
-        reco: ['Responde campos obligatorios primero.', 'Usa una sugerencia de escenario para acelerar.', 'Selecciona módulos pensando en la primera fase.']
+        message: 'Te guío paso a paso para definir una arquitectura digital completa y ejecutable.',
+        reco: ['Empieza por lo esencial para desbloquear cada etapa.', 'Selecciona un escenario para acelerar la configuración.', 'Prioriza una primera fase con impacto medible.']
       },
       retail: {
-        message: 'Para retail conviene iniciar con ventas, inventario y punto de venta en una primera ola controlada.',
-        reco: ['Prioriza control de stock en tiempo real.', 'Define políticas de precios y descuentos.', 'Valida flujos de caja por sucursal.']
+        message: 'Para retail conviene iniciar con ventas, inventario y POS conectados a reportes ejecutivos.',
+        reco: ['Asegura control de stock en tiempo real.', 'Estandariza precios y descuentos por canal.', 'Incluye analítica para decisiones semanales.']
       },
       distribucion: {
-        message: 'En distribución, la base es visibilidad de inventario y compras vinculadas a demanda.',
-        reco: ['Alinea compras con rotación de productos.', 'Define reglas de reabastecimiento.', 'Activa trazabilidad por lote cuando aplique.']
+        message: 'En distribución, la base es visibilidad de inventario más automatización de abastecimiento.',
+        reco: ['Conecta ventas, compras y almacén en un solo flujo.', 'Implementa reglas de reposición automáticas.', 'Evalúa integraciones API con canales externos.']
       },
       servicios: {
-        message: 'Para servicios, la clave es CRM + proyectos + facturación por hitos o entregables.',
-        reco: ['Define pipeline comercial por etapa.', 'Estandariza plantillas de propuesta.', 'Conecta facturación con avances de proyecto.']
+        message: 'En servicios, combina CRM, proyectos, software a medida y agentes IA para diferenciar tu operación.',
+        reco: ['Define tu embudo comercial por etapas.', 'Mide rentabilidad por proyecto y equipo.', 'Incluye automatizaciones y agentes IA en seguimiento de clientes.']
       },
       manufactura: {
-        message: 'Manufactura suele requerir una ruta por fases para no frenar la operación mientras migras.',
-        reco: ['Inicia con inventario y compras confiables.', 'Define estructura de productos y variantes.', 'Planifica manufactura después de datos maestros.']
+        message: 'Manufactura requiere una hoja de ruta por fases para ganar control sin frenar planta.',
+        reco: ['Consolida datos maestros y compras primero.', 'Define trazabilidad por lote o serie.', 'Agrega BI para control de producción y costos.']
       }
     };
+
+    function getTechTagLabel(tag) {
+      const labels = {
+        crm: 'CRM',
+        ventas: 'Ventas',
+        inventario: 'Inventario',
+        compras: 'Compras',
+        contabilidad: 'Contabilidad',
+        punto_de_venta: 'Punto de Venta',
+        facturacion: 'Facturación',
+        rrhh: 'RRHH',
+        manufactura: 'Manufactura',
+        proyectos: 'Proyectos',
+        helpdesk: 'Helpdesk',
+        ecommerce: 'eCommerce',
+        software_medida: 'Software a Medida',
+        integraciones_api: 'Integraciones API',
+        automatizaciones: 'Automatizaciones',
+        bi_analytics: 'BI & Analytics',
+        agentes_ia: 'Agentes IA'
+      };
+      return labels[tag] || tag;
+    }
+
+    function renderMomentum() {
+      const selectedModules = getSelectedModules();
+      const completedFields = [
+        form.name.value.trim(),
+        form.email.value.trim(),
+        form.sector.value,
+        form.business.value.trim(),
+        form.revenue.value.trim(),
+        form.objective.value,
+        form.timeline.value
+      ].filter(Boolean).length;
+      const moduleWeight = Math.min(selectedModules.length * 4, 28);
+      const bonus =
+        (selectedModules.includes('agentes_ia') ? 10 : 0) +
+        (selectedModules.includes('integraciones_api') ? 8 : 0) +
+        (selectedModules.includes('software_medida') ? 8 : 0) +
+        (selectedModules.includes('bi_analytics') ? 6 : 0);
+      const progress = Math.min(100, Math.round((completedFields / 7) * 48 + moduleWeight + bonus));
+      momentumFillEl.style.width = `${Math.max(progress, 8)}%`;
+      momentumValueEl.textContent = `${progress}%`;
+      const tags = selectedModules.filter(module => ['agentes_ia', 'integraciones_api', 'software_medida', 'bi_analytics', 'automatizaciones'].includes(module)).slice(0, 4);
+      const activeTags = tags.length ? tags : ['ruta_base'];
+      momentumTagsEl.innerHTML = activeTags.map(tag => `<span class="momentum-tag">${escapeHtml(getTechTagLabel(tag))}</span>`).join('');
+    }
+
+    function syncTechCards() {
+      const selectedModules = getSelectedModules();
+      const activeMap = {
+        ia_agentes: selectedModules.includes('agentes_ia'),
+        integracion_total: selectedModules.includes('integraciones_api'),
+        analytics_plus: selectedModules.includes('bi_analytics')
+      };
+      techCards.forEach(card => {
+        card.classList.toggle('active', !!activeMap[card.dataset.tech]);
+      });
+    }
+
+    function buildArchitectureOptions(selectedModules) {
+      if (assistantState.options.length >= 2) {
+        return assistantState.options.slice(0, 2);
+      }
+      const baseModules = selectedModules.length
+        ? selectedModules.slice(0, 6)
+        : ['ventas', 'facturacion', 'automatizaciones', 'integraciones_api'];
+      const first = {
+        label: 'Arquitectura Operativa',
+        sector: form.sector.value || 'servicios',
+        objective: form.objective.value || 'orden_operativa',
+        timeline: form.timeline.value || 'plan_60_90',
+        modules: baseModules
+      };
+      const second = {
+        label: 'Arquitectura Inteligente',
+        sector: form.sector.value || 'servicios',
+        objective: 'agentes_ia',
+        timeline: form.timeline.value || 'plan_60_90',
+        modules: Array.from(new Set([...baseModules, 'agentes_ia', 'bi_analytics'])).slice(0, 7)
+      };
+      return [first, second];
+    }
+
+    function architectureScore(option) {
+      const modules = Array.isArray(option.modules) ? option.modules : [];
+      let score = 60 + Math.min(modules.length * 4, 20);
+      if (modules.includes('integraciones_api')) score += 5;
+      if (modules.includes('agentes_ia')) score += 7;
+      if (modules.includes('bi_analytics')) score += 4;
+      return Math.min(score, 98);
+    }
+
+    function renderArchitectureComparator(selectedModules) {
+      compareArchitectures = buildArchitectureOptions(selectedModules);
+      archCompareEl.innerHTML = compareArchitectures.map((option, index) => {
+        const score = architectureScore(option);
+        const modules = Array.isArray(option.modules) ? option.modules.slice(0, 4) : [];
+        const objective = option.objective ? option.objective.replaceAll('_', ' ') : 'en evaluación';
+        const timeline = option.timeline ? option.timeline.replaceAll('_', ' ') : 'por definir';
+        return `<article class="arch-card">
+          <div class="arch-head">
+            <h4 class="arch-title">${escapeHtml(option.label || `Arquitectura ${index + 1}`)}</h4>
+            <span class="arch-score">${score}% fit</span>
+          </div>
+          <div class="arch-meta">${escapeHtml(objective)} • ${escapeHtml(timeline)}</div>
+          <div class="arch-tags">${modules.map(module => `<span class="arch-tag">${escapeHtml(getTechTagLabel(module))}</span>`).join('')}</div>
+          <button type="button" class="arch-apply" data-architecture-index="${index}">Aplicar opción ${index === 0 ? 'A' : 'B'}</button>
+        </article>`;
+      }).join('');
+    }
 
     function escapeHtml(value) {
       return String(value || '')
@@ -842,6 +1323,28 @@
       if (!selectEl) return '';
       const option = selectEl.options[selectEl.selectedIndex];
       return option ? option.textContent.trim() : '';
+    }
+
+    function typeAssistantMessage(text) {
+      typingNonce += 1;
+      const nonce = typingNonce;
+      clearInterval(typingTimer);
+      assistantMessageEl.classList.add('typing');
+      assistantMessageEl.textContent = '';
+      let index = 0;
+      typingTimer = setInterval(() => {
+        if (nonce !== typingNonce) {
+          clearInterval(typingTimer);
+          return;
+        }
+        if (index >= text.length) {
+          clearInterval(typingTimer);
+          assistantMessageEl.classList.remove('typing');
+          return;
+        }
+        assistantMessageEl.textContent += text[index];
+        index += 1;
+      }, 8);
     }
 
     function getAssistantContext() {
@@ -893,6 +1396,7 @@
     function renderJourneyState() {
       const unlocked = getMaxUnlockedStep();
       if (activeStep > unlocked) activeStep = unlocked;
+      journeyBarEl.style.setProperty('--progress', `${((activeStep + 1) / 4) * 100}%`);
       sectionEls.forEach((el, idx) => {
         const isUnlocked = idx <= unlocked;
         const isActive = idx === activeStep;
@@ -923,17 +1427,20 @@
       const stepMessages = [
         'Iniciemos con tus datos de contacto para personalizar la propuesta.',
         'Ahora definamos el contexto real de tu negocio para ajustar alcance.',
-        'Excelente, selecciona ruta Odoo y módulos iniciales para diseñar una fase 1 viable.',
+        'Excelente, definamos tu ruta tecnológica y los bloques funcionales de mayor impacto.',
         'Último paso: integra requerimientos técnicos y enviamos tu brief listo.'
       ];
       const aiStateText = assistantState.loading ? ' Analizando tu modelo de negocio…' : '';
-      assistantMessageEl.textContent = `${stepMessages[activeStep]} ${assistantState.message || library.message}${aiStateText}`;
+      typeAssistantMessage(`${stepMessages[activeStep]} ${assistantState.message || library.message}${aiStateText}`);
       assistantRecoEl.innerHTML = liveRecommendations.map(item => `<li>${escapeHtml(item)}</li>`).join('');
       assistantOptionsEl.innerHTML = assistantState.options.map((option, index) => {
         const note = [option.objective, option.timeline].filter(Boolean).join(' • ');
         return `<button type="button" class="assistant-option" data-option-index="${index}">${escapeHtml(option.label)}${note ? `<span class="assistant-option-note">${escapeHtml(note)}</span>` : ''}</button>`;
       }).join('');
       assistantSummaryEl.innerHTML = summaryRows.map(item => `<li>${item}</li>`).join('');
+      renderMomentum();
+      syncTechCards();
+      renderArchitectureComparator(selectedModules);
     }
 
     function scheduleAssistantSuggestion(force = false) {
@@ -973,6 +1480,13 @@
     function applyAssistantOption(index) {
       const option = assistantState.options[index];
       if (!option) return;
+      applyArchitecture(option);
+      setMsg('Escenario aplicado desde el asistente. Puedes afinarlo antes de enviar.', 'muted');
+      renderJourneyState();
+    }
+
+    function applyArchitecture(option) {
+      if (!option) return;
       if (option.sector && form.sector.querySelector(`option[value="${option.sector}"]`)) {
         form.sector.value = option.sector;
       }
@@ -987,7 +1501,21 @@
           input.checked = option.modules.includes(input.value);
         });
       }
-      setMsg('Escenario aplicado desde el asistente. Puedes afinarlo antes de enviar.', 'muted');
+    }
+
+    function applyComparedArchitecture(index) {
+      const option = compareArchitectures[index];
+      if (!option) return;
+      applyArchitecture(option);
+      setMsg('Arquitectura aplicada desde el comparador. Ajusta cualquier campo y continúa.', 'muted');
+      renderJourneyState();
+    }
+
+    function selectRevenue(value) {
+      form.revenue.value = value;
+      revenueChoices.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.revenue === value);
+      });
       renderJourneyState();
     }
 
@@ -1021,6 +1549,7 @@
       const parts = [
         `Objetivo: ${form.objective.value || 'No indicado'}`,
         `Horizonte: ${form.timeline.value || 'No indicado'}`,
+        `Facturación mensual: ${form.revenue.value || 'No indicada'}`,
         `Sistema actual: ${form.currentSystem.value || 'No indicado'}`,
         `Integraciones: ${form.integrations.value.trim() || 'No indicadas'}`,
         `Migración: ${form.migration.value || 'No indicado'}`,
@@ -1089,9 +1618,10 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Error al enviar');
-        setMsg('Solicitud enviada. ¡Gracias! Nuestro equipo te contactará con una propuesta alineada a Odoo.', 'success');
+        setMsg('Solicitud enviada. ¡Gracias! Nuestro equipo te contactará con una propuesta tecnológica integral.', 'success');
         form.reset();
         moduleInputs.forEach(input => { input.checked = false; });
+        revenueChoices.forEach(btn => btn.classList.remove('active'));
         activeStep = 0;
         renderJourneyState();
       } catch (e) {
@@ -1127,11 +1657,26 @@
       btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
     });
 
+    techCards.forEach(card => {
+      card.addEventListener('click', () => applyPreset(card.dataset.tech));
+    });
+
+    revenueChoices.forEach(btn => {
+      btn.addEventListener('click', () => selectRevenue(btn.dataset.revenue));
+    });
+
     assistantOptionsEl.addEventListener('click', ev => {
       const button = ev.target.closest('[data-option-index]');
       if (!button) return;
       const index = Number(button.dataset.optionIndex);
       applyAssistantOption(index);
+    });
+
+    archCompareEl.addEventListener('click', ev => {
+      const button = ev.target.closest('[data-architecture-index]');
+      if (!button) return;
+      const index = Number(button.dataset.architectureIndex);
+      applyComparedArchitecture(index);
     });
 
     form.addEventListener('submit', submitForm);

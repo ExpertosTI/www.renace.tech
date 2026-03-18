@@ -455,8 +455,9 @@ app.post('/api/quote/assistant', apiLimiter, async (req, res) => {
   };
 
   const guidance = [
-    'Eres un consultor senior de implementación Odoo para RENACE.',
+    'Eres un arquitecto senior de soluciones empresariales para RENACE.',
     'Debes responder en español con tono empresarial y accionable.',
+    'Incluye enfoque de ERP, automatizaciones, integraciones, agentes IA y software a medida cuando aplique.',
     'Devuelve SIEMPRE JSON válido con esta forma exacta:',
     '{"message":"texto corto","recommendations":["r1","r2","r3"],"options":[{"label":"texto","sector":"...","objective":"...","timeline":"...","modules":["..."]}]}',
     'options debe incluir entre 2 y 4 opciones concretas adaptadas al contexto.',
@@ -765,64 +766,66 @@ function buildQuoteAssistantFallback(context) {
   const sector = context.sector || 'general';
   const bySector = {
     retail: {
-      message: 'Para retail conviene arrancar con una fase enfocada en ventas, inventario y punto de venta.',
+      message: 'Para retail conviene arrancar con ventas, inventario y POS conectados a automatizaciones comerciales.',
       recommendations: [
         'Inicia con datos maestros de productos y precios.',
-        'Asegura stock en tiempo real por sucursal.',
-        'Conecta facturación y cierre de caja desde la fase 1.',
+        'Asegura stock en tiempo real por sucursal y canal.',
+        'Conecta facturación y cierres con tableros ejecutivos.',
       ],
       options: [
-        { label: 'Fase rápida retail', sector: 'retail', objective: 'automatizar_ventas', timeline: 'urgente_30', modules: ['ventas', 'inventario', 'punto_de_venta', 'facturacion'] },
-        { label: 'Control operativo retail', sector: 'retail', objective: 'control_inventario', timeline: 'plan_60_90', modules: ['inventario', 'compras', 'contabilidad'] },
+        { label: 'Retail omnicanal rápido', sector: 'retail', objective: 'automatizar_ventas', timeline: 'urgente_30', modules: ['ventas', 'inventario', 'punto_de_venta', 'facturacion', 'automatizaciones'] },
+        { label: 'Retail con control total', sector: 'retail', objective: 'control_inventario', timeline: 'plan_60_90', modules: ['inventario', 'compras', 'contabilidad', 'bi_analytics'] },
       ],
     },
     distribucion: {
-      message: 'En distribución, la prioridad es alinear compras e inventario con la demanda real.',
+      message: 'En distribución, la prioridad es alinear demanda, inventario y reposición con reglas automáticas.',
       recommendations: [
         'Define reglas de reabastecimiento automáticas.',
         'Implementa trazabilidad por lote cuando aplique.',
-        'Unifica ventas, compras y almacén en un mismo flujo.',
+        'Unifica ventas, compras y almacén con integraciones API.',
       ],
       options: [
-        { label: 'Distribución enfocada en stock', sector: 'distribucion', objective: 'control_inventario', timeline: 'plan_60_90', modules: ['inventario', 'compras', 'ventas', 'contabilidad'] },
-        { label: 'Escala logística por fases', sector: 'distribucion', objective: 'escalar_sucursales', timeline: 'q_siguiente', modules: ['inventario', 'compras', 'facturacion'] },
+        { label: 'Distribución inteligente', sector: 'distribucion', objective: 'control_inventario', timeline: 'plan_60_90', modules: ['inventario', 'compras', 'ventas', 'contabilidad', 'integraciones_api'] },
+        { label: 'Escala logística por fases', sector: 'distribucion', objective: 'escalar_sucursales', timeline: 'q_siguiente', modules: ['inventario', 'compras', 'facturacion', 'bi_analytics'] },
       ],
     },
     servicios: {
-      message: 'Para servicios funciona mejor una ruta con CRM, proyectos y facturación por entregables.',
+      message: 'Para servicios funciona mejor una ruta con CRM, proyectos, agentes IA y componentes de software a medida.',
       recommendations: [
         'Estandariza el embudo comercial por etapas.',
         'Alinea proyectos con tiempos y responsables.',
-        'Conecta avance operativo con facturación.',
+        'Conecta avance operativo con facturación, automatizaciones y agentes IA.',
       ],
       options: [
-        { label: 'Servicios comerciales', sector: 'servicios', objective: 'automatizar_ventas', timeline: 'plan_60_90', modules: ['crm', 'ventas', 'proyectos', 'facturacion'] },
-        { label: 'Servicios con soporte', sector: 'servicios', objective: 'orden_operativa', timeline: 'q_siguiente', modules: ['crm', 'proyectos', 'helpdesk', 'facturacion'] },
+        { label: 'Servicios comerciales', sector: 'servicios', objective: 'automatizar_ventas', timeline: 'plan_60_90', modules: ['crm', 'ventas', 'proyectos', 'facturacion', 'automatizaciones'] },
+        { label: 'Servicios con agentes IA', sector: 'servicios', objective: 'agentes_ia', timeline: 'plan_60_90', modules: ['crm', 'helpdesk', 'integraciones_api', 'agentes_ia'] },
+        { label: 'Servicios con software a medida', sector: 'servicios', objective: 'software_medida', timeline: 'q_siguiente', modules: ['crm', 'proyectos', 'helpdesk', 'software_medida'] },
       ],
     },
     manufactura: {
-      message: 'En manufactura recomendamos una implementación por capas para reducir riesgos operativos.',
+      message: 'En manufactura recomendamos una implementación por capas con foco en trazabilidad y métricas.',
       recommendations: [
         'Primero consolida inventario y compras.',
         'Luego estructura productos, variantes y listas técnicas.',
-        'Activa manufactura cuando la base de datos esté estable.',
+        'Activa manufactura cuando la base esté estable y medible.',
       ],
       options: [
-        { label: 'Base operativa manufactura', sector: 'manufactura', objective: 'control_inventario', timeline: 'plan_60_90', modules: ['inventario', 'compras', 'contabilidad'] },
-        { label: 'Escalamiento manufactura', sector: 'manufactura', objective: 'escalar_sucursales', timeline: 'q_siguiente', modules: ['manufactura', 'inventario', 'compras', 'rrhh'] },
+        { label: 'Base operativa manufactura', sector: 'manufactura', objective: 'control_inventario', timeline: 'plan_60_90', modules: ['inventario', 'compras', 'contabilidad', 'bi_analytics'] },
+        { label: 'Escalamiento manufactura', sector: 'manufactura', objective: 'escalar_sucursales', timeline: 'q_siguiente', modules: ['manufactura', 'inventario', 'compras', 'rrhh', 'integraciones_api'] },
       ],
     },
   };
   const selected = bySector[sector] || {
-    message: 'Podemos estructurar tu implementación Odoo en una fase inicial clara y ejecutable.',
+    message: 'Podemos estructurar tu ruta digital en una primera fase clara, ejecutable y medible.',
     recommendations: [
-      'Define objetivo principal de negocio para fase 1.',
-      'Selecciona módulos críticos de operación diaria.',
-      'Establece horizonte de implementación realista.',
+      'Define el resultado de negocio que quieres acelerar primero.',
+      'Selecciona capacidades críticas entre ERP, automatización e integración.',
+      'Establece un horizonte realista para una fase inicial efectiva.',
     ],
     options: [
-      { label: 'Arranque operativo', sector: context.sector || '', objective: 'orden_operativa', timeline: 'plan_60_90', modules: ['ventas', 'inventario', 'facturacion'] },
-      { label: 'Crecimiento controlado', sector: context.sector || '', objective: 'escalar_sucursales', timeline: 'q_siguiente', modules: ['ventas', 'compras', 'contabilidad'] },
+      { label: 'Arranque operativo', sector: context.sector || '', objective: 'orden_operativa', timeline: 'plan_60_90', modules: ['ventas', 'inventario', 'facturacion', 'automatizaciones'] },
+      { label: 'Ruta con agentes IA', sector: context.sector || '', objective: 'agentes_ia', timeline: 'plan_60_90', modules: ['crm', 'helpdesk', 'integraciones_api', 'agentes_ia'] },
+      { label: 'Ruta de software a medida', sector: context.sector || '', objective: 'software_medida', timeline: 'q_siguiente', modules: ['integraciones_api', 'software_medida', 'bi_analytics'] },
     ],
   };
   return selected;

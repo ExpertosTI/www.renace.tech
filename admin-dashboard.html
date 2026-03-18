@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard Admin - Renace</title>
+  <title>Dashboard Admin Pro - Renace</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
@@ -12,11 +12,15 @@
     :root {
       color-scheme: dark;
       --bg: #020617;
-      --surface: rgba(7, 16, 37, 0.82);
-      --line: rgba(148, 163, 184, 0.2);
-      --line-strong: rgba(56, 189, 248, 0.35);
+      --surface: rgba(7, 16, 37, 0.84);
+      --surface-strong: rgba(7, 15, 34, 0.95);
+      --line: rgba(148, 163, 184, 0.22);
+      --line-strong: rgba(56, 189, 248, 0.45);
       --text: #e2e8f0;
       --muted: #94a3b8;
+      --good: #4ade80;
+      --warn: #fbbf24;
+      --bad: #f87171;
     }
     * { box-sizing: border-box; }
     body {
@@ -25,22 +29,31 @@
       font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
       color: var(--text);
       background:
-        radial-gradient(circle at 6% 10%, rgba(2, 132, 199, 0.22), transparent 28%),
-        radial-gradient(circle at 92% 14%, rgba(37, 99, 235, 0.2), transparent 35%),
-        radial-gradient(circle at 50% 96%, rgba(13, 148, 136, 0.16), transparent 30%),
+        radial-gradient(circle at 8% 10%, rgba(2, 132, 199, 0.24), transparent 30%),
+        radial-gradient(circle at 90% 14%, rgba(37, 99, 235, 0.2), transparent 34%),
+        radial-gradient(circle at 50% 96%, rgba(13, 148, 136, 0.12), transparent 30%),
         var(--bg);
-      padding: 22px;
+      padding: 20px;
     }
-    .wrap { width: min(1200px, 100%); margin: 0 auto; display: grid; gap: 16px; }
+    .wrap { width: min(1440px, 100%); margin: 0 auto; display: grid; gap: 14px; }
     .card {
-      background: linear-gradient(155deg, rgba(8, 16, 39, 0.94), rgba(5, 11, 28, 0.9));
+      background: linear-gradient(160deg, rgba(8, 16, 39, 0.95), rgba(5, 11, 28, 0.94));
       border: 1px solid var(--line);
       border-radius: 18px;
-      padding: 18px;
-      box-shadow: 0 24px 64px rgba(2, 6, 23, 0.55);
-      backdrop-filter: blur(14px);
+      padding: 16px;
+      box-shadow: 0 20px 62px rgba(2, 6, 23, 0.5);
+      backdrop-filter: blur(12px);
     }
-    .header { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      border-radius: 18px;
+      position: sticky;
+      top: 8px;
+      z-index: 6;
+    }
     .badge {
       display: inline-flex;
       align-items: center;
@@ -56,13 +69,13 @@
       border: 1px solid rgba(191, 219, 254, 0.4);
     }
     h1 {
-      margin: 10px 0 6px;
+      margin: 9px 0 5px;
       font-family: 'Sora', sans-serif;
-      font-size: clamp(1.45rem, 3.2vw, 2rem);
+      font-size: clamp(1.4rem, 3.1vw, 2rem);
       letter-spacing: -0.02em;
     }
-    h2, h3 { margin: 0; font-family: 'Sora', sans-serif; letter-spacing: -0.01em; }
-    .muted { color: var(--muted); font-size: 12px; line-height: 1.5; }
+    h2, h3, h4 { margin: 0; font-family: 'Sora', sans-serif; letter-spacing: -0.01em; }
+    .muted { color: var(--muted); font-size: 12px; line-height: 1.45; }
     .status-pill {
       border-radius: 10px;
       border: 1px solid var(--line);
@@ -90,8 +103,8 @@
     input {
       width: 100%;
       border-radius: 10px;
-      border: 1px solid rgba(59, 130, 246, 0.28);
-      background: rgba(3, 10, 25, 0.88);
+      border: 1px solid rgba(59, 130, 246, 0.32);
+      background: rgba(3, 10, 25, 0.9);
       color: var(--text);
       padding: 11px 12px;
       font-size: 14px;
@@ -129,57 +142,174 @@
     button:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
     .error { color: #fca5a5; font-size: 13px; margin-top: 8px; }
     .success { color: #86efac; font-size: 13px; margin-top: 8px; }
-    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+    .section-title {
+      font-size: 13px;
+      color: #93c5fd;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 800;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
     .kpi {
       border-radius: 14px;
       border: 1px solid var(--line);
       background: var(--surface);
       padding: 12px;
       display: grid;
-      gap: 4px;
+      gap: 5px;
+    }
+    .kpi-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
     }
     .kpi-label {
-      font-size: 12px;
+      font-size: 11px;
       color: #93c5fd;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.05em;
+    }
+    .kpi-icon {
+      color: #c7d2fe;
+      opacity: 0.9;
+      font-size: 12px;
     }
     .stat {
-      font-size: clamp(1.4rem, 2.8vw, 2rem);
+      font-size: clamp(1.35rem, 2.7vw, 1.9rem);
       font-weight: 800;
       line-height: 1.1;
       color: #f8fafc;
     }
-    .cards-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; }
+    .kpi-help {
+      color: #9fb4d8;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+    .insight-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .insight {
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(7, 17, 41, 0.85);
+      padding: 11px;
+      display: grid;
+      gap: 6px;
+    }
+    .insight h4 {
+      font-size: 12px;
+      color: #bfdbfe;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .insight p {
+      margin: 0;
+      font-size: 12px;
+      color: #dbeafe;
+      line-height: 1.45;
+    }
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 12px;
+    }
+    .span-3 { grid-column: span 3; }
     .span-4 { grid-column: span 4; }
+    .span-6 { grid-column: span 6; }
     .span-8 { grid-column: span 8; }
+    .span-12 { grid-column: span 12; }
     .list {
       list-style: none;
       padding: 0;
-      margin: 12px 0 0;
+      margin: 10px 0 0;
       display: grid;
       gap: 8px;
+      max-height: 360px;
+      overflow: auto;
     }
     .list li {
       border: 1px solid rgba(100, 116, 139, 0.25);
       border-radius: 10px;
       background: var(--surface);
-      padding: 10px 11px;
+      padding: 9px 10px;
       display: flex;
       justify-content: space-between;
       gap: 10px;
       align-items: center;
     }
-    @media (max-width: 940px) {
-      .span-4, .span-8 { grid-column: span 12; }
+    .list strong { font-size: 13px; }
+    .tag {
+      border-radius: 999px;
+      border: 1px solid rgba(100, 116, 139, 0.35);
+      background: rgba(15, 23, 42, 0.84);
+      color: #dbeafe;
+      font-size: 10px;
+      padding: 3px 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 700;
+      white-space: nowrap;
     }
-    @media (max-width: 700px) {
-      body { padding: 14px; }
-      .header { flex-direction: column; align-items: flex-start; }
+    .tag.good { border-color: rgba(74, 222, 128, 0.45); color: #bbf7d0; }
+    .tag.warn { border-color: rgba(251, 191, 36, 0.45); color: #fde68a; }
+    .tag.bad { border-color: rgba(248, 113, 113, 0.45); color: #fecaca; }
+    .bar-grid {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .bar-row {
+      display: grid;
+      gap: 6px;
+    }
+    .bar-top {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #bfdbfe;
+      font-weight: 700;
+    }
+    .bar-track {
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(30, 41, 59, 0.9);
+      border: 1px solid rgba(71, 85, 105, 0.4);
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      width: 0;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #22d3ee, #2563eb);
+      transition: width 0.4s ease;
+    }
+    @media (max-width: 1200px) {
+      .span-3 { grid-column: span 6; }
+      .span-4 { grid-column: span 6; }
+      .span-6 { grid-column: span 12; }
+      .span-8 { grid-column: span 12; }
+    }
+    @media (max-width: 760px) {
+      body { padding: 12px; }
+      .header { flex-direction: column; align-items: flex-start; position: static; }
       .status-pill { width: 100%; }
       .actions { width: 100%; }
       button, .btn-link { flex: 1; }
+      .span-3, .span-4, .span-6, .span-8 { grid-column: span 12; }
     }
   </style>
 </head>
@@ -187,9 +317,9 @@
   <div class="wrap">
     <header class="header card">
       <div>
-        <div class="badge"><i class="fa-solid fa-shield-halved"></i> Dashboard Admin</div>
-        <h1>Renace Analytics</h1>
-        <p class="muted">Panel moderno para monitorear visitas, ventas y solicitudes con acceso seguro.</p>
+        <div class="badge"><i class="fa-solid fa-shield-halved"></i> Dashboard Admin Pro</div>
+        <h1>Renace Control Center</h1>
+        <p class="muted">Métricas de negocio, solicitudes, rastreos, notificaciones, informes y proyecciones en tiempo real.</p>
       </div>
       <div id="login-status" class="status-pill">No autenticado</div>
     </header>
@@ -216,60 +346,100 @@
       <div id="login-message" class="muted" style="margin-top:10px;"></div>
     </div>
 
-    <div id="stats" class="card" style="display:none;">
+    <section id="stats" class="card" style="display:none;">
+      <h3 class="section-title"><i class="fa-solid fa-chart-line"></i> Métricas principales</h3>
       <div class="kpi-grid">
-        <div class="kpi">
-          <div class="kpi-label">Visitas totales</div>
+        <article class="kpi">
+          <div class="kpi-head"><span class="kpi-label">Visitas totales</span><i class="fa-solid fa-globe kpi-icon"></i></div>
           <div class="stat" id="visits-total">-</div>
-          <div class="muted" id="visits-24h">-</div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-label">Ventas (muestra)</div>
-          <div class="stat" id="sales-count">-</div>
-          <div class="muted" id="sales-total">-</div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-label">Fuente visitas</div>
+          <div class="kpi-help" id="visits-24h">-</div>
+        </article>
+        <article class="kpi">
+          <div class="kpi-head"><span class="kpi-label">Fuente de tráfico</span><i class="fa-solid fa-satellite-dish kpi-icon"></i></div>
           <div class="stat" id="visits-source">-</div>
-          <div class="muted" id="refresh-time">Sin actualizar</div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-label">Chats</div>
-          <div class="stat">n/d</div>
-          <div class="muted">Proxy /api/chat sin métrica local</div>
-        </div>
+          <div class="kpi-help" id="refresh-time">Sin actualizar</div>
+        </article>
+        <article class="kpi">
+          <div class="kpi-head"><span class="kpi-label">Ventas registradas</span><i class="fa-solid fa-dollar-sign kpi-icon"></i></div>
+          <div class="stat" id="sales-count">-</div>
+          <div class="kpi-help" id="sales-total">-</div>
+        </article>
+        <article class="kpi">
+          <div class="kpi-head"><span class="kpi-label">Solicitudes totales</span><i class="fa-solid fa-envelope-open-text kpi-icon"></i></div>
+          <div class="stat" id="submissions-total">-</div>
+          <div class="kpi-help" id="submissions-24h">-</div>
+        </article>
+        <article class="kpi">
+          <div class="kpi-head"><span class="kpi-label">Conversión estimada</span><i class="fa-solid fa-arrow-trend-up kpi-icon"></i></div>
+          <div class="stat" id="conversion-rate">-</div>
+          <div class="kpi-help">Solicitudes / visitas últimas 24h</div>
+        </article>
+        <article class="kpi">
+          <div class="kpi-head"><span class="kpi-label">Tokens activos</span><i class="fa-solid fa-key kpi-icon"></i></div>
+          <div class="stat" id="active-tokens">-</div>
+          <div class="kpi-help" id="expiring-tokens">-</div>
+        </article>
+        <article class="kpi">
+          <div class="kpi-head"><span class="kpi-label">Pipeline health</span><i class="fa-solid fa-gauge-high kpi-icon"></i></div>
+          <div class="stat" id="pipeline-health">-</div>
+          <div class="kpi-help">Balance entre urgentes, planificados y exploración</div>
+        </article>
+        <article class="kpi">
+          <div class="kpi-head"><span class="kpi-label">Proyección mensual</span><i class="fa-solid fa-chart-pie kpi-icon"></i></div>
+          <div class="stat" id="forecast-value">-</div>
+          <div class="kpi-help">Estimación basada en ticket promedio</div>
+        </article>
       </div>
-    </div>
+      <div class="insight-grid">
+        <article class="insight"><h4>Informe de conversión</h4><p id="report-conversion">Sin datos suficientes.</p></article>
+        <article class="insight"><h4>Informe de canal</h4><p id="report-channel">Sin datos suficientes.</p></article>
+        <article class="insight"><h4>Informe de demanda</h4><p id="report-demand">Sin datos suficientes.</p></article>
+        <article class="insight"><h4>Informe de riesgo</h4><p id="report-risk">Sin datos suficientes.</p></article>
+      </div>
+    </section>
 
-    <div id="lists" class="cards-grid" style="display:none;">
-      <div class="card span-4">
-        <h3>Top rutas</h3>
+    <section id="lists" class="cards-grid" style="display:none;">
+      <article class="card span-4">
+        <h3 class="section-title"><i class="fa-solid fa-route"></i> Top rutas</h3>
         <ul id="top-paths" class="list"></ul>
-      </div>
-      <div class="card span-4">
-        <h3>Estados HTTP</h3>
+      </article>
+      <article class="card span-4">
+        <h3 class="section-title"><i class="fa-solid fa-signal"></i> Estados HTTP</h3>
         <ul id="status-codes" class="list"></ul>
-      </div>
-      <div class="card span-4">
-        <h3>Ventas recientes</h3>
+      </article>
+      <article class="card span-4">
+        <h3 class="section-title"><i class="fa-solid fa-receipt"></i> Ventas recientes</h3>
         <ul id="sales-sample" class="list"></ul>
-      </div>
-      <div class="card span-4">
+      </article>
+      <article class="card span-4">
+        <h3 class="section-title"><i class="fa-solid fa-bell"></i> Notificaciones</h3>
+        <ul id="notifications-feed" class="list"></ul>
+      </article>
+      <article class="card span-8">
+        <h3 class="section-title"><i class="fa-solid fa-diagram-project"></i> Rastreo de solicitudes</h3>
+        <div class="muted">Seguimiento de las solicitudes más recientes por estado, objetivo y complejidad.</div>
+        <ul id="tracking-board" class="list"></ul>
+      </article>
+      <article class="card span-4">
         <div class="actions" style="justify-content:space-between; align-items:center;">
-          <h3>Tokens de cotización</h3>
+          <h3 class="section-title" style="margin:0;"><i class="fa-solid fa-key"></i> Tokens de cotización</h3>
           <button id="btn-new-token" class="secondary"><i class="fa-solid fa-plus"></i> Nuevo token</button>
         </div>
-        <div class="muted" style="margin-top:6px;">Genera y comparte un enlace con validez de 7 días.</div>
+        <div class="muted">Genera, comparte y monitorea enlaces con validez de 7 días.</div>
         <ul id="quote-tokens" class="list"></ul>
-      </div>
-      <div class="card span-8">
-        <h3>Solicitudes recibidas</h3>
-        <div class="muted" style="margin-top:6px;">Últimas 100 entradas.</div>
+      </article>
+      <article class="card span-8">
+        <h3 class="section-title"><i class="fa-solid fa-inbox"></i> Solicitudes recibidas</h3>
+        <div class="muted">Últimas 100 solicitudes con trazabilidad de sector, objetivo y horizonte.</div>
         <ul id="quote-submissions" class="list"></ul>
-      </div>
-    </div>
+      </article>
+      <article class="card span-12">
+        <h3 class="section-title"><i class="fa-solid fa-chart-column"></i> Proyecciones operativas</h3>
+        <div class="bar-grid" id="projections-bars"></div>
+        <ul id="projection-notes" class="list"></ul>
+      </article>
+    </section>
   </div>
-
   <script src="/js/admin-dashboard.js"></script>
 </body>
 </html>
