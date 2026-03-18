@@ -465,6 +465,170 @@
         transition-duration: 0.52s;
       }
     }
+    /* Chat Widget */
+    .chat-widget {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 350px;
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      z-index: 1000;
+      transition: all 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .chat-widget.collapsed {
+      height: 48px;
+      width: 200px;
+    }
+    .chat-header {
+      padding: 12px 16px;
+      background: #1e293b;
+      color: #cbd5e1;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+    .chat-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      height: 400px;
+    }
+    .chat-messages {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      font-size: 14px;
+    }
+    .msg {
+      padding: 8px 12px;
+      border-radius: 8px;
+      max-width: 85%;
+      word-wrap: break-word;
+    }
+    .msg.system {
+      background: #1e293b;
+      color: #94a3b8;
+      align-self: flex-start;
+    }
+    .msg.user {
+      background: #2563eb;
+      color: #fff;
+      align-self: flex-end;
+    }
+    .chat-input-area {
+      padding: 12px;
+      border-top: 1px solid #1e293b;
+      display: flex;
+      gap: 8px;
+    }
+    .chat-input-area input {
+      flex: 1;
+      background: #0f172a;
+      border: 1px solid #334155;
+      padding: 8px 12px;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 14px;
+    }
+    .chat-input-area button {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      width: 36px;
+      cursor: pointer;
+    }
+    /* Submission Detail */
+    .submission-detail {
+      display: grid;
+      gap: 16px;
+    }
+    .detail-group {
+      border-bottom: 1px solid #1e293b;
+      padding-bottom: 12px;
+    }
+    .detail-label {
+      font-size: 11px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .detail-value {
+      font-size: 15px;
+      color: #e2e8f0;
+    }
+    .clickable-row {
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .clickable-row:hover {
+      background: rgba(255,255,255,0.03);
+    }
+    /* User Selection */
+    .user-select {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .user-option {
+      background: rgba(15, 23, 42, 0.4);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .user-option:hover {
+      background: rgba(15, 23, 42, 0.6);
+      border-color: var(--line-strong);
+    }
+    .user-option.active {
+      background: rgba(37, 99, 235, 0.15);
+      border-color: var(--accent);
+      box-shadow: 0 0 12px rgba(125, 211, 252, 0.1);
+    }
+    .user-avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: var(--surface-soft);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      color: var(--text);
+      border: 2px solid transparent;
+    }
+    .user-option.active .user-avatar {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .user-name {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+    .user-option.active .user-name {
+      color: #fff;
+    }
   </style>
 </head>
 <body>
@@ -484,9 +648,19 @@
     <div class="card" id="login-card">
       <h2>Acceso seguro</h2>
       <div class="auth-grid">
-        <div>
-          <label for="email">Correo administrador</label>
-          <input id="email" type="email" value="expertostird@gmail.com" autocomplete="email">
+        <div style="min-width: 260px;">
+          <label>Identidad</label>
+          <div class="user-select" id="user-selector">
+            <div class="user-option active" data-email="expertostird@gmail.com">
+              <div class="user-avatar"><i class="fa-solid fa-user-astronaut"></i></div>
+              <span class="user-name">Adderly</span>
+            </div>
+            <div class="user-option" data-email="rcexpertos@gmail.com">
+              <div class="user-avatar"><i class="fa-solid fa-user-tie"></i></div>
+              <span class="user-name">Renso</span>
+            </div>
+          </div>
+          <input id="email" type="hidden" value="expertostird@gmail.com">
         </div>
         <div>
           <label for="code">Código recibido</label>
@@ -607,14 +781,47 @@
     <div class="modal-card">
       <div class="modal-head">
         <h3 class="section-title" style="margin:0;"><i class="fa-solid fa-map-location-dot"></i> Visitas detalladas</h3>
-        <div class="actions">
-          <div id="visit-modal-meta" class="muted"></div>
-          <button id="visit-modal-close" class="secondary"><i class="fa-solid fa-xmark"></i> Cerrar</button>
-        </div>
+        <button class="ghost icon-btn" id="visit-modal-close"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <div id="visit-detail-list" class="visit-table"></div>
+      <div class="modal-body">
+        <div id="visit-modal-meta" class="visit-meta" style="margin-bottom:12px;"></div>
+        <div id="visit-detail-list" class="visit-list"></div>
+      </div>
     </div>
   </div>
+
+  <div class="modal" id="submission-modal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 class="section-title" style="margin:0;"><i class="fa-solid fa-file-contract"></i> Detalle de Solicitud</h3>
+        <button class="ghost icon-btn" id="submission-modal-close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div id="submission-detail-content" class="submission-detail"></div>
+        <div class="actions" style="margin-top:20px; justify-content:flex-end;">
+          <a id="submission-whatsapp" href="#" target="_blank" class="button"><i class="fa-brands fa-whatsapp"></i> Contactar</a>
+          <button class="secondary" onclick="document.getElementById('submission-modal').classList.remove('open')">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="admin-chat-widget" class="chat-widget collapsed">
+    <div class="chat-header" id="chat-toggle">
+      <span><i class="fa-solid fa-robot"></i> Renace Assistant</span>
+      <i class="fa-solid fa-chevron-up" id="chat-icon"></i>
+    </div>
+    <div class="chat-body">
+      <div class="chat-messages" id="chat-messages">
+        <div class="msg system">Hola, soy tu asistente administrativo. Puedo generar solicitudes o buscar datos. Prueba: "Generame una solicitud".</div>
+      </div>
+      <div class="chat-input-area">
+        <input type="text" id="chat-input" placeholder="Escribe un comando..." autocomplete="off">
+        <button id="chat-send"><i class="fa-solid fa-paper-plane"></i></button>
+      </div>
+    </div>
+  </div>
+
   <script src="/js/admin-dashboard.js"></script>
 </body>
 </html>

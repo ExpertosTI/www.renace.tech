@@ -31,6 +31,153 @@
   let presentationSceneIndex = 0;
   let presentationResizeTimer = null;
 
+  let currentSubmissions = [];
+
+  // User Selection Logic
+  const userOptions = document.querySelectorAll('.user-option');
+  userOptions.forEach(opt => {
+    opt.addEventListener('click', () => {
+      userOptions.forEach(o => o.classList.remove('active'));
+      opt.classList.add('active');
+      if (emailInput) emailInput.value = opt.dataset.email;
+    });
+  });
+  
+  // Expose to window for onclick handlers
+  window.openSubmission = function(id) {
+    const s = currentSubmissions.find(x => x.id === id || x.token === id);
+    if (!s) return;
+    
+    const content = document.getElementById('submission-detail-content');
+    const modal = document.getElementById('submission-modal');
+    const waBtn = document.getElementById('submission-whatsapp');
+    
+    // Format modules
+    const modulesList = Array.isArray(s.modules) && s.modules.length 
+      ? s.modules.map(m => `<span class="tag">${escapeHtml(m)}</span>`).join(' ')
+      : '<span class="muted">Ninguno</span>';
+
+    // Format money
+    const revenue = s.revenue ? formatMoney(parseDopRevenue(s.revenue)) : '-';
+    
+    content.innerHTML = `
+      <div class="detail-group">
+        <div class="detail-label">Contacto</div>
+        <div class="detail-value"><strong>${escapeHtml(s.name)}</strong></div>
+        <div class="detail-value">${escapeHtml(s.email)}</div>
+        <div class="detail-value">${escapeHtml(s.phone || 'Sin teléfono')}</div>
+      </div>
+      <div class="detail-group">
+        <div class="detail-label">Negocio</div>
+        <div class="detail-value">${escapeHtml(s.business)}</div>
+        <div class="detail-value">${escapeHtml(getSectorLabel(s.sector))} · ${escapeHtml(s.cashiers || '0')} cajas · ${escapeHtml(s.employees || '0')} empleados</div>
+        <div class="detail-value">Facturación: ${revenue}</div>
+      </div>
+      <div class="detail-group">
+        <div class="detail-label">Proyecto</div>
+        <div class="detail-value">${escapeHtml(getObjectiveLabel(s.objective))}</div>
+        <div class="detail-value">Timeline: ${escapeHtml(s.timeline || 'No especificado')}</div>
+        <div class="detail-value">Arquitectura: ${escapeHtml(s.architecture || 'No especificado')}</div>
+      </div>
+      <div class="detail-group">
+        <div class="detail-label">Módulos Requeridos</div>
+        <div class="detail-value">${modulesList}</div>
+      </div>
+      <div class="detail-group" style="border:none;">
+        <div class="detail-label">Mensaje</div>
+        <div class="detail-value" style="white-space:pre-wrap;">${escapeHtml(s.message || 'Sin mensaje adicional.')}</div>
+      </div>
+      <div class="muted" style="font-size:10px; margin-top:12px;">
+        ID: ${escapeHtml(s.id)} · Token: ${escapeHtml(s.token)}<br>
+        IP: ${escapeHtml(s.ip)} · ${escapeHtml(s.userAgent)}
+      </div>
+    `;
+    
+    // WhatsApp Link
+    const text = `Hola ${s.name}, recibimos tu solicitud en RENACE.TECH. ¿Tienes un momento para conversar sobre tu proyecto de ${s.business}?`;
+    waBtn.href = `https://wa.me/${(s.phone || '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`;
+    
+    modal.classList.add('open');
+  };
+
+  // Chat Widget Logic
+  const chatWidget = document.getElementById('admin-chat-widget');
+  const chatToggle = document.getElementById('chat-toggle');
+  const chatInput = document.getElementById('chat-input');
+  const chatSend = document.getElementById('chat-send');
+  const chatMessages = document.getElementById('chat-messages');
+  const chatIcon = document.getElementById('chat-icon');
+
+  if (chatToggle) {
+    chatToggle.addEventListener('click', () => {
+      chatWidget.classList.toggle('collapsed');
+      const isCollapsed = chatWidget.classList.contains('collapsed');
+      chatIcon.className = isCollapsed ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
+    });
+  }
+
+  function addChatMessage(text, type = 'user') {
+    const div = document.createElement('div');
+    div.className = `msg ${type}`;
+    div.textContent = text;
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  async function handleChatCommand() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+    
+    addChatMessage(text, 'user');
+    chatInput.value = '';
+
+    const lower = text.toLowerCase();
+    
+    if (lower.includes('generame') || (lower.includes('solicitud') && lower.includes('link'))) {
+      addChatMessage('Generando enlace de solicitud...', 'system');
+      try {
+        const res = await fetch('/api/admin/quote-tokens', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}` 
+          },
+          body: JSON.stringify({ label: 'Chat Generated' })
+        });
+        const data = await res.json();
+        if (data.token) {
+          const url = `https://renace.tech/cotizacion.html?token=${data.token}`;
+          addChatMessage(`Aquí tienes el enlace: ${url}`, 'system');
+          // Refresh list
+          loadAnalytics();
+        } else {
+          addChatMessage('Error al generar token.', 'system');
+        }
+      } catch (e) {
+        addChatMessage('Error de conexión.', 'system');
+      }
+    } else if (lower.includes('hola') || lower.includes('ayuda')) {
+      addChatMessage('Comandos disponibles: "Generame una solicitud", "Ver últimas ventas", "Estado del sistema".', 'system');
+    } else {
+      addChatMessage('No reconozco ese comando. Intenta "Generame una solicitud".', 'system');
+    }
+  }
+
+  if (chatSend) {
+    chatSend.addEventListener('click', handleChatCommand);
+    chatInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') handleChatCommand();
+    });
+  }
+  
+  // Close submission modal
+  const subModalClose = document.getElementById('submission-modal-close');
+  if (subModalClose) {
+    subModalClose.addEventListener('click', () => {
+      document.getElementById('submission-modal').classList.remove('open');
+    });
+  }
+
   function setMessage(text, type = 'muted') {
     loginMessage.textContent = text;
     loginMessage.className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'muted';
@@ -309,7 +456,7 @@
           const p = getPriorityTag(s);
           const stage = getTrackingStage(s);
           const moduleCount = Array.isArray(s.modules) ? s.modules.length : 0;
-          return `<li>
+          return `<li onclick="window.openSubmission('${s.id || s.token}')" style="cursor:pointer;" class="clickable-row">
             <div>
               <strong>${escapeHtml(s.name || 'Lead')} · ${escapeHtml(getSectorLabel(s.sector))}</strong>
               <div class="muted">${escapeHtml(stage)} · ${escapeHtml(getObjectiveLabel(s.objective))} · ${moduleCount} módulos</div>
@@ -551,11 +698,12 @@
       : '<li><span class="muted">Sin tokens</span></li>';
 
     const submissions = quotes.submissions || data.submissions || [];
+    currentSubmissions = submissions;
     submissionsList.innerHTML = submissions.length
       ? submissions.slice(0, 40).map(s => {
           const p = getPriorityTag(s);
           const modulesCount = Array.isArray(s.modules) ? s.modules.length : 0;
-          return `<li>
+          return `<li onclick="window.openSubmission('${s.id || s.token}')" style="cursor:pointer;" class="clickable-row">
             <div>
               <strong>${escapeHtml(s.name)} (${escapeHtml(s.email)})</strong>
               <div class="muted">${escapeHtml(getSectorLabel(s.sector))} · ${escapeHtml(getObjectiveLabel(s.objective))} · ${modulesCount} módulos</div>

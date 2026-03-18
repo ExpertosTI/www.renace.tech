@@ -27,7 +27,10 @@ const isProd = process.env.NODE_ENV === 'production';
 const FORM_DATA_PATH = path.join(__dirname, 'form', 'data.json');
 const QUOTE_DATA_PATH = path.join(__dirname, 'data', 'quotes.json');
 const blockedStaticPathPattern = /(?:^\/(?:server\.js|package(?:-lock)?\.json|docker-compose\.yml|Dockerfile|deploy\.sh)$|\.(?:php|env|yml|yaml|sh|sql|log|bak|md)$)/i;
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'expertostird@gmail.com';
+const ADMIN_EMAILS = [
+  (process.env.ADMIN_EMAIL || 'expertostird@gmail.com').toLowerCase(),
+  'rcexpertos@gmail.com'
+];
 const ADMIN_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const ADMIN_CODE_TTL_MS = 10 * 60 * 1000; // 10 min
 const QUOTE_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
@@ -507,7 +510,7 @@ const chatLimiter = rateLimit({
 // ── Admin auth + analytics (after rate limiters to avoid hoisting issues) ──
 app.post('/api/admin/login/request-code', apiLimiter, async (req, res) => {
   const email = (req.body?.email || '').trim().toLowerCase();
-  if (email !== ADMIN_EMAIL.toLowerCase()) return res.status(403).json({ error: 'No autorizado' });
+  if (!ADMIN_EMAILS.includes(email)) return res.status(403).json({ error: 'No autorizado' });
   const code = generateCode();
   const exp = Date.now() + ADMIN_CODE_TTL_MS;
   adminCodes.set(email, { code, exp });
@@ -623,6 +626,11 @@ app.post('/api/quote/submit', apiLimiter, async (req, res) => {
   const employees = sanitizeText(payload.employees || '');
   const revenue = sanitizeText(payload.revenue || '');
   const message = sanitizeText(payload.message || '');
+  const sector = sanitizeText(payload.sector || '');
+  const objective = sanitizeText(payload.objective || '');
+  const timeline = sanitizeText(payload.timeline || '');
+  const architecture = sanitizeText(payload.architecture || '');
+  const modules = Array.isArray(payload.modules) ? payload.modules.map(m => sanitizeText(m)) : [];
 
   if (!name || !email || !business) {
     return res.status(400).json({ error: 'Nombre, email y modelo de negocio son obligatorios' });
@@ -637,6 +645,11 @@ app.post('/api/quote/submit', apiLimiter, async (req, res) => {
       email,
       phone,
       business,
+      sector,
+      objective,
+      timeline,
+      architecture,
+      modules,
       cashiers,
       employees,
       revenue,

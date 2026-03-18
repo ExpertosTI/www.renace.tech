@@ -838,12 +838,102 @@
       letter-spacing: -0.02em;
     }
 
+
     .exec-slide p {
       margin: 0;
       color: #93c5fd;
       font-size: 14px;
       line-height: 1.45;
     }
+
+    .pill-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .pill-option {
+      border: 1px solid rgba(96, 165, 250, 0.3);
+      background: rgba(30, 58, 138, 0.2);
+      color: #dbeafe;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pill-option:hover {
+      background: rgba(30, 58, 138, 0.4);
+      border-color: rgba(147, 197, 253, 0.5);
+    }
+
+    .pill-option.active {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+    }
+
+    .selection-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 10px;
+    }
+
+    .selection-card {
+      border: 1px solid rgba(71, 85, 105, 0.5);
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 12px;
+      padding: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      text-align: center;
+      align-items: center;
+    }
+
+    .selection-card:hover {
+      border-color: rgba(147, 197, 253, 0.5);
+      background: rgba(30, 58, 138, 0.2);
+      transform: translateY(-2px);
+    }
+
+    .selection-card.active {
+      border-color: var(--accent);
+      background: rgba(37, 99, 235, 0.15);
+      box-shadow: inset 0 0 0 1px var(--accent);
+    }
+
+    .selection-card i {
+      font-size: 20px;
+      color: #93c5fd;
+      margin-bottom: 4px;
+    }
+
+    .selection-card span {
+      font-size: 11px;
+      font-weight: 700;
+      color: #e2e8f0;
+      line-height: 1.3;
+    }
+    
+    .input-with-pills input {
+      margin-top: 4px;
+    }
+
+    /* Ocultar selects originales si los reemplazamos por hidden inputs */
+    .hidden-select {
+      display: none;
+    }
+
 
     .exec-slide .field-wrap {
       display: grid;
@@ -953,7 +1043,7 @@
         <div class="top">
           <div>
             <span class="badge"><i class="fa-solid fa-layer-group"></i> Diagnóstico Digital Empresarial</span>
-            <h1>Diseñemos tu solución digital en vivo</h1>
+            <h1>Diseñemos tu solución digital</h1>
             <p class="subtitle">Esta experiencia guiada te recomienda la mejor combinación entre ERP, automatización, integraciones y software a medida según tu modelo de negocio.</p>
           </div>
           <div id="token-status" class="token-status">Validando token...</div>
@@ -1001,33 +1091,33 @@
               </div>
               <p class="section-subtitle">Definimos escala y contexto para ajustar la arquitectura funcional.</p>
               <div class="grid">
-                <div>
+                <div class="input-with-pills">
                   <label for="sector">Sector *</label>
-                  <select id="sector" name="sector" required>
-                    <option value="">Selecciona un sector</option>
-                    <option value="retail">Retail / Tienda</option>
-                    <option value="distribucion">Distribución</option>
-                    <option value="servicios">Servicios profesionales</option>
-                    <option value="manufactura">Manufactura</option>
-                    <option value="restaurante">Restaurante / Food</option>
-                    <option value="salud">Salud / Clínicas</option>
-                    <option value="educacion">Educación</option>
-                    <option value="otro">Otro</option>
-                  </select>
+                  <div class="pill-group" id="sector-pills">
+                    <button type="button" class="pill-option" data-value="Retail / Tienda de Ropa"><i class="fa-solid fa-shirt"></i> Ropa</button>
+                    <button type="button" class="pill-option" data-value="Licores / Drink"><i class="fa-solid fa-wine-bottle"></i> Licores</button>
+                    <button type="button" class="pill-option" data-value="Vape Shop"><i class="fa-solid fa-cloud"></i> Vapers</button>
+                    <button type="button" class="pill-option" data-value="Manufactura"><i class="fa-solid fa-industry"></i> Manufactura</button>
+                    <button type="button" class="pill-option" data-value="Restaurante"><i class="fa-solid fa-utensils"></i> Restaurante</button>
+                    <button type="button" class="pill-option" data-value="Servicios"><i class="fa-solid fa-briefcase"></i> Servicios</button>
+                    <button type="button" class="pill-option" data-value="Salud"><i class="fa-solid fa-user-doctor"></i> Salud</button>
+                    <button type="button" class="pill-option" data-value="Educación"><i class="fa-solid fa-graduation-cap"></i> Educación</button>
+                  </div>
+                  <input id="sector" name="sector" required placeholder="Escribe tu sector o selecciona uno de arriba...">
                 </div>
                 <div>
                   <label for="business">Modelo de negocio *</label>
                   <input id="business" name="business" required placeholder="Ej. distribuidor B2B con ventas a crédito y rutas">
                 </div>
-                <div>
+                <div class="input-with-pills">
                   <label for="locations">Sucursales</label>
-                  <select id="locations" name="locations">
-                    <option value="">Selecciona</option>
-                    <option value="1">1 ubicación</option>
-                    <option value="2-5">2 a 5 ubicaciones</option>
-                    <option value="6-20">6 a 20 ubicaciones</option>
-                    <option value="20+">Más de 20 ubicaciones</option>
-                  </select>
+                  <div class="pill-group" id="locations-pills">
+                    <button type="button" class="pill-option" data-value="1"><i class="fa-solid fa-shop"></i> 1</button>
+                    <button type="button" class="pill-option" data-value="2-5"><i class="fa-solid fa-layer-group"></i> 2-5</button>
+                    <button type="button" class="pill-option" data-value="6-20"><i class="fa-solid fa-building"></i> 6-20</button>
+                    <button type="button" class="pill-option" data-value="20+"><i class="fa-solid fa-city"></i> 20+</button>
+                  </div>
+                  <input id="locations" name="locations" placeholder="Número de sucursales...">
                 </div>
               </div>
               <div class="grid">
@@ -1042,7 +1132,6 @@
                 <div>
                   <label>Facturación mensual aprox. (RD$) *</label>
                   <div class="revenue-field">
-                    <input id="revenue" name="revenue" type="hidden" required>
                     <div class="revenue-choices" id="revenue-choices">
                       <button type="button" class="revenue-choice" data-revenue="RD$ 100,000 - 300,000">RD$ 100,000 - 300,000<span>Etapa inicial</span></button>
                       <button type="button" class="revenue-choice" data-revenue="RD$ 300,001 - 1,000,000">RD$ 300,001 - 1,000,000<span>Operación en crecimiento</span></button>
@@ -1050,6 +1139,7 @@
                       <button type="button" class="revenue-choice" data-revenue="RD$ 5,000,001+">RD$ 5,000,001+<span>Escala corporativa</span></button>
                       <button type="button" class="revenue-choice" data-revenue="Prefiero indicarlo en llamada">Prefiero indicarlo en llamada<span>No quiero detallarlo ahora</span></button>
                     </div>
+                    <input id="revenue" name="revenue" placeholder="Selecciona un rango o escribe tu facturación..." required style="margin-top: 10px; width: 100%;">
                   </div>
                 </div>
               </div>
@@ -1078,37 +1168,37 @@
               <div class="grid">
                 <div>
                   <label for="objective">Objetivo principal *</label>
-                  <select id="objective" name="objective" required>
-                    <option value="">Selecciona tu objetivo</option>
-                    <option value="orden_operativa">Ordenar operación diaria</option>
-                    <option value="control_inventario">Controlar inventario y compras</option>
-                    <option value="automatizar_ventas">Automatizar ventas y CRM</option>
-                    <option value="unificar_contabilidad">Unificar facturación y contabilidad</option>
-                    <option value="escalar_sucursales">Escalar múltiples sucursales</option>
-                    <option value="software_medida">Crear software a medida</option>
-                    <option value="agentes_ia">Activar agentes IA de negocio</option>
-                  </select>
+                  <input type="hidden" id="objective" name="objective" required>
+                  <div class="selection-grid" id="objective-options">
+                    <div class="selection-card" data-value="orden_operativa"><i class="fa-solid fa-arrow-trend-up"></i><span>Ordenar Operación</span></div>
+                    <div class="selection-card" data-value="control_inventario"><i class="fa-solid fa-boxes-stacked"></i><span>Control Inventario</span></div>
+                    <div class="selection-card" data-value="automatizar_ventas"><i class="fa-solid fa-robot"></i><span>Automatizar Ventas</span></div>
+                    <div class="selection-card" data-value="unificar_contabilidad"><i class="fa-solid fa-file-invoice-dollar"></i><span>Unificar Contabilidad</span></div>
+                    <div class="selection-card" data-value="escalar_sucursales"><i class="fa-solid fa-shop"></i><span>Escalar Sucursales</span></div>
+                    <div class="selection-card" data-value="software_medida"><i class="fa-solid fa-code"></i><span>Software a Medida</span></div>
+                    <div class="selection-card" data-value="agentes_ia"><i class="fa-solid fa-brain"></i><span>Agentes IA</span></div>
+                  </div>
                 </div>
                 <div>
                   <label for="timeline">Horizonte de implementación *</label>
-                  <select id="timeline" name="timeline" required>
-                    <option value="">Selecciona un horizonte</option>
-                    <option value="urgente_30">Urgente (0 a 30 días)</option>
-                    <option value="plan_60_90">Planificado (60 a 90 días)</option>
-                    <option value="q_siguiente">Próximo trimestre</option>
-                    <option value="exploracion">Solo evaluación inicial</option>
-                  </select>
+                  <input type="hidden" id="timeline" name="timeline" required>
+                  <div class="selection-grid" id="timeline-options">
+                    <div class="selection-card" data-value="urgente_30"><i class="fa-solid fa-fire"></i><span>Urgente (30d)</span></div>
+                    <div class="selection-card" data-value="plan_60_90"><i class="fa-solid fa-calendar-check"></i><span>Plan (60-90d)</span></div>
+                    <div class="selection-card" data-value="q_siguiente"><i class="fa-solid fa-calendar-days"></i><span>Próximo Q</span></div>
+                    <div class="selection-card" data-value="exploracion"><i class="fa-solid fa-magnifying-glass"></i><span>Exploración</span></div>
+                  </div>
                 </div>
-                <div>
+                <div class="input-with-pills">
                   <label for="currentSystem">Sistema actual</label>
-                  <select id="currentSystem" name="currentSystem">
-                    <option value="">Selecciona una opción</option>
-                    <option value="excel_manual">Excel / procesos manuales</option>
-                    <option value="erp_legacy">ERP legado</option>
-                    <option value="otro_erp">Otro ERP moderno</option>
-                    <option value="mixto">Herramientas mixtas</option>
-                    <option value="ninguno">Sin sistema actual</option>
-                  </select>
+                  <div class="pill-group" id="currentSystem-pills">
+                    <button type="button" class="pill-option" data-value="Excel / Manual"><i class="fa-solid fa-file-excel"></i> Excel</button>
+                    <button type="button" class="pill-option" data-value="ERP Legado"><i class="fa-solid fa-server"></i> Legacy</button>
+                    <button type="button" class="pill-option" data-value="ERP Moderno"><i class="fa-solid fa-cloud"></i> Moderno</button>
+                    <button type="button" class="pill-option" data-value="Mixto"><i class="fa-solid fa-screwdriver-wrench"></i> Mixto</button>
+                    <button type="button" class="pill-option" data-value="Ninguno"><i class="fa-solid fa-ban"></i> Nada</button>
+                  </div>
+                  <input id="currentSystem" name="currentSystem" placeholder="Describe tu sistema actual...">
                 </div>
               </div>
 
@@ -1152,22 +1242,26 @@
                 </div>
                 <div>
                   <label for="migration">Migración de datos</label>
-                  <select id="migration" name="migration">
-                    <option value="">Selecciona</option>
-                    <option value="si_completa">Sí, completa</option>
-                    <option value="si_parcial">Sí, parcial</option>
-                    <option value="no">No por ahora</option>
-                    <option value="evaluar">Aún por evaluar</option>
-                  </select>
+                  <div class="input-with-pills">
+                    <div class="pill-group" id="migration-pills">
+                      <button type="button" class="pill-option" data-value="si_completa"><i class="fa-solid fa-database"></i> Completa</button>
+                      <button type="button" class="pill-option" data-value="si_parcial"><i class="fa-solid fa-filter"></i> Parcial</button>
+                      <button type="button" class="pill-option" data-value="no"><i class="fa-solid fa-ban"></i> No</button>
+                      <button type="button" class="pill-option" data-value="evaluar"><i class="fa-solid fa-magnifying-glass"></i> Evaluar</button>
+                    </div>
+                    <input id="migration" name="migration" placeholder="Selecciona o escribe detalles...">
+                  </div>
                 </div>
                 <div>
                   <label for="training">Capacitación requerida</label>
-                  <select id="training" name="training">
-                    <option value="">Selecciona</option>
-                    <option value="basica">Básica para equipo clave</option>
-                    <option value="completa">Completa por departamentos</option>
-                    <option value="acompanamiento">Acompañamiento continuo</option>
-                  </select>
+                  <div class="input-with-pills">
+                    <div class="pill-group" id="training-pills">
+                      <button type="button" class="pill-option" data-value="basica"><i class="fa-solid fa-chalkboard-user"></i> Básica</button>
+                      <button type="button" class="pill-option" data-value="completa"><i class="fa-solid fa-users"></i> Completa</button>
+                      <button type="button" class="pill-option" data-value="acompanamiento"><i class="fa-solid fa-hand-holding-heart"></i> Acompañamiento</button>
+                    </div>
+                    <input id="training" name="training" placeholder="Selecciona o escribe detalles...">
+                  </div>
                 </div>
               </div>
               <div>
@@ -1449,10 +1543,41 @@
       return moduleInputs.filter(input => input.checked).map(input => input.value);
     }
 
-    function getSelectedText(selectEl) {
-      if (!selectEl) return '';
-      const option = selectEl.options[selectEl.selectedIndex];
-      return option ? option.textContent.trim() : '';
+    function getSelectedText(inputEl) {
+      if (!inputEl) return '';
+      if (inputEl.tagName === 'SELECT') {
+        const option = inputEl.options[inputEl.selectedIndex];
+        return option ? option.textContent.trim() : '';
+      }
+      const val = inputEl.value;
+      if (!val) return '';
+      const container = inputEl.parentElement.querySelector('.pill-group') || 
+                        document.getElementById(`${inputEl.id}-options`);
+      if (container) {
+         const selected = container.querySelector(`[data-value="${val}"]`);
+         if (selected) return selected.textContent.trim();
+      }
+      return val;
+    }
+
+    function setFieldValue(fieldId, value) {
+      const input = document.getElementById(fieldId);
+      if (!input) return;
+      input.value = value;
+      
+      const pillGroup = document.getElementById(`${fieldId}-pills`);
+      if (pillGroup) {
+        Array.from(pillGroup.querySelectorAll('.pill-option')).forEach(p => {
+           p.classList.toggle('active', p.dataset.value === value);
+        });
+      }
+      
+      const cardGroup = document.getElementById(`${fieldId}-options`);
+      if (cardGroup) {
+         Array.from(cardGroup.querySelectorAll('.selection-card')).forEach(c => {
+           c.classList.toggle('active', c.dataset.value === value);
+         });
+      }
     }
 
     function typeAssistantMessage(text) {
@@ -1617,15 +1742,10 @@
 
     function applyArchitecture(option) {
       if (!option) return;
-      if (option.sector && form.sector.querySelector(`option[value="${option.sector}"]`)) {
-        form.sector.value = option.sector;
-      }
-      if (option.objective && form.objective.querySelector(`option[value="${option.objective}"]`)) {
-        form.objective.value = option.objective;
-      }
-      if (option.timeline && form.timeline.querySelector(`option[value="${option.timeline}"]`)) {
-        form.timeline.value = option.timeline;
-      }
+      if (option.sector) setFieldValue('sector', option.sector);
+      if (option.objective) setFieldValue('objective', option.objective);
+      if (option.timeline) setFieldValue('timeline', option.timeline);
+
       if (Array.isArray(option.modules) && option.modules.length) {
         moduleInputs.forEach(input => {
           input.checked = option.modules.includes(input.value);
@@ -1665,9 +1785,9 @@
     function applyPreset(name) {
       const config = presets[name];
       if (!config) return;
-      form.sector.value = config.sector;
-      form.objective.value = config.objective;
-      form.timeline.value = config.timeline;
+      setFieldValue('sector', config.sector);
+      setFieldValue('objective', config.objective);
+      setFieldValue('timeline', config.timeline);
       moduleInputs.forEach(input => {
         input.checked = config.modules.includes(input.value);
       });
@@ -1771,11 +1891,25 @@
           required: true
         },
         {
+          title: '¿Cuántas sucursales o puntos físicos tienes?',
+          subtitle: 'Para dimensionar la infraestructura necesaria.',
+          node: getExecutiveField('locations'),
+          field: 'locations',
+          required: false
+        },
+        {
           title: '¿Qué facturación mensual aproximada manejas?',
           subtitle: 'Esto define el nivel de automatización recomendado.',
           node: document.getElementById('revenue-choices')?.closest('div'),
           kind: 'revenue',
           required: true
+        },
+        {
+          title: '¿Qué sistema utilizas actualmente?',
+          subtitle: 'Importante para planificar migraciones e integraciones.',
+          node: getExecutiveField('currentSystem'),
+          field: 'currentSystem',
+          required: false
         },
         {
           title: '¿Qué objetivo quieres resolver primero?',
@@ -1797,6 +1931,20 @@
           node: document.getElementById('modules-grid')?.closest('div'),
           kind: 'modules',
           required: true
+        },
+        {
+          title: '¿Necesitas migrar datos de sistemas anteriores?',
+          subtitle: 'Para asegurar la continuidad de tu información histórica.',
+          node: getExecutiveField('migration'),
+          field: 'migration',
+          required: false
+        },
+        {
+          title: '¿Qué nivel de capacitación requiere tu equipo?',
+          subtitle: 'Aseguramos una adopción exitosa de las nuevas herramientas.',
+          node: getExecutiveField('training'),
+          field: 'training',
+          required: false
         },
         {
           title: '¿Algún detalle clave adicional?',
@@ -1965,6 +2113,14 @@
       btn.addEventListener('click', () => selectRevenue(btn.dataset.revenue));
     });
 
+    form.revenue.addEventListener('input', () => {
+      const val = form.revenue.value;
+      revenueChoices.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.revenue === val);
+      });
+      renderJourneyState();
+    });
+
     assistantOptionsEl.addEventListener('click', ev => {
       const button = ev.target.closest('[data-option-index]');
       if (!button) return;
@@ -1977,6 +2133,57 @@
       if (!button) return;
       const index = Number(button.dataset.architectureIndex);
       applyComparedArchitecture(index);
+    });
+
+    function setupPillInput(groupId, inputId) {
+      const pills = Array.from(document.querySelectorAll(`#${groupId} .pill-option`));
+      const input = document.getElementById(inputId);
+      
+      if (!input || !pills.length) return;
+
+      pills.forEach(pill => {
+        pill.addEventListener('click', () => {
+          pills.forEach(p => p.classList.remove('active'));
+          pill.classList.add('active');
+          input.value = pill.dataset.value;
+          renderJourneyState();
+        });
+      });
+
+      input.addEventListener('input', () => {
+        const val = input.value;
+        pills.forEach(p => {
+          if (p.dataset.value === val) p.classList.add('active');
+          else p.classList.remove('active');
+        });
+      });
+    }
+
+    setupPillInput('sector-pills', 'sector');
+    setupPillInput('locations-pills', 'locations');
+    setupPillInput('currentSystem-pills', 'currentSystem');
+    setupPillInput('migration-pills', 'migration');
+    setupPillInput('training-pills', 'training');
+
+    const objectiveCards = Array.from(document.querySelectorAll('#objective-options .selection-card'));
+    const timelineCards = Array.from(document.querySelectorAll('#timeline-options .selection-card'));
+
+    objectiveCards.forEach(card => {
+      card.addEventListener('click', () => {
+        objectiveCards.forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        form.objective.value = card.dataset.value;
+        renderJourneyState();
+      });
+    });
+
+    timelineCards.forEach(card => {
+      card.addEventListener('click', () => {
+        timelineCards.forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        form.timeline.value = card.dataset.value;
+        renderJourneyState();
+      });
     });
 
     form.addEventListener('submit', submitForm);
