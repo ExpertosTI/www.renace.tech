@@ -77,6 +77,18 @@
       gap: 16px;
       margin-bottom: 20px;
     }
+    .brand-strip {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .brand-strip img {
+      width: 124px;
+      max-width: 32vw;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 16px rgba(14, 165, 233, 0.35));
+    }
 
     .badge {
       display: inline-flex;
@@ -790,6 +802,47 @@
       display: grid;
       gap: 14px;
     }
+    .terminal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border-radius: 13px;
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      background: linear-gradient(180deg, rgba(8, 14, 26, 0.96), rgba(3, 8, 18, 0.96));
+      padding: 10px 12px;
+    }
+    .terminal-dots {
+      display: flex;
+      gap: 6px;
+    }
+    .terminal-dots span {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+    .terminal-dots span:nth-child(1) { background: #ef4444; }
+    .terminal-dots span:nth-child(2) { background: #f59e0b; }
+    .terminal-dots span:nth-child(3) { background: #22c55e; }
+    .terminal-brand {
+      width: 94px;
+      max-width: 25vw;
+      filter: drop-shadow(0 2px 12px rgba(56, 189, 248, 0.28));
+    }
+    .terminal-line {
+      border-radius: 11px;
+      border: 1px solid rgba(56, 189, 248, 0.16);
+      background: rgba(2, 6, 16, 0.84);
+      padding: 9px 11px;
+      color: #a5f3fc;
+      font-family: 'Sora', sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.02em;
+    }
+    .terminal-line strong {
+      color: #22d3ee;
+    }
 
     .exec-top {
       display: flex;
@@ -818,10 +871,10 @@
     .exec-slide {
       display: none;
       border-radius: 16px;
-      border: 1px solid rgba(96, 165, 250, 0.24);
-      background: linear-gradient(170deg, rgba(15, 23, 42, 0.94), rgba(2, 6, 23, 0.92));
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      background: linear-gradient(160deg, rgba(3, 10, 23, 0.97), rgba(2, 6, 16, 0.95));
       padding: 24px;
-      box-shadow: 0 24px 48px rgba(2, 6, 23, 0.52);
+      box-shadow: 0 24px 48px rgba(2, 6, 23, 0.52), inset 0 0 0 1px rgba(37, 99, 235, 0.18);
       gap: 16px;
       animation: sectionReveal 0.26s ease;
     }
@@ -833,15 +886,16 @@
     .exec-slide h3 {
       margin: 0;
       font-size: clamp(1.3rem, 2.6vw, 2rem);
-      color: #eff6ff;
+      color: #dff8ff;
       line-height: 1.2;
       letter-spacing: -0.02em;
+      font-family: 'Sora', sans-serif;
     }
 
 
     .exec-slide p {
       margin: 0;
-      color: #93c5fd;
+      color: #8fb8ce;
       font-size: 14px;
       line-height: 1.45;
     }
@@ -924,6 +978,43 @@
     .suggestion-bubble i {
       font-size: 12px;
       color: #7dd3fc;
+    }
+    .request-draft {
+      border-radius: 12px;
+      border: 1px solid rgba(56, 189, 248, 0.24);
+      background: rgba(6, 13, 30, 0.8);
+      padding: 10px;
+      color: #dbeafe;
+      font-size: 12px;
+      line-height: 1.5;
+      max-height: 170px;
+      overflow: auto;
+      white-space: pre-wrap;
+    }
+    .request-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .request-btn,
+    .request-wa {
+      border-radius: 10px;
+      border: 1px solid rgba(96, 165, 250, 0.35);
+      background: rgba(30, 58, 138, 0.25);
+      color: #e2e8f0;
+      font-size: 11px;
+      font-weight: 700;
+      text-align: center;
+      padding: 8px 9px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+    .request-btn:hover,
+    .request-wa:hover {
+      transform: translateY(-1px);
+      border-color: rgba(147, 197, 253, 0.6);
+      background: rgba(30, 64, 175, 0.35);
     }
 
     .selection-grid {
@@ -1088,6 +1179,9 @@
       <div class="card-inner">
         <div class="top">
           <div>
+            <div class="brand-strip">
+              <img src="images/renacelogo.svg" alt="Renace Tech">
+            </div>
             <span class="badge"><i class="fa-solid fa-layer-group"></i> Diagnóstico Digital Empresarial</span>
             <h1>Diseñemos tu solución digital</h1>
             <p class="subtitle">Esta experiencia guiada te recomienda la mejor combinación entre ERP, automatización, integraciones y software a medida según tu modelo de negocio.</p>
@@ -1157,19 +1251,19 @@
                   </div>
                   <input id="sector" name="sector" required placeholder="Escribe tu sector o selecciona varios de arriba...">
                 </div>
-                <div>
+                <div class="input-with-pills">
                   <label for="business">Modelo de negocio *</label>
-                  <input id="business" name="business" required placeholder="Ej. distribuidor B2B con ventas a crédito y rutas">
-                  <div class="suggestion-bubbles" id="business-suggestions">
-                    <button type="button" class="suggestion-bubble" data-value="Venta al detal con atención en tienda"><i class="fa-solid fa-store"></i> Venta al detal</button>
-                    <button type="button" class="suggestion-bubble" data-value="E-commerce / Venta en línea"><i class="fa-solid fa-cart-flatbed"></i> E-commerce</button>
-                    <button type="button" class="suggestion-bubble" data-value="Distribuidor B2B con rutas de entrega"><i class="fa-solid fa-truck-ramp-box"></i> Distribuidor B2B</button>
-                    <button type="button" class="suggestion-bubble" data-value="Restaurante con delivery y mesa"><i class="fa-solid fa-plate-wheat"></i> Restaurante</button>
-                    <button type="button" class="suggestion-bubble" data-value="Servicios profesionales por contrato"><i class="fa-solid fa-handshake"></i> Servicios B2B</button>
-                    <button type="button" class="suggestion-bubble" data-value="Fabricación bajo pedido"><i class="fa-solid fa-gears"></i> Manufactura</button>
-                    <button type="button" class="suggestion-bubble" data-value="Venta por mayoreo y unidad"><i class="fa-solid fa-boxes-stacked"></i> Mayoreo</button>
-                    <button type="button" class="suggestion-bubble" data-value="Suscripción / Membresía recurrente"><i class="fa-solid fa-arrows-rotate"></i> Suscripción</button>
+                  <div class="pill-group" id="business-pills" data-multiple="true">
+                    <button type="button" class="pill-option" data-value="Venta al detal"><i class="fa-solid fa-store"></i> Venta al detal</button>
+                    <button type="button" class="pill-option" data-value="E-commerce"><i class="fa-solid fa-cart-flatbed"></i> E-commerce</button>
+                    <button type="button" class="pill-option" data-value="Distribuidor B2B"><i class="fa-solid fa-truck-ramp-box"></i> Distribuidor B2B</button>
+                    <button type="button" class="pill-option" data-value="Restaurante"><i class="fa-solid fa-plate-wheat"></i> Restaurante</button>
+                    <button type="button" class="pill-option" data-value="Servicios B2B"><i class="fa-solid fa-handshake"></i> Servicios B2B</button>
+                    <button type="button" class="pill-option" data-value="Manufactura"><i class="fa-solid fa-gears"></i> Manufactura</button>
+                    <button type="button" class="pill-option" data-value="Mayoreo"><i class="fa-solid fa-boxes-stacked"></i> Mayoreo</button>
+                    <button type="button" class="pill-option" data-value="Suscripción"><i class="fa-solid fa-arrows-rotate"></i> Suscripción</button>
                   </div>
+                  <input id="business" name="business" required placeholder="Selecciona uno o varios modelos y/o escribe tu variante...">
                 </div>
                 <div class="input-with-pills">
                   <label for="locations">Sucursales</label>
@@ -1363,6 +1457,12 @@
             <div id="arch-compare" class="arch-compare"></div>
             <p class="assistant-label">Resumen que se materializa</p>
             <ul id="assistant-summary" class="assistant-list"></ul>
+            <p class="assistant-label">Solicitud lista para compartir</p>
+            <div id="request-draft" class="request-draft"></div>
+            <div class="request-actions">
+              <button type="button" id="copy-request" class="request-btn"><i class="fa-solid fa-copy"></i> Copiar</button>
+              <a id="share-request-whatsapp" class="request-wa" href="#" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>
+            </div>
           </aside>
         </div>
       </div>
@@ -1391,6 +1491,9 @@
     const momentumValueEl = document.getElementById('momentum-value');
     const momentumTagsEl = document.getElementById('momentum-tags');
     const journeyBarEl = document.getElementById('journey-bar');
+    const requestDraftEl = document.getElementById('request-draft');
+    const copyRequestBtn = document.getElementById('copy-request');
+    const shareRequestWhatsappEl = document.getElementById('share-request-whatsapp');
     let activeStep = 0;
     let tokenValid = false;
     let assistantTimer = null;
@@ -1521,6 +1624,28 @@
       const tags = selectedModules.filter(module => ['agentes_ia', 'integraciones_api', 'software_medida', 'bi_analytics', 'automatizaciones'].includes(module)).slice(0, 4);
       const activeTags = tags.length ? tags : ['ruta_base'];
       momentumTagsEl.innerHTML = activeTags.map(tag => `<span class="momentum-tag">${escapeHtml(getTechTagLabel(tag))}</span>`).join('');
+    }
+    function buildShareRequestText() {
+      const selectedModules = getSelectedModules();
+      const lines = [
+        `Solicitud RENACE - ${form.name.value.trim() || 'Cliente'}`,
+        `Contacto: ${form.email.value.trim() || 'Pendiente'}${form.phone.value.trim() ? ` | ${form.phone.value.trim()}` : ''}`,
+        `Sector: ${form.sector.value || 'Pendiente'}`,
+        `Modelo: ${form.business.value.trim() || 'Pendiente'}`,
+        `Objetivo: ${form.objective.value || 'Pendiente'}`,
+        `Horizonte: ${form.timeline.value || 'Pendiente'}`,
+        `Sistema actual: ${form.currentSystem.value || 'Pendiente'}`,
+        `Módulos: ${selectedModules.length ? selectedModules.join(', ') : 'Pendiente'}`,
+        `Facturación: ${form.revenue.value.trim() || 'Pendiente'}`
+      ];
+      return lines.join('\n');
+    }
+
+    function updateShareRequestDraft() {
+      if (!requestDraftEl || !shareRequestWhatsappEl) return;
+      const text = buildShareRequestText();
+      requestDraftEl.textContent = text;
+      shareRequestWhatsappEl.href = `https://wa.me/?text=${encodeURIComponent(text)}`;
     }
 
     function syncTechCards() {
@@ -1761,6 +1886,7 @@
       renderMomentum();
       syncTechCards();
       renderArchitectureComparator(selectedModules);
+      updateShareRequestDraft();
     }
 
     function scheduleAssistantSuggestion(force = false) {
@@ -2033,6 +2159,11 @@
     function initExecutiveFlow() {
       document.body.classList.add('executive-mode');
       executiveFlowEl.innerHTML = `
+        <div class="terminal-head">
+          <div class="terminal-dots"><span></span><span></span><span></span></div>
+          <img src="images/renacelogo.svg" alt="Renace" class="terminal-brand">
+        </div>
+        <div class="terminal-line"><strong>client@renace.tech:~$</strong> completar_solicitud --guiada</div>
         <div class="exec-top">
           <strong>Flujo ejecutivo</strong>
           <span class="exec-progress" data-exec-progress>Paso 1 de 1</span>
@@ -2129,7 +2260,8 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Error al enviar');
-        setMsg('Solicitud enviada. ¡Gracias! Nuestro equipo te contactará con una propuesta tecnológica integral.', 'success');
+        const shortName = payload.name.split(' ')[0] || 'cliente';
+        setMsg(`¡Gracias ${shortName}! Recibimos tu solicitud correctamente. Nuestro equipo te contactará muy pronto para presentarte la propuesta ideal.`, 'success');
         form.reset();
         moduleInputs.forEach(input => { input.checked = false; });
         revenueChoices.forEach(btn => btn.classList.remove('active'));
@@ -2137,7 +2269,7 @@
         renderJourneyState();
         executiveIndex = 0;
         renderExecutiveFlow();
-        setTimeout(() => { window.location.href = 'https://renace.tech'; }, 2000);
+        setTimeout(() => { window.location.href = 'https://renace.tech'; }, 3800);
       } catch (e) {
         setMsg(e.message, 'error');
       } finally {
@@ -2234,6 +2366,12 @@
 
       input.addEventListener('input', () => {
         const val = input.value;
+        if (isMultiple) {
+          selectedValues.length = 0;
+          val.split(',').map(item => item.trim()).filter(Boolean).forEach(item => {
+            if (!selectedValues.includes(item)) selectedValues.push(item);
+          });
+        }
         pills.forEach(p => {
           if (isMultiple) {
             p.classList.toggle('active', selectedValues.includes(p.dataset.value));
@@ -2246,23 +2384,21 @@
     }
 
     setupPillInput('sector-pills', 'sector');
+    setupPillInput('business-pills', 'business');
     setupPillInput('locations-pills', 'locations');
     setupPillInput('currentSystem-pills', 'currentSystem');
     setupPillInput('migration-pills', 'migration');
     setupPillInput('training-pills', 'training');
-
-    const businessInput = document.getElementById('business');
-    const businessSuggestions = document.getElementById('business-suggestions');
-    if (businessInput && businessSuggestions) {
-      const bubbles = businessSuggestions.querySelectorAll('.suggestion-bubble');
-      businessInput.addEventListener('focus', () => { businessSuggestions.classList.add('visible'); });
-      businessInput.addEventListener('blur', () => { setTimeout(() => { businessSuggestions.classList.remove('visible'); }, 200); });
-      businessInput.addEventListener('input', () => { businessSuggestions.classList.add('visible'); });
-      bubbles.forEach(bubble => {
-        bubble.addEventListener('click', () => {
-          businessInput.value = bubble.dataset.value;
-          businessSuggestions.classList.remove('visible');
-        });
+    updateShareRequestDraft();
+    if (copyRequestBtn) {
+      copyRequestBtn.addEventListener('click', async () => {
+        const text = buildShareRequestText();
+        try {
+          await navigator.clipboard.writeText(text);
+          setMsg('Solicitud copiada al portapapeles.', 'success');
+        } catch {
+          setMsg('No se pudo copiar automáticamente. Intenta de nuevo.', 'error');
+        }
       });
     }
 

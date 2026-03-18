@@ -42,10 +42,23 @@
   // User Selection Logic
   const userOptions = document.querySelectorAll('.user-option');
   userOptions.forEach(opt => {
+    opt.addEventListener('mousemove', (ev) => {
+      const rect = opt.getBoundingClientRect();
+      const x = ((ev.clientX - rect.left) / rect.width - 0.5) * 8;
+      const y = ((ev.clientY - rect.top) / rect.height - 0.5) * -8;
+      opt.style.transform = `translateY(-4px) rotateX(${y}deg) rotateY(${x}deg)`;
+    });
+    opt.addEventListener('mouseleave', () => {
+      opt.style.transform = '';
+    });
     opt.addEventListener('click', () => {
       userOptions.forEach(o => o.classList.remove('active'));
       opt.classList.add('active');
       if (emailInput) emailInput.value = opt.dataset.email;
+      if (loginStatus) {
+        const selectedName = opt.querySelector('.user-name')?.textContent || 'Identidad';
+        loginStatus.textContent = `Identidad: ${selectedName}`;
+      }
     });
   });
   
@@ -129,6 +142,13 @@
     chatMessages.appendChild(div);
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }
+  function addChatMessageHtml(html, type = 'system') {
+    const div = document.createElement('div');
+    div.className = `msg ${type}`;
+    div.innerHTML = html;
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
 
   async function handleChatCommand() {
     const text = chatInput.value.trim();
@@ -153,7 +173,18 @@
         const data = await res.json();
         if (data.token) {
           const url = `https://renace.tech/cotizacion.html?token=${data.token}`;
-          addChatMessage(`Aquí tienes el enlace: ${url}`, 'system');
+          const waText = encodeURIComponent(`Hola, completa esta solicitud de RENACE: ${url}`);
+          addChatMessageHtml(`
+            <div class="chat-link-card">
+              <div>Solicitud generada correctamente.</div>
+              <a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>
+              <div class="chat-link-row">
+                <button class="chat-link-action" type="button" data-copy-link="${url}">Copiar</button>
+                <a class="chat-link-action" href="https://wa.me/?text=${waText}" target="_blank" rel="noopener noreferrer">Compartir WhatsApp</a>
+                <a class="chat-link-action" href="${url}" target="_blank" rel="noopener noreferrer">Abrir solicitud</a>
+              </div>
+            </div>
+          `, 'system');
           // Refresh list
           loadAnalytics();
         } else {
@@ -173,6 +204,20 @@
     chatSend.addEventListener('click', handleChatCommand);
     chatInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') handleChatCommand();
+    });
+  }
+  if (chatMessages) {
+    chatMessages.addEventListener('click', async (ev) => {
+      const copyBtn = ev.target.closest('[data-copy-link]');
+      if (!copyBtn) return;
+      const link = copyBtn.dataset.copyLink || '';
+      if (!link) return;
+      try {
+        await navigator.clipboard.writeText(link);
+        addChatMessage('Enlace copiado al portapapeles.', 'system');
+      } catch {
+        addChatMessage('No se pudo copiar el enlace automáticamente.', 'system');
+      }
     });
   }
   

@@ -523,6 +523,19 @@
       align-items: center;
       user-select: none;
     }
+    .chat-assistant-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .chat-assistant-chip img {
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      object-fit: cover;
+      border: 1px solid rgba(125, 211, 252, 0.45);
+      box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.9);
+    }
     .chat-body {
       flex: 1;
       display: flex;
@@ -553,6 +566,34 @@
       background: #2563eb;
       color: #fff;
       align-self: flex-end;
+    }
+    .msg.system a {
+      color: #7dd3fc;
+      text-decoration: none;
+    }
+    .chat-link-card {
+      display: grid;
+      gap: 6px;
+    }
+    .chat-link-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .chat-link-action {
+      border: 1px solid rgba(125, 211, 252, 0.3);
+      background: rgba(15, 23, 42, 0.68);
+      color: #e2e8f0;
+      border-radius: 8px;
+      padding: 6px 9px;
+      font-size: 11px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .chat-link-action:hover {
+      border-color: rgba(125, 211, 252, 0.62);
+      background: rgba(30, 64, 175, 0.35);
     }
     .chat-input-area {
       padding: 12px;
@@ -610,38 +651,51 @@
       grid-template-columns: 1fr 1fr;
       gap: 10px;
       margin-bottom: 12px;
+      perspective: 1000px;
     }
     .user-option {
-      background: rgba(15, 23, 42, 0.4);
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 10px;
+      position: relative;
+      background: linear-gradient(155deg, rgba(15, 23, 42, 0.56), rgba(11, 23, 49, 0.5));
+      border: 1px solid rgba(125, 211, 252, 0.2);
+      border-radius: 14px;
+      padding: 12px 10px;
       cursor: pointer;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 6px;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      gap: 7px;
+      transition: all 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+      transform-style: preserve-3d;
+    }
+    .user-option::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: radial-gradient(circle at 20% 10%, rgba(59, 130, 246, 0.18), transparent 62%);
+      opacity: 0.6;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
     }
     .user-option:hover {
-      background: rgba(15, 23, 42, 0.6);
+      background: linear-gradient(155deg, rgba(15, 23, 42, 0.74), rgba(16, 32, 69, 0.62));
       border-color: var(--line-strong);
-      transform: translateY(-2px);
+      transform: translateY(-4px) rotateX(3deg);
     }
     .user-option.active {
-      background: rgba(37, 99, 235, 0.15);
+      background: linear-gradient(150deg, rgba(37, 99, 235, 0.24), rgba(2, 132, 199, 0.18));
       border-color: var(--accent);
-      box-shadow: 0 0 20px rgba(125, 211, 252, 0.2), 0 8px 32px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.44) inset, 0 12px 34px rgba(2, 6, 23, 0.44);
     }
     .user-avatar {
-      width: 42px;
-      height: 42px;
+      width: 46px;
+      height: 46px;
       border-radius: 50%;
-      background: var(--surface-soft);
+      background: rgba(15, 23, 42, 0.76);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 18px;
+      font-size: 19px;
       color: var(--text);
       border: 2px solid transparent;
       transition: all 0.3s ease;
@@ -657,8 +711,30 @@
       color: var(--muted);
       transition: color 0.3s ease;
     }
+    .user-role {
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #93c5fd;
+      border-radius: 999px;
+      border: 1px solid rgba(125, 211, 252, 0.24);
+      padding: 2px 7px;
+      background: rgba(8, 47, 73, 0.32);
+    }
     .user-option.active .user-name {
       color: #fff;
+    }
+    .user-option.active .user-role {
+      color: #e0f2fe;
+      border-color: rgba(125, 211, 252, 0.52);
+      background: rgba(37, 99, 235, 0.34);
+    }
+    .identity-tip {
+      margin-top: 6px;
+      color: #93c5fd;
+      font-size: 10px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
     }
 
     /* Login Card Blur Transition */
@@ -724,12 +800,15 @@
             <div class="user-option active" data-email="expertostird@gmail.com">
               <div class="user-avatar"><i class="fa-solid fa-user-astronaut"></i></div>
               <span class="user-name">Adderly</span>
+              <span class="user-role">Principal</span>
             </div>
             <div class="user-option" data-email="rcexpertos@gmail.com">
               <div class="user-avatar"><i class="fa-solid fa-user-tie"></i></div>
               <span class="user-name">Renso</span>
+              <span class="user-role">Operaciones</span>
             </div>
           </div>
+          <div class="identity-tip"><i class="fa-solid fa-sparkles"></i> Selección dinámica por identidad</div>
           <input id="email" type="hidden" value="expertostird@gmail.com">
         </div>
         <div>
@@ -878,7 +957,7 @@
 
   <div id="admin-chat-widget" class="chat-widget collapsed">
     <div class="chat-header" id="chat-toggle">
-      <span><i class="fa-solid fa-robot"></i> Renace Assistant</span>
+      <span class="chat-assistant-chip"><img src="images/support.png" alt="Asistente RENACE"> Renace Assistant</span>
       <i class="fa-solid fa-chevron-up" id="chat-icon"></i>
     </div>
     <div class="chat-body">
