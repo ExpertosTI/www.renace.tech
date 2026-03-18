@@ -435,6 +435,102 @@ app.post('/api/quote/submit', apiLimiter, async (req, res) => {
   }
 });
 
+app.post('/api/quote/assistant', apiLimiter, async (req, res) => {
+  const payload = req.body || {};
+  const token = String(payload.token || '').trim();
+  if (!token) return res.status(400).json({ error: 'Falta token' });
+  const valid = await validateQuoteToken(token);
+  if (!valid) return res.status(401).json({ error: 'Token inválido o expirado' });
+  if (!CHAT_WEBHOOK) return res.status(500).json({ error: 'Asistente no configurado' });
+
+  const context = {
+    name: sanitizeText(payload.name || ''),
+    sector: sanitizeText(payload.sector || ''),
+    business: sanitizeText(payload.business || ''),
+    objective: sanitizeText(payload.objective || ''),
+    timeline: sanitizeText(payload.timeline || ''),
+    currentSystem: sanitizeText(payload.currentSystem || ''),
+    locations: sanitizeText(payload.locations || ''),
+    modules: Array.isArray(payload.modules) ? payload.modules.map(v => sanitizeText(v)).filter(Boolean).slice(0, 20) : [],
+  };
+
+  const guidance = [
+    'Eres un consultor senior de implementación Odoo para RENACE.',
+    'Debes responder en español con tono empresarial y accionable.',
+    'Devuelve SIEMPRE JSON válido con esta forma exacta:',
+    '{"message":"texto corto","recommendations":["r1","r2","r3"],"options":[{"label":"texto","sector":"...","objective":"...","timeline":"...","modules":["..."]}]}',
+    'options debe incluir entre 2 y 4 opciones concretas adaptadas al contexto.',
+    'No incluyas markdown ni texto fuera del JSON.'
+  ].join('\n');
+
+  const upstreamPayload = {
+    message: `${guidance}\n\nContexto:\n${JSON.stringify(context)}`,
+    sessionId: `quote-${token.slice(0, 12)}`,
+    source: 'renace-quote-form',
+    mode: 'quote_assistant',
+    context,
+  };
+
+  try {
+    const upstream = await requestChatWebhook(upstreamPayload, req);
+    if (upstream.statusCode >= 400) {
+      return res.status(upstream.statusCode).json({ error: 'Asistente no disponible' });
+    }
+    let parsed = null;
+    try {
+      parsed = upstream.bodyText ? JSON.parse(upstream.bodyText) : null;
+    } catch {
+      parsed = null;
+    }
+    const rawReply = typeof parsed?.reply === 'string'
+      ? parsed.reply
+      : typeof parsed?.text === 'string'
+        ? parsed.text
+        : typeof parsed?.output === 'string'
+          ? parsed.output
+          : typeof parsed?.message === 'string'
+            ? parsed.message
+            : upstream.bodyText;
+
+    let responseJson = null;
+    if (parsed && typeof parsed === 'object' && parsed.message && Array.isArray(parsed.options)) {
+      responseJson = parsed;
+    } else if (typeof rawReply === 'string') {
+      try {
+        responseJson = JSON.parse(rawReply);
+      } catch {
+        responseJson = null;
+      }
+    }
+
+    const fallback = buildQuoteAssistantFallback(context);
+    const normalized = {
+      message: sanitizeText(responseJson?.message || fallback.message),
+      recommendations: Array.isArray(responseJson?.recommendations)
+        ? responseJson.recommendations.map(v => sanitizeText(v)).filter(Boolean).slice(0, 5)
+        : fallback.recommendations,
+      options: Array.isArray(responseJson?.options)
+        ? responseJson.options
+          .map(opt => ({
+            label: sanitizeText(opt?.label || ''),
+            sector: sanitizeText(opt?.sector || context.sector),
+            objective: sanitizeText(opt?.objective || ''),
+            timeline: sanitizeText(opt?.timeline || ''),
+            modules: Array.isArray(opt?.modules) ? opt.modules.map(v => sanitizeText(v)).filter(Boolean).slice(0, 10) : [],
+          }))
+          .filter(opt => opt.label)
+          .slice(0, 4)
+        : fallback.options,
+    };
+
+    if (!normalized.recommendations.length) normalized.recommendations = fallback.recommendations;
+    if (!normalized.options.length) normalized.options = fallback.options;
+    res.json(normalized);
+  } catch (e) {
+    res.status(502).json(buildQuoteAssistantFallback(context));
+  }
+});
+
 // ── Paths ──
 const ACCESS_LOG_PATH = process.env.NGINX_ACCESS_LOG || '/var/log/nginx/renace.access.log';
 const ADMIN_ANALYTICS_LIMIT = 1000; // líneas máximas a procesar del log
@@ -665,6 +761,73 @@ async function writeFormEntries(entries) {
   await fs.promises.writeFile(FORM_DATA_PATH, `${JSON.stringify(entries, null, 2)}\n`, 'utf8');
 }
 
+function buildQuoteAssistantFallback(context) {
+  const sector = context.sector || 'general';
+  const bySector = {
+    retail: {
+      message: 'Para retail conviene arrancar con una fase enfocada en ventas, inventario y punto de venta.',
+      recommendations: [
+        'Inicia con datos maestros de productos y precios.',
+        'Asegura stock en tiempo real por sucursal.',
+        'Conecta facturación y cierre de caja desde la fase 1.',
+      ],
+      options: [
+        { label: 'Fase rápida retail', sector: 'retail', objective: 'automatizar_ventas', timeline: 'urgente_30', modules: ['ventas', 'inventario', 'punto_de_venta', 'facturacion'] },
+        { label: 'Control operativo retail', sector: 'retail', objective: 'control_inventario', timeline: 'plan_60_90', modules: ['inventario', 'compras', 'contabilidad'] },
+      ],
+    },
+    distribucion: {
+      message: 'En distribución, la prioridad es alinear compras e inventario con la demanda real.',
+      recommendations: [
+        'Define reglas de reabastecimiento automáticas.',
+        'Implementa trazabilidad por lote cuando aplique.',
+        'Unifica ventas, compras y almacén en un mismo flujo.',
+      ],
+      options: [
+        { label: 'Distribución enfocada en stock', sector: 'distribucion', objective: 'control_inventario', timeline: 'plan_60_90', modules: ['inventario', 'compras', 'ventas', 'contabilidad'] },
+        { label: 'Escala logística por fases', sector: 'distribucion', objective: 'escalar_sucursales', timeline: 'q_siguiente', modules: ['inventario', 'compras', 'facturacion'] },
+      ],
+    },
+    servicios: {
+      message: 'Para servicios funciona mejor una ruta con CRM, proyectos y facturación por entregables.',
+      recommendations: [
+        'Estandariza el embudo comercial por etapas.',
+        'Alinea proyectos con tiempos y responsables.',
+        'Conecta avance operativo con facturación.',
+      ],
+      options: [
+        { label: 'Servicios comerciales', sector: 'servicios', objective: 'automatizar_ventas', timeline: 'plan_60_90', modules: ['crm', 'ventas', 'proyectos', 'facturacion'] },
+        { label: 'Servicios con soporte', sector: 'servicios', objective: 'orden_operativa', timeline: 'q_siguiente', modules: ['crm', 'proyectos', 'helpdesk', 'facturacion'] },
+      ],
+    },
+    manufactura: {
+      message: 'En manufactura recomendamos una implementación por capas para reducir riesgos operativos.',
+      recommendations: [
+        'Primero consolida inventario y compras.',
+        'Luego estructura productos, variantes y listas técnicas.',
+        'Activa manufactura cuando la base de datos esté estable.',
+      ],
+      options: [
+        { label: 'Base operativa manufactura', sector: 'manufactura', objective: 'control_inventario', timeline: 'plan_60_90', modules: ['inventario', 'compras', 'contabilidad'] },
+        { label: 'Escalamiento manufactura', sector: 'manufactura', objective: 'escalar_sucursales', timeline: 'q_siguiente', modules: ['manufactura', 'inventario', 'compras', 'rrhh'] },
+      ],
+    },
+  };
+  const selected = bySector[sector] || {
+    message: 'Podemos estructurar tu implementación Odoo en una fase inicial clara y ejecutable.',
+    recommendations: [
+      'Define objetivo principal de negocio para fase 1.',
+      'Selecciona módulos críticos de operación diaria.',
+      'Establece horizonte de implementación realista.',
+    ],
+    options: [
+      { label: 'Arranque operativo', sector: context.sector || '', objective: 'orden_operativa', timeline: 'plan_60_90', modules: ['ventas', 'inventario', 'facturacion'] },
+      { label: 'Crecimiento controlado', sector: context.sector || '', objective: 'escalar_sucursales', timeline: 'q_siguiente', modules: ['ventas', 'compras', 'contabilidad'] },
+    ],
+  };
+  return selected;
+}
+
 app.get('/api/health', async (req, res) => {
   try {
     await pool.query('SELECT 1');
@@ -676,21 +839,18 @@ app.get('/api/health', async (req, res) => {
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
-// Proxy chat webhook to avoid CORS from frontend
-app.post('/api/chat', chatLimiter, async (req, res) => {
-  if (!requireBasicAuth(req, res)) return;
-  if (!CHAT_WEBHOOK) return res.status(500).json({ error: 'CHAT_WEBHOOK no configurado' });
-  try {
+function requestChatWebhook(payload, req) {
+  return new Promise((resolve, reject) => {
     const upstream = new URL(CHAT_WEBHOOK);
-    const bodyStr  = JSON.stringify(req.body || {});
-    const lib      = upstream.protocol === 'https:' ? https : http;
+    const bodyStr = JSON.stringify(payload || {});
+    const lib = upstream.protocol === 'https:' ? https : http;
     const preq = lib.request({
       hostname: upstream.hostname,
       port: upstream.port || (upstream.protocol === 'https:' ? 443 : 80),
       path: upstream.pathname + upstream.search,
       method: 'POST',
       headers: {
-        'Content-Type':   'application/json',
+        'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(bodyStr),
         'x-forwarded-for': req.headers['x-forwarded-for'] || req.ip,
         'x-forwarded-host': req.headers['x-forwarded-host'] || req.headers.host,
@@ -700,23 +860,35 @@ app.post('/api/chat', chatLimiter, async (req, res) => {
       let data = '';
       pres.on('data', c => { data += c; });
       pres.on('end', () => {
-        res.status(pres.statusCode || 502);
-        try { res.json(JSON.parse(data)); }
-        catch { res.send(data); }
+        resolve({
+          statusCode: pres.statusCode || 502,
+          bodyText: data,
+        });
       });
     });
-    preq.on('error', (e) => {
-      console.error('[Chat proxy]', e.message);
-      res.status(502).json({ error: 'Chat upstream error' });
-    });
+    preq.on('error', reject);
     preq.setTimeout(60000, () => {
-      preq.destroy();
-      if (!res.headersSent) res.status(504).json({ error: 'Chat upstream timeout' });
+      preq.destroy(new Error('timeout'));
     });
     preq.write(bodyStr);
     preq.end();
+  });
+}
+
+app.post('/api/chat', chatLimiter, async (req, res) => {
+  if (!requireBasicAuth(req, res)) return;
+  if (!CHAT_WEBHOOK) return res.status(500).json({ error: 'CHAT_WEBHOOK no configurado' });
+  try {
+    const upstream = await requestChatWebhook(req.body || {}, req);
+    res.status(upstream.statusCode);
+    try { res.json(JSON.parse(upstream.bodyText)); }
+    catch { res.send(upstream.bodyText); }
   } catch (e) {
-    res.status(502).json({ error: e.message });
+    if (String(e.message || '').toLowerCase().includes('timeout')) {
+      return res.status(504).json({ error: 'Chat upstream timeout' });
+    }
+    console.error('[Chat proxy]', e.message);
+    res.status(502).json({ error: 'Chat upstream error' });
   }
 });
 

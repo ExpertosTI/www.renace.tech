@@ -10,15 +10,16 @@
   <style>
     :root {
       color-scheme: dark;
-      --bg: #020617;
-      --panel: rgba(9, 17, 40, 0.82);
-      --panel-soft: rgba(12, 22, 52, 0.8);
-      --line: rgba(148, 163, 184, 0.22);
-      --line-strong: rgba(56, 189, 248, 0.45);
-      --text: #e2e8f0;
-      --muted: #94a3b8;
-      --brand: #2563eb;
+      --bg: #050a14;
+      --panel: rgba(11, 19, 36, 0.92);
+      --panel-soft: rgba(16, 27, 47, 0.9);
+      --line: rgba(148, 163, 184, 0.18);
+      --line-strong: rgba(96, 165, 250, 0.5);
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --brand: #1d4ed8;
       --brand-soft: rgba(37, 99, 235, 0.16);
+      --accent: #3b82f6;
       --success: #10b981;
       --danger: #ef4444;
     }
@@ -30,24 +31,24 @@
       color: var(--text);
       min-height: 100vh;
       background:
-        radial-gradient(circle at 8% 10%, rgba(14, 165, 233, 0.2), transparent 28%),
-        radial-gradient(circle at 90% 15%, rgba(37, 99, 235, 0.16), transparent 30%),
-        radial-gradient(circle at 50% 90%, rgba(14, 116, 144, 0.2), transparent 32%),
+        radial-gradient(circle at 8% 8%, rgba(30, 64, 175, 0.2), transparent 30%),
+        radial-gradient(circle at 95% 12%, rgba(30, 58, 138, 0.2), transparent 32%),
+        radial-gradient(circle at 44% 96%, rgba(37, 99, 235, 0.14), transparent 35%),
         var(--bg);
       padding: 22px;
     }
 
     .wrap {
-      max-width: 980px;
+      max-width: 1240px;
       margin: 0 auto;
     }
 
     .card {
       position: relative;
-      border-radius: 22px;
+      border-radius: 24px;
       border: 1px solid var(--line);
-      background: linear-gradient(160deg, rgba(8, 15, 35, 0.95), rgba(5, 10, 25, 0.9));
-      box-shadow: 0 28px 80px rgba(2, 6, 23, 0.62);
+      background: linear-gradient(160deg, rgba(10, 17, 31, 0.98), rgba(5, 10, 20, 0.96));
+      box-shadow: 0 24px 64px rgba(2, 6, 23, 0.56);
       overflow: hidden;
       backdrop-filter: blur(16px);
     }
@@ -56,14 +57,16 @@
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(130deg, rgba(59, 130, 246, 0.16), transparent 42%, rgba(14, 165, 233, 0.14));
+      background:
+        radial-gradient(circle at 8% 0, rgba(37, 99, 235, 0.13), transparent 28%),
+        radial-gradient(circle at 100% 100%, rgba(30, 64, 175, 0.1), transparent 40%);
       pointer-events: none;
     }
 
     .card-inner {
       position: relative;
       z-index: 1;
-      padding: 28px;
+      padding: 30px;
     }
 
     .top {
@@ -71,7 +74,7 @@
       justify-content: space-between;
       align-items: flex-start;
       gap: 16px;
-      margin-bottom: 16px;
+      margin-bottom: 20px;
     }
 
     .badge {
@@ -80,7 +83,7 @@
       gap: 8px;
       font-size: 11px;
       font-weight: 700;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.05em;
       text-transform: uppercase;
       padding: 6px 12px;
       border-radius: 999px;
@@ -92,7 +95,7 @@
     h1 {
       margin: 10px 0 8px;
       font-family: 'Sora', sans-serif;
-      font-size: clamp(1.8rem, 3vw, 2.3rem);
+      font-size: clamp(1.85rem, 3vw, 2.4rem);
       letter-spacing: -0.03em;
       color: #f8fafc;
     }
@@ -100,13 +103,13 @@
     .subtitle {
       margin: 0;
       color: var(--muted);
-      max-width: 620px;
-      line-height: 1.6;
+      max-width: 700px;
+      line-height: 1.65;
     }
 
     .token-status {
-      min-width: 140px;
-      text-align: right;
+      min-width: 160px;
+      text-align: center;
       font-size: 12px;
       font-weight: 700;
       letter-spacing: 0.03em;
@@ -131,10 +134,57 @@
       border-color: rgba(74, 222, 128, 0.4);
     }
 
+    .experience-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 330px;
+      gap: 18px;
+      align-items: start;
+    }
+
     .form {
       display: grid;
-      gap: 16px;
-      margin-top: 18px;
+      gap: 14px;
+    }
+
+    .journey-bar {
+      position: sticky;
+      top: 10px;
+      z-index: 3;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      padding: 10px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(5, 12, 30, 0.86);
+      backdrop-filter: blur(10px);
+    }
+
+    .journey-step {
+      border-radius: 10px;
+      border: 1px solid rgba(71, 85, 105, 0.42);
+      background: rgba(15, 23, 42, 0.7);
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 8px 9px;
+      text-align: center;
+      transition: all 0.25s;
+    }
+
+    .journey-step.active {
+      color: #dbeafe;
+      border-color: rgba(59, 130, 246, 0.6);
+      background: linear-gradient(120deg, rgba(29, 78, 216, 0.5), rgba(14, 165, 233, 0.26));
+      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.24) inset;
+    }
+
+    .journey-step.done {
+      color: #bbf7d0;
+      border-color: rgba(52, 211, 153, 0.48);
+      background: rgba(6, 78, 59, 0.3);
     }
 
     .section {
@@ -144,6 +194,24 @@
       padding: 18px;
       display: grid;
       gap: 12px;
+      transition: opacity 0.28s, transform 0.28s, border-color 0.28s, box-shadow 0.28s;
+    }
+
+    .step-section {
+      opacity: 0.4;
+      transform: translateY(10px);
+      pointer-events: none;
+    }
+
+    .step-section.unlocked {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .step-section.active {
+      border-color: rgba(56, 189, 248, 0.46);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.22), 0 16px 36px rgba(2, 6, 23, 0.38);
     }
 
     .section-title {
@@ -159,7 +227,7 @@
       margin: 0;
       color: var(--muted);
       font-size: 13px;
-      line-height: 1.5;
+      line-height: 1.6;
     }
 
     .grid {
@@ -192,7 +260,7 @@
 
     textarea {
       resize: vertical;
-      min-height: 100px;
+      min-height: 110px;
     }
 
     input:focus, select:focus, textarea:focus {
@@ -212,21 +280,23 @@
       border: 1px solid rgba(96, 165, 250, 0.3);
       background: var(--brand-soft);
       color: #dbeafe;
-      padding: 8px 10px;
+      padding: 8px 11px;
       border-radius: 10px;
       font-size: 12px;
       font-weight: 700;
       cursor: pointer;
+      transition: border-color 0.2s, transform 0.2s, filter 0.2s;
     }
 
     .preset:hover {
       border-color: rgba(125, 211, 252, 0.62);
-      background: rgba(59, 130, 246, 0.24);
+      transform: translateY(-1px);
+      filter: brightness(1.05);
     }
 
     .modules-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 8px;
     }
 
@@ -258,6 +328,148 @@
       background: rgba(8, 145, 178, 0.24);
       color: #e0f2fe;
       box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.2);
+    }
+
+    .step-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .next-btn {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #eff6ff;
+      background: linear-gradient(120deg, #1d4ed8, #0ea5e9);
+      cursor: pointer;
+      transition: transform 0.2s, filter 0.2s;
+    }
+
+    .next-btn:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.05);
+    }
+
+    .assistant {
+      position: sticky;
+      top: 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      background: linear-gradient(165deg, rgba(6, 16, 39, 0.95), rgba(9, 20, 48, 0.9));
+      box-shadow: 0 16px 40px rgba(2, 6, 23, 0.5);
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .assistant-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .assistant-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      background: linear-gradient(135deg, #1d4ed8, #22d3ee);
+      display: grid;
+      place-items: center;
+      font-family: 'Sora', sans-serif;
+      font-size: 14px;
+      font-weight: 800;
+      color: #f0f9ff;
+      flex-shrink: 0;
+    }
+
+    .assistant-title {
+      margin: 0;
+      font-family: 'Sora', sans-serif;
+      font-size: 14px;
+      letter-spacing: -0.01em;
+    }
+
+    .assistant-sub {
+      margin: 3px 0 0;
+      color: #93c5fd;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 700;
+    }
+
+    .assistant-message {
+      margin: 0;
+      line-height: 1.6;
+      font-size: 13px;
+      color: #dbeafe;
+      border-radius: 12px;
+      border: 1px solid rgba(59, 130, 246, 0.24);
+      background: rgba(15, 23, 42, 0.72);
+      padding: 10px 11px;
+    }
+
+    .assistant-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 7px;
+    }
+
+    .assistant-list li {
+      border-radius: 9px;
+      border: 1px solid rgba(100, 116, 139, 0.35);
+      background: rgba(15, 23, 42, 0.7);
+      padding: 8px 9px;
+      font-size: 12px;
+      color: #cbd5e1;
+    }
+
+    .assistant-options {
+      display: grid;
+      gap: 7px;
+    }
+
+    .assistant-option {
+      width: 100%;
+      text-align: left;
+      border-radius: 10px;
+      border: 1px solid rgba(96, 165, 250, 0.36);
+      background: linear-gradient(120deg, rgba(30, 58, 138, 0.32), rgba(30, 64, 175, 0.2));
+      color: #dbeafe;
+      padding: 9px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.2s, border-color 0.2s, filter 0.2s;
+    }
+
+    .assistant-option:hover {
+      transform: translateY(-1px);
+      border-color: rgba(147, 197, 253, 0.62);
+      filter: brightness(1.03);
+    }
+
+    .assistant-option-note {
+      margin-top: 2px;
+      display: block;
+      color: #cbd5e1;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .assistant-label {
+      margin: 2px 0;
+      color: #93c5fd;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 800;
     }
 
     .actions {
@@ -293,11 +505,17 @@
     .error { color: #fecaca; font-size: 13px; }
     .success { color: #86efac; font-size: 13px; }
 
+    @media (max-width: 1040px) {
+      .experience-layout { grid-template-columns: minmax(0, 1fr); }
+      .assistant { position: static; }
+    }
+
     @media (max-width: 760px) {
       body { padding: 14px; }
       .card-inner { padding: 18px; }
       .top { flex-direction: column; }
-      .token-status { width: 100%; text-align: center; }
+      .token-status { width: 100%; }
+      .journey-bar { grid-template-columns: repeat(2, 1fr); }
     }
   </style>
 </head>
@@ -308,180 +526,218 @@
         <div class="top">
           <div>
             <span class="badge">Solicitud de Cotización Odoo</span>
-            <h1>Diseñemos tu implementación</h1>
-            <p class="subtitle">Comparte los datos clave y selecciona prioridades. Te sugerimos módulos y enfoque para acelerar una implementación Odoo más clara.</p>
+            <h1>Construyamos tu plan en vivo</h1>
+            <p class="subtitle">Tu experiencia es guiada: cada respuesta abre el siguiente paso y el asistente te sugiere el camino ideal para implementar Odoo más rápido y con menos fricción.</p>
           </div>
           <div id="token-status" class="token-status">Validando token...</div>
         </div>
 
-        <form id="quote-form" class="form">
-          <section class="section">
-            <h2 class="section-title">1. Contacto principal</h2>
-            <div class="grid">
-              <div>
-                <label for="name">Nombre de contacto *</label>
-                <input id="name" name="name" required placeholder="Tu nombre">
-              </div>
-              <div>
-                <label for="email">Email *</label>
-                <input id="email" name="email" type="email" required placeholder="correo@dominio.com">
-              </div>
-              <div>
-                <label for="phone">WhatsApp o teléfono</label>
-                <input id="phone" name="phone" placeholder="+1 809 ...">
-              </div>
-            </div>
-          </section>
-
-          <section class="section">
-            <h2 class="section-title">2. Perfil del negocio</h2>
-            <div class="grid">
-              <div>
-                <label for="sector">Sector *</label>
-                <select id="sector" name="sector" required>
-                  <option value="">Selecciona un sector</option>
-                  <option value="retail">Retail / Tienda</option>
-                  <option value="distribucion">Distribución</option>
-                  <option value="servicios">Servicios profesionales</option>
-                  <option value="manufactura">Manufactura</option>
-                  <option value="restaurante">Restaurante / Food</option>
-                  <option value="salud">Salud / Clínicas</option>
-                  <option value="educacion">Educación</option>
-                  <option value="otro">Otro</option>
-                </select>
-              </div>
-              <div>
-                <label for="business">Modelo de negocio *</label>
-                <input id="business" name="business" required placeholder="Ej. cadena de tiendas con inventario central">
-              </div>
-              <div>
-                <label for="locations">Sucursales</label>
-                <select id="locations" name="locations">
-                  <option value="">Selecciona</option>
-                  <option value="1">1 ubicación</option>
-                  <option value="2-5">2 a 5 ubicaciones</option>
-                  <option value="6-20">6 a 20 ubicaciones</option>
-                  <option value="20+">Más de 20 ubicaciones</option>
-                </select>
-              </div>
-            </div>
-            <div class="grid">
-              <div>
-                <label for="cashiers">Cajeras / cajas</label>
-                <input id="cashiers" name="cashiers" inputmode="numeric" placeholder="Ej. 5">
-              </div>
-              <div>
-                <label for="employees">Empleados</label>
-                <input id="employees" name="employees" inputmode="numeric" placeholder="Ej. 30">
-              </div>
-              <div>
-                <label for="revenue">Facturación mensual aprox.</label>
-                <input id="revenue" name="revenue" placeholder="Ej. US$ 50,000">
-              </div>
-            </div>
-          </section>
-
-          <section class="section">
-            <h2 class="section-title">3. Implementación guiada de Odoo</h2>
-            <p class="section-subtitle">Selecciona un escenario y ajusta. Esto nos permite proponerte una hoja de ruta con módulos más adecuados.</p>
-            <div class="preset-row">
-              <button type="button" class="preset" data-preset="retail">Sugerencia Retail</button>
-              <button type="button" class="preset" data-preset="distribucion">Sugerencia Distribución</button>
-              <button type="button" class="preset" data-preset="servicios">Sugerencia Servicios</button>
-              <button type="button" class="preset" data-preset="manufactura">Sugerencia Manufactura</button>
-            </div>
-            <div class="grid">
-              <div>
-                <label for="objective">Objetivo principal *</label>
-                <select id="objective" name="objective" required>
-                  <option value="">Selecciona tu objetivo</option>
-                  <option value="orden_operativa">Ordenar operación diaria</option>
-                  <option value="control_inventario">Controlar inventario y compras</option>
-                  <option value="automatizar_ventas">Automatizar ventas y CRM</option>
-                  <option value="unificar_contabilidad">Unificar facturación y contabilidad</option>
-                  <option value="escalar_sucursales">Escalar múltiples sucursales</option>
-                </select>
-              </div>
-              <div>
-                <label for="timeline">Horizonte de implementación *</label>
-                <select id="timeline" name="timeline" required>
-                  <option value="">Selecciona un horizonte</option>
-                  <option value="urgente_30">Urgente (0 a 30 días)</option>
-                  <option value="plan_60_90">Planificado (60 a 90 días)</option>
-                  <option value="q_siguiente">Próximo trimestre</option>
-                  <option value="exploracion">Solo evaluación inicial</option>
-                </select>
-              </div>
-              <div>
-                <label for="currentSystem">Sistema actual</label>
-                <select id="currentSystem" name="currentSystem">
-                  <option value="">Selecciona una opción</option>
-                  <option value="excel_manual">Excel / procesos manuales</option>
-                  <option value="erp_legacy">ERP legado</option>
-                  <option value="otro_erp">Otro ERP moderno</option>
-                  <option value="mixto">Herramientas mixtas</option>
-                  <option value="ninguno">Sin sistema actual</option>
-                </select>
-              </div>
+        <div class="experience-layout">
+          <form id="quote-form" class="form">
+            <div class="journey-bar" id="journey-bar">
+              <div class="journey-step" data-step-indicator="0">Contacto</div>
+              <div class="journey-step" data-step-indicator="1">Negocio</div>
+              <div class="journey-step" data-step-indicator="2">Ruta Odoo</div>
+              <div class="journey-step" data-step-indicator="3">Cierre</div>
             </div>
 
-            <div>
-              <label>Módulos de interés</label>
-              <div class="modules-grid" id="modules-grid">
-                <label class="module"><input type="checkbox" name="modules" value="crm"><span>CRM</span></label>
-                <label class="module"><input type="checkbox" name="modules" value="ventas"><span>Ventas</span></label>
-                <label class="module"><input type="checkbox" name="modules" value="inventario"><span>Inventario</span></label>
-                <label class="module"><input type="checkbox" name="modules" value="compras"><span>Compras</span></label>
-                <label class="module"><input type="checkbox" name="modules" value="contabilidad"><span>Contabilidad</span></label>
-                <label class="module"><input type="checkbox" name="modules" value="punto_de_venta"><span>Punto de Venta</span></label>
-                <label class="module"><input type="checkbox" name="modules" value="facturacion"><span>Facturación</span></label>
-                <label class="module"><input type="checkbox" name="modules" value="rrhh"><span>RRHH</span></label>
-                <label class="module"><input type="checkbox" name="modules" value="manufactura"><span>Manufactura</span></label>
-                <label class="module"><input type="checkbox" name="modules" value="proyectos"><span>Proyectos</span></label>
-                <label class="module"><input type="checkbox" name="modules" value="helpdesk"><span>Helpdesk</span></label>
-                <label class="module"><input type="checkbox" name="modules" value="ecommerce"><span>eCommerce</span></label>
+            <section class="section step-section unlocked active" data-step="0">
+              <h2 class="section-title">1. Contacto principal</h2>
+              <p class="section-subtitle">Comenzamos con tus datos para personalizar la recomendación.</p>
+              <div class="grid">
+                <div>
+                  <label for="name">Nombre de contacto *</label>
+                  <input id="name" name="name" required placeholder="Tu nombre">
+                </div>
+                <div>
+                  <label for="email">Email *</label>
+                  <input id="email" name="email" type="email" required placeholder="correo@dominio.com">
+                </div>
+                <div>
+                  <label for="phone">WhatsApp o teléfono</label>
+                  <input id="phone" name="phone" placeholder="+1 809 ...">
+                </div>
               </div>
-            </div>
-          </section>
+              <div class="step-actions">
+                <button type="button" class="next-btn" data-next-step="1">Continuar</button>
+              </div>
+            </section>
 
-          <section class="section">
-            <h2 class="section-title">4. Requerimientos clave</h2>
-            <div class="grid">
-              <div>
-                <label for="integrations">Integraciones prioritarias</label>
-                <input id="integrations" name="integrations" placeholder="Ej. eCommerce, bancos, factura electrónica">
+            <section class="section step-section" data-step="1">
+              <h2 class="section-title">2. Perfil del negocio</h2>
+              <p class="section-subtitle">Definimos escala y contexto para ajustar la arquitectura funcional.</p>
+              <div class="grid">
+                <div>
+                  <label for="sector">Sector *</label>
+                  <select id="sector" name="sector" required>
+                    <option value="">Selecciona un sector</option>
+                    <option value="retail">Retail / Tienda</option>
+                    <option value="distribucion">Distribución</option>
+                    <option value="servicios">Servicios profesionales</option>
+                    <option value="manufactura">Manufactura</option>
+                    <option value="restaurante">Restaurante / Food</option>
+                    <option value="salud">Salud / Clínicas</option>
+                    <option value="educacion">Educación</option>
+                    <option value="otro">Otro</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="business">Modelo de negocio *</label>
+                  <input id="business" name="business" required placeholder="Ej. cadena de tiendas con inventario central">
+                </div>
+                <div>
+                  <label for="locations">Sucursales</label>
+                  <select id="locations" name="locations">
+                    <option value="">Selecciona</option>
+                    <option value="1">1 ubicación</option>
+                    <option value="2-5">2 a 5 ubicaciones</option>
+                    <option value="6-20">6 a 20 ubicaciones</option>
+                    <option value="20+">Más de 20 ubicaciones</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <label for="migration">Migración de datos</label>
-                <select id="migration" name="migration">
-                  <option value="">Selecciona</option>
-                  <option value="si_completa">Sí, completa</option>
-                  <option value="si_parcial">Sí, parcial</option>
-                  <option value="no">No por ahora</option>
-                  <option value="evaluar">Aún por evaluar</option>
-                </select>
+              <div class="grid">
+                <div>
+                  <label for="cashiers">Cajeras / cajas</label>
+                  <input id="cashiers" name="cashiers" inputmode="numeric" placeholder="Ej. 5">
+                </div>
+                <div>
+                  <label for="employees">Empleados</label>
+                  <input id="employees" name="employees" inputmode="numeric" placeholder="Ej. 30">
+                </div>
+                <div>
+                  <label for="revenue">Facturación mensual aprox.</label>
+                  <input id="revenue" name="revenue" placeholder="Ej. US$ 50,000">
+                </div>
               </div>
-              <div>
-                <label for="training">Capacitación requerida</label>
-                <select id="training" name="training">
-                  <option value="">Selecciona</option>
-                  <option value="basica">Básica para equipo clave</option>
-                  <option value="completa">Completa por departamentos</option>
-                  <option value="acompanamiento">Acompañamiento continuo</option>
-                </select>
+              <div class="step-actions">
+                <button type="button" class="next-btn" data-next-step="2">Continuar</button>
               </div>
-            </div>
-            <div>
-              <label for="message">Notas adicionales</label>
-              <textarea id="message" name="message" placeholder="Comparte restricciones, expectativas o detalles importantes..."></textarea>
-            </div>
-          </section>
+            </section>
 
-          <div class="actions">
-            <button type="submit" id="submitBtn" class="submit">Enviar solicitud</button>
-            <div id="form-message" class="muted"></div>
-          </div>
-        </form>
+            <section class="section step-section" data-step="2">
+              <h2 class="section-title">3. Implementación guiada de Odoo</h2>
+              <p class="section-subtitle">Elige un escenario y verás una combinación sugerida de módulos en segundos.</p>
+              <div class="preset-row">
+                <button type="button" class="preset" data-preset="retail">Sugerencia Retail</button>
+                <button type="button" class="preset" data-preset="distribucion">Sugerencia Distribución</button>
+                <button type="button" class="preset" data-preset="servicios">Sugerencia Servicios</button>
+                <button type="button" class="preset" data-preset="manufactura">Sugerencia Manufactura</button>
+              </div>
+              <div class="grid">
+                <div>
+                  <label for="objective">Objetivo principal *</label>
+                  <select id="objective" name="objective" required>
+                    <option value="">Selecciona tu objetivo</option>
+                    <option value="orden_operativa">Ordenar operación diaria</option>
+                    <option value="control_inventario">Controlar inventario y compras</option>
+                    <option value="automatizar_ventas">Automatizar ventas y CRM</option>
+                    <option value="unificar_contabilidad">Unificar facturación y contabilidad</option>
+                    <option value="escalar_sucursales">Escalar múltiples sucursales</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="timeline">Horizonte de implementación *</label>
+                  <select id="timeline" name="timeline" required>
+                    <option value="">Selecciona un horizonte</option>
+                    <option value="urgente_30">Urgente (0 a 30 días)</option>
+                    <option value="plan_60_90">Planificado (60 a 90 días)</option>
+                    <option value="q_siguiente">Próximo trimestre</option>
+                    <option value="exploracion">Solo evaluación inicial</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="currentSystem">Sistema actual</label>
+                  <select id="currentSystem" name="currentSystem">
+                    <option value="">Selecciona una opción</option>
+                    <option value="excel_manual">Excel / procesos manuales</option>
+                    <option value="erp_legacy">ERP legado</option>
+                    <option value="otro_erp">Otro ERP moderno</option>
+                    <option value="mixto">Herramientas mixtas</option>
+                    <option value="ninguno">Sin sistema actual</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label>Módulos de interés *</label>
+                <div class="modules-grid" id="modules-grid">
+                  <label class="module"><input type="checkbox" name="modules" value="crm"><span>CRM</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="ventas"><span>Ventas</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="inventario"><span>Inventario</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="compras"><span>Compras</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="contabilidad"><span>Contabilidad</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="punto_de_venta"><span>Punto de Venta</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="facturacion"><span>Facturación</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="rrhh"><span>RRHH</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="manufactura"><span>Manufactura</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="proyectos"><span>Proyectos</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="helpdesk"><span>Helpdesk</span></label>
+                  <label class="module"><input type="checkbox" name="modules" value="ecommerce"><span>eCommerce</span></label>
+                </div>
+              </div>
+              <div class="step-actions">
+                <button type="button" class="next-btn" data-next-step="3">Continuar</button>
+              </div>
+            </section>
+
+            <section class="section step-section" data-step="3">
+              <h2 class="section-title">4. Requerimientos clave</h2>
+              <p class="section-subtitle">Cerramos con los detalles para enviarte un plan accionable y realista.</p>
+              <div class="grid">
+                <div>
+                  <label for="integrations">Integraciones prioritarias</label>
+                  <input id="integrations" name="integrations" placeholder="Ej. eCommerce, bancos, factura electrónica">
+                </div>
+                <div>
+                  <label for="migration">Migración de datos</label>
+                  <select id="migration" name="migration">
+                    <option value="">Selecciona</option>
+                    <option value="si_completa">Sí, completa</option>
+                    <option value="si_parcial">Sí, parcial</option>
+                    <option value="no">No por ahora</option>
+                    <option value="evaluar">Aún por evaluar</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="training">Capacitación requerida</label>
+                  <select id="training" name="training">
+                    <option value="">Selecciona</option>
+                    <option value="basica">Básica para equipo clave</option>
+                    <option value="completa">Completa por departamentos</option>
+                    <option value="acompanamiento">Acompañamiento continuo</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label for="message">Notas adicionales</label>
+                <textarea id="message" name="message" placeholder="Comparte restricciones, expectativas o detalles importantes..."></textarea>
+              </div>
+            </section>
+
+            <div class="actions">
+              <button type="submit" id="submitBtn" class="submit">Enviar solicitud</button>
+              <div id="form-message" class="muted"></div>
+            </div>
+          </form>
+
+          <aside class="assistant">
+            <div class="assistant-top">
+              <div class="assistant-avatar">AI</div>
+              <div>
+                <h3 class="assistant-title">Asistente de Implementación</h3>
+                <p class="assistant-sub">Guía en tiempo real</p>
+              </div>
+            </div>
+            <p id="assistant-message" class="assistant-message"></p>
+            <p class="assistant-label">Recomendaciones actuales</p>
+            <ul id="assistant-reco" class="assistant-list"></ul>
+            <p class="assistant-label">Opciones materializadas</p>
+            <div id="assistant-options" class="assistant-options"></div>
+            <p class="assistant-label">Resumen que se materializa</p>
+            <ul id="assistant-summary" class="assistant-list"></ul>
+          </aside>
+        </div>
       </div>
     </div>
   </div>
@@ -494,6 +750,23 @@
     const msgEl = document.getElementById('form-message');
     const submitBtn = document.getElementById('submitBtn');
     const moduleInputs = Array.from(document.querySelectorAll('input[name="modules"]'));
+    const sectionEls = Array.from(document.querySelectorAll('.step-section'));
+    const stepIndicators = Array.from(document.querySelectorAll('[data-step-indicator]'));
+    const assistantMessageEl = document.getElementById('assistant-message');
+    const assistantRecoEl = document.getElementById('assistant-reco');
+    const assistantOptionsEl = document.getElementById('assistant-options');
+    const assistantSummaryEl = document.getElementById('assistant-summary');
+    let activeStep = 0;
+    let tokenValid = false;
+    let assistantTimer = null;
+    const assistantState = {
+      loading: false,
+      hash: '',
+      message: '',
+      recommendations: [],
+      options: []
+    };
+
     const presets = {
       retail: {
         sector: 'retail',
@@ -521,6 +794,36 @@
       }
     };
 
+    const assistantLibrary = {
+      default: {
+        message: 'Te voy guiando paso a paso. Cuando completes lo clave de este bloque, desbloqueamos el siguiente.',
+        reco: ['Responde campos obligatorios primero.', 'Usa una sugerencia de escenario para acelerar.', 'Selecciona módulos pensando en la primera fase.']
+      },
+      retail: {
+        message: 'Para retail conviene iniciar con ventas, inventario y punto de venta en una primera ola controlada.',
+        reco: ['Prioriza control de stock en tiempo real.', 'Define políticas de precios y descuentos.', 'Valida flujos de caja por sucursal.']
+      },
+      distribucion: {
+        message: 'En distribución, la base es visibilidad de inventario y compras vinculadas a demanda.',
+        reco: ['Alinea compras con rotación de productos.', 'Define reglas de reabastecimiento.', 'Activa trazabilidad por lote cuando aplique.']
+      },
+      servicios: {
+        message: 'Para servicios, la clave es CRM + proyectos + facturación por hitos o entregables.',
+        reco: ['Define pipeline comercial por etapa.', 'Estandariza plantillas de propuesta.', 'Conecta facturación con avances de proyecto.']
+      },
+      manufactura: {
+        message: 'Manufactura suele requerir una ruta por fases para no frenar la operación mientras migras.',
+        reco: ['Inicia con inventario y compras confiables.', 'Define estructura de productos y variantes.', 'Planifica manufactura después de datos maestros.']
+      }
+    };
+
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
     function setMsg(text, type = 'muted') {
       msgEl.textContent = text;
       msgEl.className = type;
@@ -529,6 +832,176 @@
     function setTokenStatus(text, type = '') {
       statusEl.textContent = text;
       statusEl.className = type ? `token-status ${type}` : 'token-status';
+    }
+
+    function getSelectedModules() {
+      return moduleInputs.filter(input => input.checked).map(input => input.value);
+    }
+
+    function getSelectedText(selectEl) {
+      if (!selectEl) return '';
+      const option = selectEl.options[selectEl.selectedIndex];
+      return option ? option.textContent.trim() : '';
+    }
+
+    function getAssistantContext() {
+      return {
+        token,
+        name: form.name.value.trim(),
+        sector: form.sector.value,
+        business: form.business.value.trim(),
+        objective: form.objective.value,
+        timeline: form.timeline.value,
+        currentSystem: form.currentSystem.value,
+        locations: form.locations.value,
+        modules: getSelectedModules()
+      };
+    }
+
+    function getAssistantHash(context) {
+      return JSON.stringify({
+        sector: context.sector,
+        business: context.business,
+        objective: context.objective,
+        timeline: context.timeline,
+        currentSystem: context.currentSystem,
+        modules: context.modules
+      });
+    }
+
+    function isSectionReady(step) {
+      if (step === 0) {
+        return form.name.value.trim().length > 1 && form.email.value.trim().length > 4;
+      }
+      if (step === 1) {
+        return !!form.sector.value && form.business.value.trim().length > 2;
+      }
+      if (step === 2) {
+        return !!form.objective.value && !!form.timeline.value && getSelectedModules().length > 0;
+      }
+      return true;
+    }
+
+    function getMaxUnlockedStep() {
+      let unlocked = 0;
+      if (isSectionReady(0)) unlocked = 1;
+      if (isSectionReady(0) && isSectionReady(1)) unlocked = 2;
+      if (isSectionReady(0) && isSectionReady(1) && isSectionReady(2)) unlocked = 3;
+      return unlocked;
+    }
+
+    function renderJourneyState() {
+      const unlocked = getMaxUnlockedStep();
+      if (activeStep > unlocked) activeStep = unlocked;
+      sectionEls.forEach((el, idx) => {
+        const isUnlocked = idx <= unlocked;
+        const isActive = idx === activeStep;
+        el.classList.toggle('unlocked', isUnlocked);
+        el.classList.toggle('active', isActive);
+      });
+      stepIndicators.forEach((el, idx) => {
+        el.classList.toggle('active', idx === activeStep);
+        el.classList.toggle('done', idx < activeStep || (idx < unlocked));
+      });
+      updateAssistantPanel();
+      scheduleAssistantSuggestion();
+    }
+
+    function updateAssistantPanel() {
+      const sectorKey = form.sector.value;
+      const library = assistantLibrary[sectorKey] || assistantLibrary.default;
+      const selectedModules = getSelectedModules();
+      const liveRecommendations = assistantState.recommendations.length ? assistantState.recommendations : library.reco;
+      const summaryRows = [
+        `Contacto: ${form.name.value.trim() || 'Pendiente'}`,
+        `Sector: ${getSelectedText(form.sector) || 'Pendiente'}`,
+        `Modelo: ${form.business.value.trim() || 'Pendiente'}`,
+        `Objetivo: ${getSelectedText(form.objective) || 'Pendiente'}`,
+        `Horizonte: ${getSelectedText(form.timeline) || 'Pendiente'}`,
+        `Módulos: ${selectedModules.length ? selectedModules.join(', ') : 'Pendiente'}`
+      ];
+      const stepMessages = [
+        'Iniciemos con tus datos de contacto para personalizar la propuesta.',
+        'Ahora definamos el contexto real de tu negocio para ajustar alcance.',
+        'Excelente, selecciona ruta Odoo y módulos iniciales para diseñar una fase 1 viable.',
+        'Último paso: integra requerimientos técnicos y enviamos tu brief listo.'
+      ];
+      const aiStateText = assistantState.loading ? ' Analizando tu modelo de negocio…' : '';
+      assistantMessageEl.textContent = `${stepMessages[activeStep]} ${assistantState.message || library.message}${aiStateText}`;
+      assistantRecoEl.innerHTML = liveRecommendations.map(item => `<li>${escapeHtml(item)}</li>`).join('');
+      assistantOptionsEl.innerHTML = assistantState.options.map((option, index) => {
+        const note = [option.objective, option.timeline].filter(Boolean).join(' • ');
+        return `<button type="button" class="assistant-option" data-option-index="${index}">${escapeHtml(option.label)}${note ? `<span class="assistant-option-note">${escapeHtml(note)}</span>` : ''}</button>`;
+      }).join('');
+      assistantSummaryEl.innerHTML = summaryRows.map(item => `<li>${item}</li>`).join('');
+    }
+
+    function scheduleAssistantSuggestion(force = false) {
+      if (!tokenValid) return;
+      const context = getAssistantContext();
+      const hasSignal = context.sector || context.business.length > 2 || context.modules.length;
+      if (!hasSignal) return;
+      const hash = getAssistantHash(context);
+      if (!force && hash === assistantState.hash) return;
+      clearTimeout(assistantTimer);
+      assistantTimer = setTimeout(() => requestAssistantSuggestion(context, hash), 420);
+    }
+
+    async function requestAssistantSuggestion(context, hash) {
+      assistantState.loading = true;
+      updateAssistantPanel();
+      try {
+        const res = await fetch('/api/quote/assistant', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(context)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo obtener sugerencias');
+        assistantState.hash = hash;
+        assistantState.message = typeof data.message === 'string' ? data.message : '';
+        assistantState.recommendations = Array.isArray(data.recommendations) ? data.recommendations.filter(Boolean).slice(0, 5) : [];
+        assistantState.options = Array.isArray(data.options) ? data.options.filter(opt => opt && opt.label).slice(0, 4) : [];
+      } catch {
+        assistantState.options = [];
+      } finally {
+        assistantState.loading = false;
+        updateAssistantPanel();
+      }
+    }
+
+    function applyAssistantOption(index) {
+      const option = assistantState.options[index];
+      if (!option) return;
+      if (option.sector && form.sector.querySelector(`option[value="${option.sector}"]`)) {
+        form.sector.value = option.sector;
+      }
+      if (option.objective && form.objective.querySelector(`option[value="${option.objective}"]`)) {
+        form.objective.value = option.objective;
+      }
+      if (option.timeline && form.timeline.querySelector(`option[value="${option.timeline}"]`)) {
+        form.timeline.value = option.timeline;
+      }
+      if (Array.isArray(option.modules) && option.modules.length) {
+        moduleInputs.forEach(input => {
+          input.checked = option.modules.includes(input.value);
+        });
+      }
+      setMsg('Escenario aplicado desde el asistente. Puedes afinarlo antes de enviar.', 'muted');
+      renderJourneyState();
+    }
+
+    function jumpToStep(nextStep) {
+      const unlocked = getMaxUnlockedStep();
+      if (nextStep > unlocked) {
+        setMsg('Completa los campos requeridos para desbloquear el siguiente paso.', 'error');
+        renderJourneyState();
+        return;
+      }
+      activeStep = nextStep;
+      setMsg('', 'muted');
+      renderJourneyState();
+      sectionEls[nextStep].scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function applyPreset(name) {
@@ -541,6 +1014,7 @@
         input.checked = config.modules.includes(input.value);
       });
       setMsg('Sugerencia aplicada. Puedes ajustar módulos y prioridades.', 'muted');
+      renderJourneyState();
     }
 
     function buildDiscoverySummary(modules) {
@@ -569,17 +1043,24 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Token inválido');
         setTokenStatus('Token válido', 'success');
+        tokenValid = true;
+        scheduleAssistantSuggestion(true);
       } catch (e) {
         setTokenStatus(e.message, 'error');
+        tokenValid = false;
         form.style.display = 'none';
       }
     }
 
     async function submitForm(ev) {
       ev.preventDefault();
-      setMsg('Enviando...');
+      if (getMaxUnlockedStep() < 3) {
+        setMsg('Completa los pasos guiados antes de enviar la solicitud.', 'error');
+        return;
+      }
+      setMsg('Enviando...', 'muted');
       submitBtn.disabled = true;
-      const selectedModules = moduleInputs.filter(input => input.checked).map(input => input.value);
+      const selectedModules = getSelectedModules();
       const payload = {
         token,
         name: form.name.value.trim(),
@@ -611,6 +1092,8 @@
         setMsg('Solicitud enviada. ¡Gracias! Nuestro equipo te contactará con una propuesta alineada a Odoo.', 'success');
         form.reset();
         moduleInputs.forEach(input => { input.checked = false; });
+        activeStep = 0;
+        renderJourneyState();
       } catch (e) {
         setMsg(e.message, 'error');
       } finally {
@@ -618,11 +1101,41 @@
       }
     }
 
+    form.querySelectorAll('input, select, textarea').forEach(el => {
+      el.addEventListener('input', renderJourneyState);
+      el.addEventListener('change', renderJourneyState);
+      el.addEventListener('focus', () => {
+        const section = el.closest('.step-section');
+        if (!section) return;
+        const step = Number(section.dataset.step || 0);
+        const unlocked = getMaxUnlockedStep();
+        if (step <= unlocked) {
+          activeStep = step;
+          renderJourneyState();
+        }
+      });
+    });
+
+    document.querySelectorAll('[data-next-step]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = Number(btn.dataset.nextStep);
+        jumpToStep(target);
+      });
+    });
+
     document.querySelectorAll('[data-preset]').forEach(btn => {
       btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
     });
 
+    assistantOptionsEl.addEventListener('click', ev => {
+      const button = ev.target.closest('[data-option-index]');
+      if (!button) return;
+      const index = Number(button.dataset.optionIndex);
+      applyAssistantOption(index);
+    });
+
     form.addEventListener('submit', submitForm);
+    renderJourneyState();
     validateToken();
   </script>
 </body>
