@@ -31,8 +31,10 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'expertostird@gmail.com';
 const ADMIN_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const ADMIN_CODE_TTL_MS = 10 * 60 * 1000; // 10 min
 const QUOTE_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
+const REQUEST_METRICS_MAX = 10000;
 
 const adminCodes = new Map(); // email -> { code, exp }
+const requestMetrics = [];
 
 // ── Quote request storage helpers ──
 async function loadQuoteData() {
@@ -123,7 +125,7 @@ function parseNginxDate(str) {
 
 async function summarizeVisits() {
   const lines = await readAccessLogTail();
-  const summary = { total: 0, last24h: 0, byStatus: {}, topPaths: [] };
+  const summary = { total: 0, last24h: 0, byStatus: {}, topPaths: [], source: 'nginx' };
   const pathCount = {};
   const cutoff = Date.now() - 24 * 60 * 60 * 1000;
   for (const line of lines) {
@@ -138,7 +140,35 @@ async function summarizeVisits() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10)
     .map(([path, count]) => ({ path, count }));
+  if (summary.total > 0) return summary;
+  return summarizeLiveVisits();
+}
+
+function summarizeLiveVisits() {
+  const summary = { total: 0, last24h: 0, byStatus: {}, topPaths: [], source: 'live' };
+  const pathCount = {};
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  for (const row of requestMetrics) {
+    summary.total += 1;
+    if (row.ts >= cutoff) summary.last24h += 1;
+    summary.byStatus[row.status] = (summary.byStatus[row.status] || 0) + 1;
+    pathCount[row.path] = (pathCount[row.path] || 0) + 1;
+  }
+  summary.topPaths = Object.entries(pathCount)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([path, count]) => ({ path, count }));
   return summary;
+}
+
+function shouldTrackVisit(req) {
+  if (!['GET', 'HEAD'].includes(req.method)) return false;
+  const targetPath = String(req.path || '/');
+  if (targetPath.startsWith('/api/admin')) return false;
+  if (targetPath.startsWith('/admin-dashboard')) return false;
+  if (targetPath === '/favicon.ico') return false;
+  if (/\.(?:css|js|map|png|jpe?g|webp|svg|ico|woff2?|ttf)$/i.test(targetPath)) return false;
+  return true;
 }
 
 async function summarizeSales() {
@@ -201,6 +231,20 @@ app.use((req, res, next) => {
 app.use((req, res, next) => {
   if (req.path.startsWith('/odoo')) return next();
   express.urlencoded({ extended: true, limit: '1mb' })(req, res, next);
+});
+app.use((req, res, next) => {
+  if (!shouldTrackVisit(req)) return next();
+  res.on('finish', () => {
+    requestMetrics.push({
+      path: String(req.path || '/'),
+      status: Number(res.statusCode || 0),
+      ts: Date.now(),
+    });
+    if (requestMetrics.length > REQUEST_METRICS_MAX) {
+      requestMetrics.splice(0, requestMetrics.length - REQUEST_METRICS_MAX);
+    }
+  });
+  next();
 });
 
 // ── Security Headers (Helmet) ──

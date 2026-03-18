@@ -4,107 +4,267 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard Admin - Renace</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <style>
-    :root { color-scheme: dark; }
-    body { margin: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; background:#0b1020; color:#e5e7eb; }
-    .wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
-    header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
-    h1 { font-size: 24px; margin: 0; }
-    .card { background:#11182d; border:1px solid #1f2a44; border-radius:12px; padding:16px; margin-bottom:16px; box-shadow:0 10px 25px rgba(0,0,0,0.25); }
-    .grid { display:grid; gap:16px; }
-    .grid-3 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-    label { display:block; font-size:12px; color:#9ca3af; margin-bottom:6px; }
-    input { width:100%; padding:10px 12px; border-radius:8px; border:1px solid #1f2a44; background:#0d1324; color:#e5e7eb; }
-    button { padding:10px 14px; border:none; border-radius:8px; background:#2563eb; color:white; font-weight:600; cursor:pointer; }
-    button.secondary { background:#1f2937; color:#d1d5db; }
-    button:disabled { opacity:0.6; cursor:not-allowed; }
-    .muted { color:#9ca3af; font-size:12px; }
-    .stat { font-size:26px; font-weight:700; }
-    .badge { display:inline-block; padding:4px 8px; border-radius:999px; background:#1f2937; color:#9ca3af; font-size:11px; }
-    .flex { display:flex; gap:12px; align-items:center; justify-content:space-between; }
-    .list { list-style:none; padding:0; margin:0; }
-    .list li { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #1f2a44; }
-    .error { color:#f87171; font-size:13px; margin-top:6px; }
-    .success { color:#34d399; font-size:13px; margin-top:6px; }
+    :root {
+      color-scheme: dark;
+      --bg: #020617;
+      --surface: rgba(7, 16, 37, 0.82);
+      --line: rgba(148, 163, 184, 0.2);
+      --line-strong: rgba(56, 189, 248, 0.35);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 6% 10%, rgba(2, 132, 199, 0.22), transparent 28%),
+        radial-gradient(circle at 92% 14%, rgba(37, 99, 235, 0.2), transparent 35%),
+        radial-gradient(circle at 50% 96%, rgba(13, 148, 136, 0.16), transparent 30%),
+        var(--bg);
+      padding: 22px;
+    }
+    .wrap { width: min(1200px, 100%); margin: 0 auto; display: grid; gap: 16px; }
+    .card {
+      background: linear-gradient(155deg, rgba(8, 16, 39, 0.94), rgba(5, 11, 28, 0.9));
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 24px 64px rgba(2, 6, 23, 0.55);
+      backdrop-filter: blur(14px);
+    }
+    .header { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #dbeafe;
+      background: linear-gradient(120deg, #1d4ed8, #0ea5e9);
+      border: 1px solid rgba(191, 219, 254, 0.4);
+    }
+    h1 {
+      margin: 10px 0 6px;
+      font-family: 'Sora', sans-serif;
+      font-size: clamp(1.45rem, 3.2vw, 2rem);
+      letter-spacing: -0.02em;
+    }
+    h2, h3 { margin: 0; font-family: 'Sora', sans-serif; letter-spacing: -0.01em; }
+    .muted { color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .status-pill {
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(15, 23, 42, 0.74);
+      padding: 8px 10px;
+      font-size: 12px;
+      color: #93c5fd;
+      white-space: nowrap;
+    }
+    .auth-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 12px;
+      align-items: end;
+    }
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #93c5fd;
+      margin-bottom: 6px;
+    }
+    input {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid rgba(59, 130, 246, 0.28);
+      background: rgba(3, 10, 25, 0.88);
+      color: var(--text);
+      padding: 11px 12px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    input:focus {
+      outline: none;
+      border-color: var(--line-strong);
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.16);
+    }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    button, .btn-link {
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(120deg, #1d4ed8, #0ea5e9);
+      color: #eff6ff;
+      font-weight: 700;
+      font-family: inherit;
+      font-size: 13px;
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: transform 0.18s, filter 0.2s, opacity 0.2s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    button.secondary, .btn-link.secondary {
+      background: rgba(15, 23, 42, 0.9);
+      color: #dbeafe;
+      border: 1px solid rgba(100, 116, 139, 0.38);
+    }
+    button:hover, .btn-link:hover { transform: translateY(-1px); filter: brightness(1.05); }
+    button:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
+    .error { color: #fca5a5; font-size: 13px; margin-top: 8px; }
+    .success { color: #86efac; font-size: 13px; margin-top: 8px; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+    .kpi {
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      padding: 12px;
+      display: grid;
+      gap: 4px;
+    }
+    .kpi-label {
+      font-size: 12px;
+      color: #93c5fd;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .stat {
+      font-size: clamp(1.4rem, 2.8vw, 2rem);
+      font-weight: 800;
+      line-height: 1.1;
+      color: #f8fafc;
+    }
+    .cards-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; }
+    .span-4 { grid-column: span 4; }
+    .span-8 { grid-column: span 8; }
+    .list {
+      list-style: none;
+      padding: 0;
+      margin: 12px 0 0;
+      display: grid;
+      gap: 8px;
+    }
+    .list li {
+      border: 1px solid rgba(100, 116, 139, 0.25);
+      border-radius: 10px;
+      background: var(--surface);
+      padding: 10px 11px;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+    }
+    @media (max-width: 940px) {
+      .span-4, .span-8 { grid-column: span 12; }
+    }
+    @media (max-width: 700px) {
+      body { padding: 14px; }
+      .header { flex-direction: column; align-items: flex-start; }
+      .status-pill { width: 100%; }
+      .actions { width: 100%; }
+      button, .btn-link { flex: 1; }
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <header>
+    <header class="header card">
       <div>
-        <div class="badge">Dashboard Admin</div>
+        <div class="badge"><i class="fa-solid fa-shield-halved"></i> Dashboard Admin</div>
         <h1>Renace Analytics</h1>
-        <p class="muted">Visitas, ventas y chats (protegido por código al correo administrador).</p>
+        <p class="muted">Panel moderno para monitorear visitas, ventas y solicitudes con acceso seguro.</p>
       </div>
-      <div id="login-status" class="muted">No autenticado</div>
+      <div id="login-status" class="status-pill">No autenticado</div>
     </header>
 
     <div class="card" id="login-card">
       <h2>Acceso seguro</h2>
-      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:12px;">
+      <div class="auth-grid">
         <div>
           <label for="email">Correo administrador</label>
           <input id="email" type="email" value="expertostird@gmail.com" autocomplete="email">
         </div>
-        <div class="flex" style="align-items:flex-end; gap:8px;">
-          <div style="flex:1;">
-            <label for="code">Código recibido</label>
-            <input id="code" type="text" placeholder="6 dígitos" inputmode="numeric" autocomplete="one-time-code">
-          </div>
-          <div style="display:flex; gap:8px;">
-            <button id="btn-request">Enviar código</button>
-            <button id="btn-verify" class="secondary">Validar</button>
+        <div>
+          <label for="code">Código recibido</label>
+          <input id="code" type="text" placeholder="6 dígitos" inputmode="numeric" autocomplete="one-time-code">
+        </div>
+        <div>
+          <label>Acción</label>
+          <div class="actions">
+            <button id="btn-request"><i class="fa-solid fa-paper-plane"></i> Enviar código</button>
+            <button id="btn-verify" class="secondary"><i class="fa-solid fa-check"></i> Validar</button>
           </div>
         </div>
       </div>
-      <div id="login-message" class="muted" style="margin-top:8px;"></div>
+      <div id="login-message" class="muted" style="margin-top:10px;"></div>
     </div>
 
     <div id="stats" class="card" style="display:none;">
-      <div class="grid grid-3">
-        <div>
-          <div class="muted">Visitas totales</div>
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-label">Visitas totales</div>
           <div class="stat" id="visits-total">-</div>
           <div class="muted" id="visits-24h">-</div>
         </div>
-        <div>
-          <div class="muted">Ventas (muestra)</div>
+        <div class="kpi">
+          <div class="kpi-label">Ventas (muestra)</div>
           <div class="stat" id="sales-count">-</div>
           <div class="muted" id="sales-total">-</div>
         </div>
-        <div>
-          <div class="muted">Chats</div>
+        <div class="kpi">
+          <div class="kpi-label">Fuente visitas</div>
+          <div class="stat" id="visits-source">-</div>
+          <div class="muted" id="refresh-time">Sin actualizar</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Chats</div>
           <div class="stat">n/d</div>
           <div class="muted">Proxy /api/chat sin métrica local</div>
         </div>
       </div>
     </div>
 
-    <div id="lists" class="grid" style="display:none; grid-template-columns: repeat(auto-fit, minmax(300px,1fr));">
-      <div class="card">
+    <div id="lists" class="cards-grid" style="display:none;">
+      <div class="card span-4">
         <h3>Top rutas</h3>
         <ul id="top-paths" class="list"></ul>
       </div>
-      <div class="card">
+      <div class="card span-4">
         <h3>Estados HTTP</h3>
         <ul id="status-codes" class="list"></ul>
       </div>
-      <div class="card">
+      <div class="card span-4">
         <h3>Ventas recientes</h3>
         <ul id="sales-sample" class="list"></ul>
       </div>
-      <div class="card">
-        <div class="flex">
+      <div class="card span-4">
+        <div class="actions" style="justify-content:space-between; align-items:center;">
           <h3>Tokens de cotización</h3>
-          <button id="btn-new-token" class="secondary" style="padding:8px 10px;">Nuevo token</button>
+          <button id="btn-new-token" class="secondary"><i class="fa-solid fa-plus"></i> Nuevo token</button>
         </div>
-        <div class="muted" style="margin:6px 0;">Genera un hash para compartir con el cliente (validez 7 días).</div>
+        <div class="muted" style="margin-top:6px;">Genera y comparte un enlace con validez de 7 días.</div>
         <ul id="quote-tokens" class="list"></ul>
       </div>
-      <div class="card" style="grid-column: span 2;">
+      <div class="card span-8">
         <h3>Solicitudes recibidas</h3>
-        <div class="muted" style="margin:6px 0;">Últimas 100 entradas.</div>
+        <div class="muted" style="margin-top:6px;">Últimas 100 entradas.</div>
         <ul id="quote-submissions" class="list"></ul>
       </div>
     </div>

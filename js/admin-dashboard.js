@@ -10,12 +10,51 @@
   const btnNewToken = document.getElementById('btn-new-token');
   const tokensList = document.getElementById('quote-tokens');
   const submissionsList = document.getElementById('quote-submissions');
+  const visitsSourceEl = document.getElementById('visits-source');
+  const refreshTimeEl = document.getElementById('refresh-time');
 
   let token = localStorage.getItem('admin_token') || '';
+  let autoRefreshTimer = null;
 
   function setMessage(text, type = 'muted') {
     loginMessage.textContent = text;
     loginMessage.className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'muted';
+  }
+
+  function setLoginStatus(text) {
+    loginStatus.textContent = text;
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
+
+  function formatMoney(value) {
+    const amount = Number(value || 0);
+    if (!Number.isFinite(amount)) return '-';
+    return new Intl.NumberFormat('es-DO', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 2
+    }).format(amount);
+  }
+
+  function formatVisitSource(source) {
+    if (source === 'nginx') return 'NGINX';
+    if (source === 'live') return 'LIVE';
+    return '-';
+  }
+
+  function startAutoRefresh() {
+    if (autoRefreshTimer) return;
+    autoRefreshTimer = setInterval(() => {
+      if (token) loadAnalytics();
+    }, 30000);
   }
 
   async function requestCode() {
@@ -51,12 +90,14 @@
       token = data.token;
       localStorage.setItem('admin_token', token);
       setMessage('Autenticado. Cargando métricas...', 'success');
-      loginStatus.textContent = 'Autenticado';
+      setLoginStatus('Autenticado');
       await loadAnalytics();
+      startAutoRefresh();
     } catch (e) {
       setMessage(e.message, 'error');
       token = '';
       localStorage.removeItem('admin_token');
+      setLoginStatus('No autenticado');
     } finally {
       btnVerify.disabled = false;
     }
@@ -78,13 +119,14 @@
         localStorage.removeItem('admin_token');
         statsCard.style.display = 'none';
         lists.style.display = 'none';
+        setLoginStatus('No autenticado');
         return;
       }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error al cargar métricas');
       renderAnalytics(data);
       setMessage('');
-      loginStatus.textContent = 'Autenticado';
+      setLoginStatus('Autenticado');
     } catch (e) {
       setMessage(e.message, 'error');
     }
@@ -95,47 +137,50 @@
     const sales = data.sales || {};
     const quotes = data.quotes || {};
     document.getElementById('visits-total').textContent = visits.total ?? '-';
-    document.getElementById('visits-24h').textContent = visits.last24h ? `${visits.last24h} en 24h` : '-';
+    document.getElementById('visits-24h').textContent = visits.last24h ? `${visits.last24h} en las últimas 24h` : '-';
     document.getElementById('sales-count').textContent = sales.count ?? '-';
-    document.getElementById('sales-total').textContent = sales.totalAmount ? `${sales.totalAmount.toFixed ? sales.totalAmount.toFixed(2) : sales.totalAmount}` : '-';
+    document.getElementById('sales-total').textContent = sales.totalAmount ? formatMoney(sales.totalAmount) : '-';
+    visitsSourceEl.textContent = formatVisitSource(visits.source);
+    refreshTimeEl.textContent = `Actualizado ${new Date().toLocaleTimeString()}`;
 
     const topPaths = visits.topPaths || [];
     const tp = document.getElementById('top-paths');
-    tp.innerHTML = topPaths.map(p => `<li><span>${p.path}</span><span class="muted">${p.count}</span></li>`).join('') || '<li><span class="muted">Sin datos</span></li>';
+    tp.innerHTML = topPaths.map(p => `<li><strong>${escapeHtml(p.path)}</strong><span class="muted">${p.count}</span></li>`).join('') || '<li><span class="muted">Sin datos</span></li>';
 
     const byStatus = visits.byStatus || {};
     const sc = document.getElementById('status-codes');
     sc.innerHTML = Object.entries(byStatus)
-      .map(([k, v]) => `<li><span>${k}</span><span class="muted">${v}</span></li>`)
+      .map(([k, v]) => `<li><strong>${escapeHtml(k)}</strong><span class="muted">${v}</span></li>`)
       .join('') || '<li><span class="muted">Sin datos</span></li>';
 
     const sample = sales.sample || [];
     const ss = document.getElementById('sales-sample');
     ss.innerHTML = sample
-      .map(s => `<li><span>${new Date(s.date).toLocaleString()}</span><span class="muted">${s.amount}</span></li>`)
+      .map(s => `<li><strong>${new Date(s.date).toLocaleString()}</strong><span class="muted">${formatMoney(s.amount)}</span></li>`)
       .join('') || '<li><span class="muted">Sin datos</span></li>';
 
-    // Quote tokens
     const tokens = quotes.tokens || data.tokens || [];
     tokensList.innerHTML = tokens.length
       ? tokens.map(t => {
           const link = `https://renace.tech/cotizacion.html?token=${encodeURIComponent(t.token)}`;
           const wa = `https://wa.me/?text=${encodeURIComponent('Completa la solicitud de cotización aquí: ' + link)}`;
-          return `<li style="align-items:center; gap:8px; display:flex; justify-content:space-between; flex-wrap:wrap;">
-            <span>${t.label || 'Token'}</span>
-            <span class="muted">${t.token} · expira ${new Date(t.exp).toLocaleString()}</span>
-            <div style="display:flex; gap:6px;">
-              <button class="secondary" style="padding:4px 8px;" onclick="navigator.clipboard.writeText('${link}').then(()=>{}).catch(()=>{})">Copiar link</button>
-              <a class="secondary" style="padding:6px 8px; text-decoration:none; border-radius:8px; background:#1f2937; color:#d1d5db;" href="${wa}" target="_blank" rel="noopener">WhatsApp</a>
+          return `<li>
+            <div>
+              <strong>${escapeHtml(t.label || 'Token')}</strong>
+              <div class="muted">${new Date(t.exp).toLocaleString()}</div>
+              <div class="muted">${escapeHtml(t.token)}</div>
+            </div>
+            <div class="actions">
+              <button class="secondary" onclick="navigator.clipboard.writeText('${link}').then(()=>{}).catch(()=>{})">Copiar</button>
+              <a class="btn-link secondary" href="${wa}" target="_blank" rel="noopener">WhatsApp</a>
             </div>
           </li>`;
         }).join('')
       : '<li><span class="muted">Sin tokens</span></li>';
 
-    // Submissions
     const submissions = quotes.submissions || data.submissions || [];
     submissionsList.innerHTML = submissions.length
-      ? submissions.map(s => `<li><span>${s.name} (${s.email})</span><span class="muted">${new Date(s.createdAt).toLocaleString()}</span></li>`).join('')
+      ? submissions.map(s => `<li><strong>${escapeHtml(s.name)} (${escapeHtml(s.email)})</strong><span class="muted">${new Date(s.createdAt).toLocaleString()}</span></li>`).join('')
       : '<li><span class="muted">Sin solicitudes</span></li>';
 
     statsCard.style.display = 'block';
@@ -167,7 +212,8 @@
 
   // Intentar reusar token guardado
   if (token) {
-    loginStatus.textContent = 'Autenticado (token guardado)';
+    setLoginStatus('Autenticado (token guardado)');
     loadAnalytics();
+    startAutoRefresh();
   }
 })();

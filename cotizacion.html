@@ -4,82 +4,485 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Solicitud de Cotización - Renace</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
   <style>
-    :root { color-scheme: dark; }
-    body { margin:0; font-family: 'Inter', system-ui, -apple-system, sans-serif; background:#080d1a; color:#e5e7eb; }
-    .wrap { max-width: 900px; margin: 0 auto; padding: 24px; }
-    .card { background:#0f172a; border:1px solid #1f2a44; border-radius:16px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,0.35); }
-    h1 { margin:0 0 6px; font-size: 26px; }
-    p { margin:6px 0 12px; color:#9ca3af; }
-    label { display:block; font-size:12px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; color:#9ca3af; }
-    input, select, textarea { width:100%; padding:12px; border-radius:10px; border:1px solid #1f2a44; background:#0b1224; color:#e5e7eb; font-size:14px; }
-    textarea { resize:vertical; min-height:100px; }
-    .grid { display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-    button { background:#2563eb; color:white; border:none; padding:12px 16px; border-radius:10px; font-weight:700; cursor:pointer; width:100%; }
-    button:disabled { opacity:0.6; cursor:not-allowed; }
-    .muted { color:#9ca3af; font-size:13px; }
-    .error { color:#f87171; font-size:13px; margin-top:8px; }
-    .success { color:#34d399; font-size:13px; margin-top:8px; }
-    .badge { display:inline-block; padding:4px 8px; background:#1d4ed8; color:white; border-radius:999px; font-size:11px; }
+    :root {
+      color-scheme: dark;
+      --bg: #020617;
+      --panel: rgba(9, 17, 40, 0.82);
+      --panel-soft: rgba(12, 22, 52, 0.8);
+      --line: rgba(148, 163, 184, 0.22);
+      --line-strong: rgba(56, 189, 248, 0.45);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --brand: #2563eb;
+      --brand-soft: rgba(37, 99, 235, 0.16);
+      --success: #10b981;
+      --danger: #ef4444;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text);
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 8% 10%, rgba(14, 165, 233, 0.2), transparent 28%),
+        radial-gradient(circle at 90% 15%, rgba(37, 99, 235, 0.16), transparent 30%),
+        radial-gradient(circle at 50% 90%, rgba(14, 116, 144, 0.2), transparent 32%),
+        var(--bg);
+      padding: 22px;
+    }
+
+    .wrap {
+      max-width: 980px;
+      margin: 0 auto;
+    }
+
+    .card {
+      position: relative;
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background: linear-gradient(160deg, rgba(8, 15, 35, 0.95), rgba(5, 10, 25, 0.9));
+      box-shadow: 0 28px 80px rgba(2, 6, 23, 0.62);
+      overflow: hidden;
+      backdrop-filter: blur(16px);
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(130deg, rgba(59, 130, 246, 0.16), transparent 42%, rgba(14, 165, 233, 0.14));
+      pointer-events: none;
+    }
+
+    .card-inner {
+      position: relative;
+      z-index: 1;
+      padding: 28px;
+    }
+
+    .top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 6px 12px;
+      border-radius: 999px;
+      color: #dbeafe;
+      background: linear-gradient(120deg, rgba(30, 64, 175, 0.9), rgba(37, 99, 235, 0.88));
+      border: 1px solid rgba(147, 197, 253, 0.4);
+    }
+
+    h1 {
+      margin: 10px 0 8px;
+      font-family: 'Sora', sans-serif;
+      font-size: clamp(1.8rem, 3vw, 2.3rem);
+      letter-spacing: -0.03em;
+      color: #f8fafc;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      max-width: 620px;
+      line-height: 1.6;
+    }
+
+    .token-status {
+      min-width: 140px;
+      text-align: right;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #7dd3fc;
+      background: rgba(14, 116, 144, 0.22);
+      border: 1px solid rgba(125, 211, 252, 0.35);
+      border-radius: 12px;
+      padding: 8px 12px;
+      align-self: flex-start;
+    }
+
+    .token-status.error {
+      color: #fecaca;
+      background: rgba(127, 29, 29, 0.28);
+      border-color: rgba(248, 113, 113, 0.42);
+    }
+
+    .token-status.success {
+      color: #bbf7d0;
+      background: rgba(6, 78, 59, 0.3);
+      border-color: rgba(74, 222, 128, 0.4);
+    }
+
+    .form {
+      display: grid;
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .section-title {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #bfdbfe;
+    }
+
+    .section-subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 12px;
+    }
+
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #93c5fd;
+      margin-bottom: 7px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      border-radius: 11px;
+      border: 1px solid rgba(59, 130, 246, 0.24);
+      background: linear-gradient(150deg, #060f24, #08122d);
+      color: var(--text);
+      padding: 12px 13px;
+      font-size: 14px;
+      font-family: inherit;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--line-strong);
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.18);
+      transform: translateY(-1px);
+    }
+
+    .preset-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .preset {
+      border: 1px solid rgba(96, 165, 250, 0.3);
+      background: var(--brand-soft);
+      color: #dbeafe;
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .preset:hover {
+      border-color: rgba(125, 211, 252, 0.62);
+      background: rgba(59, 130, 246, 0.24);
+    }
+
+    .modules-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 8px;
+    }
+
+    .module {
+      position: relative;
+    }
+
+    .module input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .module span {
+      display: block;
+      border-radius: 10px;
+      border: 1px solid rgba(100, 116, 139, 0.5);
+      background: rgba(15, 23, 42, 0.84);
+      color: #cbd5e1;
+      padding: 9px 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.18s;
+    }
+
+    .module input:checked + span {
+      border-color: rgba(56, 189, 248, 0.6);
+      background: rgba(8, 145, 178, 0.24);
+      color: #e0f2fe;
+      box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.2);
+    }
+
+    .actions {
+      display: grid;
+      gap: 10px;
+    }
+
+    .submit {
+      width: 100%;
+      border: none;
+      border-radius: 12px;
+      padding: 13px 16px;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+      color: #eff6ff;
+      background: linear-gradient(120deg, #1d4ed8, #0ea5e9);
+      cursor: pointer;
+      transition: transform 0.2s, filter 0.2s, opacity 0.2s;
+    }
+
+    .submit:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.06);
+    }
+
+    .submit:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .muted { color: var(--muted); font-size: 13px; }
+    .error { color: #fecaca; font-size: 13px; }
+    .success { color: #86efac; font-size: 13px; }
+
+    @media (max-width: 760px) {
+      body { padding: 14px; }
+      .card-inner { padding: 18px; }
+      .top { flex-direction: column; }
+      .token-status { width: 100%; text-align: center; }
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <div class="flex" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
-        <div>
-          <div class="badge">Solicitud de Cotización</div>
-          <h1>Cuéntanos de tu negocio</h1>
-          <p>Completa el formulario. Valida que el enlace incluya un token válido.</p>
+      <div class="card-inner">
+        <div class="top">
+          <div>
+            <span class="badge">Solicitud de Cotización Odoo</span>
+            <h1>Diseñemos tu implementación</h1>
+            <p class="subtitle">Comparte los datos clave y selecciona prioridades. Te sugerimos módulos y enfoque para acelerar una implementación Odoo más clara.</p>
+          </div>
+          <div id="token-status" class="token-status">Validando token...</div>
         </div>
-        <div id="token-status" class="muted">Validando token...</div>
+
+        <form id="quote-form" class="form">
+          <section class="section">
+            <h2 class="section-title">1. Contacto principal</h2>
+            <div class="grid">
+              <div>
+                <label for="name">Nombre de contacto *</label>
+                <input id="name" name="name" required placeholder="Tu nombre">
+              </div>
+              <div>
+                <label for="email">Email *</label>
+                <input id="email" name="email" type="email" required placeholder="correo@dominio.com">
+              </div>
+              <div>
+                <label for="phone">WhatsApp o teléfono</label>
+                <input id="phone" name="phone" placeholder="+1 809 ...">
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2 class="section-title">2. Perfil del negocio</h2>
+            <div class="grid">
+              <div>
+                <label for="sector">Sector *</label>
+                <select id="sector" name="sector" required>
+                  <option value="">Selecciona un sector</option>
+                  <option value="retail">Retail / Tienda</option>
+                  <option value="distribucion">Distribución</option>
+                  <option value="servicios">Servicios profesionales</option>
+                  <option value="manufactura">Manufactura</option>
+                  <option value="restaurante">Restaurante / Food</option>
+                  <option value="salud">Salud / Clínicas</option>
+                  <option value="educacion">Educación</option>
+                  <option value="otro">Otro</option>
+                </select>
+              </div>
+              <div>
+                <label for="business">Modelo de negocio *</label>
+                <input id="business" name="business" required placeholder="Ej. cadena de tiendas con inventario central">
+              </div>
+              <div>
+                <label for="locations">Sucursales</label>
+                <select id="locations" name="locations">
+                  <option value="">Selecciona</option>
+                  <option value="1">1 ubicación</option>
+                  <option value="2-5">2 a 5 ubicaciones</option>
+                  <option value="6-20">6 a 20 ubicaciones</option>
+                  <option value="20+">Más de 20 ubicaciones</option>
+                </select>
+              </div>
+            </div>
+            <div class="grid">
+              <div>
+                <label for="cashiers">Cajeras / cajas</label>
+                <input id="cashiers" name="cashiers" inputmode="numeric" placeholder="Ej. 5">
+              </div>
+              <div>
+                <label for="employees">Empleados</label>
+                <input id="employees" name="employees" inputmode="numeric" placeholder="Ej. 30">
+              </div>
+              <div>
+                <label for="revenue">Facturación mensual aprox.</label>
+                <input id="revenue" name="revenue" placeholder="Ej. US$ 50,000">
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2 class="section-title">3. Implementación guiada de Odoo</h2>
+            <p class="section-subtitle">Selecciona un escenario y ajusta. Esto nos permite proponerte una hoja de ruta con módulos más adecuados.</p>
+            <div class="preset-row">
+              <button type="button" class="preset" data-preset="retail">Sugerencia Retail</button>
+              <button type="button" class="preset" data-preset="distribucion">Sugerencia Distribución</button>
+              <button type="button" class="preset" data-preset="servicios">Sugerencia Servicios</button>
+              <button type="button" class="preset" data-preset="manufactura">Sugerencia Manufactura</button>
+            </div>
+            <div class="grid">
+              <div>
+                <label for="objective">Objetivo principal *</label>
+                <select id="objective" name="objective" required>
+                  <option value="">Selecciona tu objetivo</option>
+                  <option value="orden_operativa">Ordenar operación diaria</option>
+                  <option value="control_inventario">Controlar inventario y compras</option>
+                  <option value="automatizar_ventas">Automatizar ventas y CRM</option>
+                  <option value="unificar_contabilidad">Unificar facturación y contabilidad</option>
+                  <option value="escalar_sucursales">Escalar múltiples sucursales</option>
+                </select>
+              </div>
+              <div>
+                <label for="timeline">Horizonte de implementación *</label>
+                <select id="timeline" name="timeline" required>
+                  <option value="">Selecciona un horizonte</option>
+                  <option value="urgente_30">Urgente (0 a 30 días)</option>
+                  <option value="plan_60_90">Planificado (60 a 90 días)</option>
+                  <option value="q_siguiente">Próximo trimestre</option>
+                  <option value="exploracion">Solo evaluación inicial</option>
+                </select>
+              </div>
+              <div>
+                <label for="currentSystem">Sistema actual</label>
+                <select id="currentSystem" name="currentSystem">
+                  <option value="">Selecciona una opción</option>
+                  <option value="excel_manual">Excel / procesos manuales</option>
+                  <option value="erp_legacy">ERP legado</option>
+                  <option value="otro_erp">Otro ERP moderno</option>
+                  <option value="mixto">Herramientas mixtas</option>
+                  <option value="ninguno">Sin sistema actual</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label>Módulos de interés</label>
+              <div class="modules-grid" id="modules-grid">
+                <label class="module"><input type="checkbox" name="modules" value="crm"><span>CRM</span></label>
+                <label class="module"><input type="checkbox" name="modules" value="ventas"><span>Ventas</span></label>
+                <label class="module"><input type="checkbox" name="modules" value="inventario"><span>Inventario</span></label>
+                <label class="module"><input type="checkbox" name="modules" value="compras"><span>Compras</span></label>
+                <label class="module"><input type="checkbox" name="modules" value="contabilidad"><span>Contabilidad</span></label>
+                <label class="module"><input type="checkbox" name="modules" value="punto_de_venta"><span>Punto de Venta</span></label>
+                <label class="module"><input type="checkbox" name="modules" value="facturacion"><span>Facturación</span></label>
+                <label class="module"><input type="checkbox" name="modules" value="rrhh"><span>RRHH</span></label>
+                <label class="module"><input type="checkbox" name="modules" value="manufactura"><span>Manufactura</span></label>
+                <label class="module"><input type="checkbox" name="modules" value="proyectos"><span>Proyectos</span></label>
+                <label class="module"><input type="checkbox" name="modules" value="helpdesk"><span>Helpdesk</span></label>
+                <label class="module"><input type="checkbox" name="modules" value="ecommerce"><span>eCommerce</span></label>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2 class="section-title">4. Requerimientos clave</h2>
+            <div class="grid">
+              <div>
+                <label for="integrations">Integraciones prioritarias</label>
+                <input id="integrations" name="integrations" placeholder="Ej. eCommerce, bancos, factura electrónica">
+              </div>
+              <div>
+                <label for="migration">Migración de datos</label>
+                <select id="migration" name="migration">
+                  <option value="">Selecciona</option>
+                  <option value="si_completa">Sí, completa</option>
+                  <option value="si_parcial">Sí, parcial</option>
+                  <option value="no">No por ahora</option>
+                  <option value="evaluar">Aún por evaluar</option>
+                </select>
+              </div>
+              <div>
+                <label for="training">Capacitación requerida</label>
+                <select id="training" name="training">
+                  <option value="">Selecciona</option>
+                  <option value="basica">Básica para equipo clave</option>
+                  <option value="completa">Completa por departamentos</option>
+                  <option value="acompanamiento">Acompañamiento continuo</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label for="message">Notas adicionales</label>
+              <textarea id="message" name="message" placeholder="Comparte restricciones, expectativas o detalles importantes..."></textarea>
+            </div>
+          </section>
+
+          <div class="actions">
+            <button type="submit" id="submitBtn" class="submit">Enviar solicitud</button>
+            <div id="form-message" class="muted"></div>
+          </div>
+        </form>
       </div>
-
-      <form id="quote-form" class="space-y" style="display:grid; gap:14px; margin-top:12px;">
-        <div class="grid">
-          <div>
-            <label for="name">Nombre de contacto *</label>
-            <input id="name" name="name" required placeholder="Tu nombre">
-          </div>
-          <div>
-            <label for="email">Email *</label>
-            <input id="email" name="email" type="email" required placeholder="correo@dominio.com">
-          </div>
-          <div>
-            <label for="phone">Teléfono</label>
-            <input id="phone" name="phone" placeholder="WhatsApp o teléfono">
-          </div>
-        </div>
-
-        <div>
-          <label for="business">Modelo de negocio *</label>
-          <input id="business" name="business" required placeholder="Describe brevemente">
-        </div>
-
-        <div class="grid">
-          <div>
-            <label for="cashiers">Cajeras</label>
-            <input id="cashiers" name="cashiers" inputmode="numeric" placeholder="Ej. 5">
-          </div>
-          <div>
-            <label for="employees">Empleados</label>
-            <input id="employees" name="employees" inputmode="numeric" placeholder="Ej. 30">
-          </div>
-          <div>
-            <label for="revenue">Facturación mensual aprox.</label>
-            <input id="revenue" name="revenue" placeholder="Ej. $50,000 USD">
-          </div>
-        </div>
-
-        <div>
-          <label for="message">Mensaje / requerimientos</label>
-          <textarea id="message" name="message" placeholder="Describe necesidades, plazos, integraciones..."></textarea>
-        </div>
-
-        <button type="submit" id="submitBtn">Enviar solicitud</button>
-        <div id="form-message" class="muted"></div>
-      </form>
     </div>
   </div>
 
@@ -90,26 +493,84 @@
     const form = document.getElementById('quote-form');
     const msgEl = document.getElementById('form-message');
     const submitBtn = document.getElementById('submitBtn');
+    const moduleInputs = Array.from(document.querySelectorAll('input[name="modules"]'));
+    const presets = {
+      retail: {
+        sector: 'retail',
+        objective: 'automatizar_ventas',
+        timeline: 'plan_60_90',
+        modules: ['ventas', 'inventario', 'punto_de_venta', 'facturacion', 'contabilidad']
+      },
+      distribucion: {
+        sector: 'distribucion',
+        objective: 'control_inventario',
+        timeline: 'plan_60_90',
+        modules: ['inventario', 'compras', 'ventas', 'facturacion', 'contabilidad']
+      },
+      servicios: {
+        sector: 'servicios',
+        objective: 'orden_operativa',
+        timeline: 'q_siguiente',
+        modules: ['crm', 'ventas', 'proyectos', 'facturacion', 'helpdesk']
+      },
+      manufactura: {
+        sector: 'manufactura',
+        objective: 'escalar_sucursales',
+        timeline: 'q_siguiente',
+        modules: ['manufactura', 'inventario', 'compras', 'contabilidad', 'rrhh']
+      }
+    };
 
-    function setMsg(text, type='muted') {
+    function setMsg(text, type = 'muted') {
       msgEl.textContent = text;
-      msgEl.className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'muted';
+      msgEl.className = type;
+    }
+
+    function setTokenStatus(text, type = '') {
+      statusEl.textContent = text;
+      statusEl.className = type ? `token-status ${type}` : 'token-status';
+    }
+
+    function applyPreset(name) {
+      const config = presets[name];
+      if (!config) return;
+      form.sector.value = config.sector;
+      form.objective.value = config.objective;
+      form.timeline.value = config.timeline;
+      moduleInputs.forEach(input => {
+        input.checked = config.modules.includes(input.value);
+      });
+      setMsg('Sugerencia aplicada. Puedes ajustar módulos y prioridades.', 'muted');
+    }
+
+    function buildDiscoverySummary(modules) {
+      const parts = [
+        `Objetivo: ${form.objective.value || 'No indicado'}`,
+        `Horizonte: ${form.timeline.value || 'No indicado'}`,
+        `Sistema actual: ${form.currentSystem.value || 'No indicado'}`,
+        `Integraciones: ${form.integrations.value.trim() || 'No indicadas'}`,
+        `Migración: ${form.migration.value || 'No indicado'}`,
+        `Capacitación: ${form.training.value || 'No indicado'}`,
+        `Módulos: ${modules.join(', ') || 'No indicados'}`
+      ];
+      const userNote = form.message.value.trim();
+      return userNote ? `${userNote}\n\n${parts.join('\n')}` : parts.join('\n');
     }
 
     async function validateToken() {
       if (!token) {
-        statusEl.textContent = 'Token faltante';
+        setTokenStatus('Token faltante', 'error');
         form.style.display = 'none';
         return;
       }
-      statusEl.textContent = 'Validando token...';
+      setTokenStatus('Validando token...');
       try {
         const res = await fetch(`/api/quote/validate?token=${encodeURIComponent(token)}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Token inválido');
-        statusEl.textContent = 'Token válido';
+        setTokenStatus('Token válido', 'success');
       } catch (e) {
-        statusEl.textContent = e.message;
+        setTokenStatus(e.message, 'error');
         form.style.display = 'none';
       }
     }
@@ -118,6 +579,7 @@
       ev.preventDefault();
       setMsg('Enviando...');
       submitBtn.disabled = true;
+      const selectedModules = moduleInputs.filter(input => input.checked).map(input => input.value);
       const payload = {
         token,
         name: form.name.value.trim(),
@@ -127,7 +589,16 @@
         cashiers: form.cashiers.value.trim(),
         employees: form.employees.value.trim(),
         revenue: form.revenue.value.trim(),
-        message: form.message.value.trim(),
+        sector: form.sector.value,
+        locations: form.locations.value,
+        objective: form.objective.value,
+        timeline: form.timeline.value,
+        currentSystem: form.currentSystem.value,
+        modules: selectedModules,
+        integrations: form.integrations.value.trim(),
+        migration: form.migration.value,
+        training: form.training.value,
+        message: buildDiscoverySummary(selectedModules),
       };
       try {
         const res = await fetch('/api/quote/submit', {
@@ -137,14 +608,19 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Error al enviar');
-        setMsg('Solicitud enviada. ¡Gracias!', 'success');
+        setMsg('Solicitud enviada. ¡Gracias! Nuestro equipo te contactará con una propuesta alineada a Odoo.', 'success');
         form.reset();
+        moduleInputs.forEach(input => { input.checked = false; });
       } catch (e) {
         setMsg(e.message, 'error');
       } finally {
         submitBtn.disabled = false;
       }
     }
+
+    document.querySelectorAll('[data-preset]').forEach(btn => {
+      btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+    });
 
     form.addEventListener('submit', submitForm);
     validateToken();
