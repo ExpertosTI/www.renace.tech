@@ -1585,6 +1585,7 @@
     let terminalExecutionNonce = 0;
     let terminalRenderedStep = -1;
     let terminalTypingInterval = null;
+    let terminalInputTimer = null;
     let redirectTimer = null;
     const assistantState = {
       loading: false,
@@ -2046,6 +2047,7 @@
         btn.classList.toggle('active', btn.dataset.revenue === value);
       });
       renderJourneyState();
+      maybeRunInputCommand('revenue');
     }
 
     function jumpToStep(nextStep) {
@@ -2127,6 +2129,7 @@
       if (mode === 'boot') return 'boot_quote_console --profile=client';
       if (mode === 'finalize') return 'package_quote_payload --encrypt --notify-team';
       if (mode === 'redirect') return 'open_home_window --source=quote_terminal';
+      if (mode === 'input') return `sync_answer_buffer --question=${index + 1} --state=typing`;
       const map = {
         name: 'set_contact_name',
         email: 'set_contact_email',
@@ -2182,6 +2185,8 @@
           ? 94
           : mode === 'redirect'
             ? 100
+            : mode === 'input'
+              ? Math.min(92, 30 + ((executiveIndex + 1) / Math.max(executiveSlides.length, 1)) * 60)
             : Math.min(86, 22 + ((executiveIndex + 1) / Math.max(executiveSlides.length, 1)) * 64);
       setTerminalMeter(loadTarget);
       const nonce = ++terminalExecutionNonce;
@@ -2221,6 +2226,32 @@
       }, mode === 'save' ? 320 : 540);
     }
 
+    function queueTerminalInputCommand() {
+      if (!document.body.classList.contains('executive-mode')) return;
+      if (terminalInputTimer) clearTimeout(terminalInputTimer);
+      terminalInputTimer = setTimeout(() => {
+        const current = executiveSlides[executiveIndex];
+        if (!current) return;
+        runTerminalCommand('input');
+      }, 240);
+    }
+
+    function maybeRunInputCommand(fieldName) {
+      const current = executiveSlides[executiveIndex];
+      if (!current) return;
+      if (current.kind === 'modules' && fieldName === 'modules') {
+        queueTerminalInputCommand();
+        return;
+      }
+      if (current.kind === 'revenue' && fieldName === 'revenue') {
+        queueTerminalInputCommand();
+        return;
+      }
+      if (current.field && current.field === fieldName) {
+        queueTerminalInputCommand();
+      }
+    }
+
     function renderFinalTerminalState(shortName) {
       const controls = executiveFlowEl.querySelector('.exec-controls');
       if (controls) controls.style.display = 'none';
@@ -2234,7 +2265,7 @@
           <div class="exec-finish">
             <strong>STATUS::SUCCESS</strong>
             <h3>Solicitud enviada, ${escapeHtml(shortName)}.</h3>
-            <p>Conectando con la ventana principal para continuar tu experiencia...</p>
+            <p>Agenda registrada. Te llamaremos en el horario seleccionado.</p>
           </div>
         `;
       }
@@ -2269,14 +2300,14 @@
       const steps = [
         {
           title: '¿Cómo te llamas?',
-          subtitle: 'Empecemos con una sola pregunta para personalizar tu propuesta.',
+          subtitle: 'Empecemos con tus datos para agendar la llamada.',
           node: getExecutiveField('name'),
           field: 'name',
           required: true
         },
         {
           title: '¿Cuál es tu correo empresarial?',
-          subtitle: 'Aquí te enviaremos la ruta de solución y el resumen ejecutivo.',
+          subtitle: 'Aquí confirmamos la agenda y el resumen previo a la llamada.',
           node: getExecutiveField('email'),
           field: 'email',
           required: true
@@ -2519,6 +2550,8 @@
     form.querySelectorAll('input, select, textarea').forEach(el => {
       el.addEventListener('input', renderJourneyState);
       el.addEventListener('change', renderJourneyState);
+      el.addEventListener('input', () => maybeRunInputCommand(el.name));
+      el.addEventListener('change', () => maybeRunInputCommand(el.name));
       el.addEventListener('focus', () => {
         const section = el.closest('.step-section');
         if (!section) return;
@@ -2556,6 +2589,7 @@
         btn.classList.toggle('active', btn.dataset.revenue === val);
       });
       renderJourneyState();
+      maybeRunInputCommand('revenue');
     });
 
     assistantOptionsEl.addEventListener('click', ev => {
@@ -2600,6 +2634,7 @@
             input.value = pill.dataset.value;
           }
           renderJourneyState();
+          maybeRunInputCommand(inputId);
         });
       });
 
@@ -2619,6 +2654,7 @@
             else p.classList.remove('active');
           }
         });
+        maybeRunInputCommand(inputId);
       });
     }
 
@@ -2651,6 +2687,7 @@
         card.classList.add('active');
         form.objective.value = card.dataset.value;
         renderJourneyState();
+        maybeRunInputCommand('objective');
       });
     });
 
@@ -2660,6 +2697,7 @@
         card.classList.add('active');
         form.timeline.value = card.dataset.value;
         renderJourneyState();
+        maybeRunInputCommand('timeline');
       });
     });
 
@@ -2669,6 +2707,8 @@
         card.classList.add('active');
         form.callSlot.value = card.dataset.value;
         renderJourneyState();
+        maybeRunInputCommand('callSlot');
+        setMsg(`Horario ${card.dataset.value} seleccionado. Al enviar, te llamaremos en esa franja.`, 'success');
       });
     });
 
