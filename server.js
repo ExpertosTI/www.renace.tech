@@ -629,11 +629,14 @@ app.post('/api/quote/submit', apiLimiter, async (req, res) => {
   const sector = sanitizeText(payload.sector || '');
   const objective = sanitizeText(payload.objective || '');
   const timeline = sanitizeText(payload.timeline || '');
+  const callDate = sanitizeText(payload.callDate || '');
+  const callSlot = sanitizeText(payload.callSlot || '');
+  const callTimezone = sanitizeText(payload.callTimezone || '');
   const architecture = sanitizeText(payload.architecture || '');
   const modules = Array.isArray(payload.modules) ? payload.modules.map(m => sanitizeText(m)) : [];
 
-  if (!name || !email || !business) {
-    return res.status(400).json({ error: 'Nombre, email y modelo de negocio son obligatorios' });
+  if (!name || !email || !business || !callDate || !callSlot) {
+    return res.status(400).json({ error: 'Nombre, email, modelo de negocio, fecha y horario de llamada son obligatorios' });
   }
 
   try {
@@ -648,6 +651,9 @@ app.post('/api/quote/submit', apiLimiter, async (req, res) => {
       sector,
       objective,
       timeline,
+      callDate,
+      callSlot,
+      callTimezone,
       architecture,
       modules,
       cashiers,

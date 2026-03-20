@@ -1248,9 +1248,9 @@
             <div class="brand-strip">
               <img src="images/renacelogo.svg" alt="Renace Tech">
             </div>
-            <span class="badge"><i class="fa-solid fa-layer-group"></i> Diagnóstico Digital Empresarial</span>
-            <h1>Diseñemos tu solución digital</h1>
-            <p class="subtitle">Esta experiencia guiada te recomienda la mejor combinación entre ERP, automatización, integraciones y software a medida según tu modelo de negocio.</p>
+            <span class="badge"><i class="fa-solid fa-phone-volume"></i> Agenda una llamada de diagnóstico</span>
+            <h1>Agenda tu llamada estratégica</h1>
+            <p class="subtitle">Comparte tu contexto, elige tu horario disponible y coordinamos una llamada para definir la mejor solución para tu empresa.</p>
           </div>
           <div id="token-status" class="token-status">Validando token...</div>
         </div>
@@ -1261,8 +1261,8 @@
             <div class="journey-bar" id="journey-bar">
               <div class="journey-step" data-step-indicator="0">Contacto</div>
               <div class="journey-step" data-step-indicator="1">Negocio</div>
-              <div class="journey-step" data-step-indicator="2">Ruta Tecnológica</div>
-              <div class="journey-step" data-step-indicator="3">Cierre</div>
+              <div class="journey-step" data-step-indicator="2">Solución</div>
+              <div class="journey-step" data-step-indicator="3">Agenda</div>
             </div>
 
             <section class="section step-section unlocked active" data-step="0">
@@ -1456,11 +1456,25 @@
 
             <section class="section step-section" data-step="3">
               <div class="section-head">
-                <span class="section-icon"><i class="fa-solid fa-clipboard-check"></i></span>
-                <h2 class="section-title">4. Requerimientos clave</h2>
+                <span class="section-icon"><i class="fa-solid fa-calendar-check"></i></span>
+                <h2 class="section-title">4. Agenda tu llamada</h2>
               </div>
-              <p class="section-subtitle">Cerramos con los detalles para enviarte un plan accionable y realista.</p>
+              <p class="section-subtitle">Selecciona tu disponibilidad. Con esta agenda te llamaremos para aterrizar la propuesta.</p>
               <div class="grid">
+                <div>
+                  <label for="callDate">Fecha disponible para llamada *</label>
+                  <input id="callDate" name="callDate" type="date" required>
+                </div>
+                <div>
+                  <label for="callSlot">Horario preferido para llamada *</label>
+                  <input type="hidden" id="callSlot" name="callSlot" required>
+                  <div class="selection-grid" id="call-slot-options">
+                    <div class="selection-card" data-value="08:00-10:00"><i class="fa-solid fa-sun"></i><span>08:00 - 10:00</span></div>
+                    <div class="selection-card" data-value="10:00-12:00"><i class="fa-solid fa-clock"></i><span>10:00 - 12:00</span></div>
+                    <div class="selection-card" data-value="14:00-16:00"><i class="fa-solid fa-business-time"></i><span>14:00 - 16:00</span></div>
+                    <div class="selection-card" data-value="16:00-18:00"><i class="fa-solid fa-phone"></i><span>16:00 - 18:00</span></div>
+                  </div>
+                </div>
                 <div>
                   <label for="integrations">Integraciones prioritarias</label>
                   <input id="integrations" name="integrations" placeholder="Ej. eCommerce, bancos, factura electrónica">
@@ -1570,6 +1584,7 @@
     let executiveIndex = 0;
     let terminalExecutionNonce = 0;
     let terminalRenderedStep = -1;
+    let terminalTypingInterval = null;
     let redirectTimer = null;
     const assistantState = {
       loading: false,
@@ -1699,6 +1714,7 @@
       const lines = [
         `Solicitud RENACE - ${form.name.value.trim() || 'Cliente'}`,
         `Contacto: ${form.email.value.trim() || 'Pendiente'}${form.phone.value.trim() ? ` | ${form.phone.value.trim()}` : ''}`,
+        `Agenda: ${form.callDate.value || 'Pendiente'} ${form.callSlot.value ? `| ${form.callSlot.value}` : ''}`,
         `Sector: ${form.sector.value || 'Pendiente'}`,
         `Modelo: ${form.business.value.trim() || 'Pendiente'}`,
         `Objetivo: ${form.objective.value || 'Pendiente'}`,
@@ -1869,6 +1885,8 @@
         business: form.business.value.trim(),
         objective: form.objective.value,
         timeline: form.timeline.value,
+        callDate: form.callDate.value,
+        callSlot: form.callSlot.value,
         currentSystem: form.currentSystem.value,
         locations: form.locations.value,
         modules: getSelectedModules()
@@ -1896,7 +1914,7 @@
       if (step === 2) {
         return !!form.objective.value && !!form.timeline.value && getSelectedModules().length > 0;
       }
-      return true;
+      return !!form.callDate.value && !!form.callSlot.value;
     }
 
     function getMaxUnlockedStep() {
@@ -1936,13 +1954,14 @@
         `Modelo: ${form.business.value.trim() || 'Pendiente'}`,
         `Objetivo: ${getSelectedText(form.objective) || 'Pendiente'}`,
         `Horizonte: ${getSelectedText(form.timeline) || 'Pendiente'}`,
+        `Llamada: ${form.callDate.value || 'Pendiente'} ${form.callSlot.value ? `· ${form.callSlot.value}` : ''}`,
         `Módulos: ${selectedModules.length ? selectedModules.join(', ') : 'Pendiente'}`
       ];
       const stepMessages = [
-        'Iniciemos con tus datos de contacto para personalizar la propuesta.',
-        'Ahora definamos el contexto real de tu negocio para ajustar alcance.',
+        'Iniciemos con tus datos para poder coordinar la llamada.',
+        'Ahora definamos el contexto real de tu negocio para llegar preparados a la conversación.',
         'Excelente, definamos tu ruta tecnológica y los bloques funcionales de mayor impacto.',
-        'Último paso: integra requerimientos técnicos y enviamos tu brief listo.'
+        'Último paso: selecciona fecha y horario para que nuestro equipo te llame.'
       ];
       const aiStateText = assistantState.loading ? ' Analizando tu modelo de negocio…' : '';
       typeAssistantMessage(`${stepMessages[activeStep]} ${assistantState.message || library.message}${aiStateText}`);
@@ -2059,6 +2078,8 @@
       const parts = [
         `Objetivo: ${form.objective.value || 'No indicado'}`,
         `Horizonte: ${form.timeline.value || 'No indicado'}`,
+        `Fecha de llamada: ${form.callDate.value || 'No indicada'}`,
+        `Horario de llamada: ${form.callSlot.value || 'No indicado'}`,
         `Facturación mensual: ${form.revenue.value || 'No indicada'}`,
         `Sistema actual: ${form.currentSystem.value || 'No indicado'}`,
         `Integraciones: ${form.integrations.value.trim() || 'No indicadas'}`,
@@ -2116,6 +2137,8 @@
         currentSystem: 'inspect_current_stack',
         objective: 'prioritize_business_goal',
         timeline: 'sync_delivery_timeline',
+        callDate: 'set_call_date',
+        callSlot: 'set_call_window',
         modules: 'compile_solution_modules',
         migration: 'check_data_migration',
         training: 'plan_team_enablement',
@@ -2147,7 +2170,7 @@
       const command = getExecutiveCommand(step, executiveIndex, mode);
       const line = document.createElement('div');
       line.className = 'terminal-log-line prompt busy';
-      line.innerHTML = `<span class="term-time">${getTerminalClock()}</span><span>client@renace:~$</span><span>${escapeHtml(command)}</span><span class="term-state">running</span>`;
+      line.innerHTML = `<span class="term-time">${getTerminalClock()}</span><span>client@renace:~$</span><span class="term-command"></span><span class="term-state">running</span>`;
       logEl.append(line);
       while (logEl.children.length > 6) {
         logEl.removeChild(logEl.firstChild);
@@ -2162,6 +2185,23 @@
             : Math.min(86, 22 + ((executiveIndex + 1) / Math.max(executiveSlides.length, 1)) * 64);
       setTerminalMeter(loadTarget);
       const nonce = ++terminalExecutionNonce;
+      const commandEl = line.querySelector('.term-command');
+      if (terminalTypingInterval) clearInterval(terminalTypingInterval);
+      let charIndex = 0;
+      terminalTypingInterval = setInterval(() => {
+        if (nonce !== terminalExecutionNonce) {
+          clearInterval(terminalTypingInterval);
+          terminalTypingInterval = null;
+          return;
+        }
+        if (!commandEl) return;
+        commandEl.textContent = command.slice(0, charIndex + 1);
+        charIndex += 1;
+        if (charIndex >= command.length) {
+          clearInterval(terminalTypingInterval);
+          terminalTypingInterval = null;
+        }
+      }, 12);
       setTimeout(() => {
         if (nonce !== terminalExecutionNonce) return;
         line.classList.remove('busy');
@@ -2291,6 +2331,20 @@
           required: true
         },
         {
+          title: '¿Qué día te funciona para la llamada?',
+          subtitle: 'Reserva tu fecha para que podamos contactarte.',
+          node: getExecutiveField('callDate'),
+          field: 'callDate',
+          required: true
+        },
+        {
+          title: '¿En qué horario prefieres recibir la llamada?',
+          subtitle: 'Elegimos tu franja para agendarla sin fricción.',
+          node: getExecutiveField('callSlot'),
+          field: 'callSlot',
+          required: true
+        },
+        {
           title: '¿Qué módulos son prioridad para ti?',
           subtitle: 'Selecciona los bloques que más valor te darán.',
           node: document.getElementById('modules-grid')?.closest('div'),
@@ -2410,6 +2464,10 @@
         setMsg('Completa los pasos guiados antes de enviar la solicitud.', 'error');
         return;
       }
+      if (!form.callDate.value || !form.callSlot.value) {
+        setMsg('Selecciona fecha y horario para agendar la llamada.', 'error');
+        return;
+      }
       setMsg('Enviando...', 'muted');
       submitBtn.disabled = true;
       let keepSubmitDisabled = false;
@@ -2427,6 +2485,9 @@
         locations: form.locations.value,
         objective: form.objective.value,
         timeline: form.timeline.value,
+        callDate: form.callDate.value,
+        callSlot: form.callSlot.value,
+        callTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Santo_Domingo',
         currentSystem: form.currentSystem.value,
         modules: selectedModules,
         integrations: form.integrations.value.trim(),
@@ -2582,6 +2643,7 @@
 
     const objectiveCards = Array.from(document.querySelectorAll('#objective-options .selection-card'));
     const timelineCards = Array.from(document.querySelectorAll('#timeline-options .selection-card'));
+    const callSlotCards = Array.from(document.querySelectorAll('#call-slot-options .selection-card'));
 
     objectiveCards.forEach(card => {
       card.addEventListener('click', () => {
@@ -2600,6 +2662,23 @@
         renderJourneyState();
       });
     });
+
+    callSlotCards.forEach(card => {
+      card.addEventListener('click', () => {
+        callSlotCards.forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        form.callSlot.value = card.dataset.value;
+        renderJourneyState();
+      });
+    });
+
+    if (form.callDate) {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      form.callDate.min = `${yyyy}-${mm}-${dd}`;
+    }
 
     form.addEventListener('submit', submitForm);
     initExecutiveFlow();

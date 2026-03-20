@@ -78,6 +78,7 @@
 
     // Format money
     const revenue = s.revenue ? formatMoney(parseDopRevenue(s.revenue)) : '-';
+    const callSchedule = [s.callDate, s.callSlot, s.callTimezone].filter(Boolean).join(' · ');
     
     content.innerHTML = `
       <div class="detail-group">
@@ -99,6 +100,10 @@
         <div class="detail-value">Arquitectura: ${escapeHtml(s.architecture || 'No especificado')}</div>
       </div>
       <div class="detail-group">
+        <div class="detail-label">Llamada</div>
+        <div class="detail-value">${escapeHtml(callSchedule || 'No agendada')}</div>
+      </div>
+      <div class="detail-group">
         <div class="detail-label">Módulos Requeridos</div>
         <div class="detail-value">${modulesList}</div>
       </div>
@@ -113,7 +118,7 @@
     `;
     
     // WhatsApp Link
-    const text = `Hola ${s.name}, recibimos tu solicitud en RENACE.TECH. ¿Tienes un momento para conversar sobre tu proyecto de ${s.business}?`;
+    const text = `Hola ${s.name}, recibimos tu solicitud en RENACE.TECH. Vimos tu disponibilidad ${callSchedule || 'para llamada'}. ¿Confirmamos ese horario para conversar sobre tu proyecto de ${s.business}?`;
     waBtn.href = `https://wa.me/${(s.phone || '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`;
     
     modal.classList.add('open');
@@ -375,6 +380,7 @@
   }
 
   function getTrackingStage(submission) {
+    if (submission.callDate && submission.callSlot) return 'Llamada agendada';
     const timeline = String(submission.timeline || '');
     const modules = Array.isArray(submission.modules) ? submission.modules : [];
     if (timeline.includes('urgente')) return 'Onboarding inmediato';
@@ -507,10 +513,11 @@
           const p = getPriorityTag(s);
           const stage = getTrackingStage(s);
           const moduleCount = Array.isArray(s.modules) ? s.modules.length : 0;
+          const callInfo = s.callDate && s.callSlot ? `${s.callDate} · ${s.callSlot}` : 'Sin horario';
           return `<li onclick="window.openSubmission('${s.id || s.token}')" style="cursor:pointer;" class="clickable-row">
             <div>
               <strong>${escapeHtml(s.name || 'Lead')} · ${escapeHtml(getSectorLabel(s.sector))}</strong>
-              <div class="muted">${escapeHtml(stage)} · ${escapeHtml(getObjectiveLabel(s.objective))} · ${moduleCount} módulos</div>
+              <div class="muted">${escapeHtml(stage)} · ${escapeHtml(callInfo)} · ${moduleCount} módulos</div>
             </div>
             <div>
               <span class="tag ${p.cls}">${escapeHtml(p.label)}</span>
@@ -769,10 +776,11 @@
       ? submissions.slice(0, 40).map(s => {
           const p = getPriorityTag(s);
           const modulesCount = Array.isArray(s.modules) ? s.modules.length : 0;
+          const callInfo = s.callDate && s.callSlot ? `${s.callDate} · ${s.callSlot}` : 'Sin horario';
           return `<li onclick="window.openSubmission('${s.id || s.token}')" style="cursor:pointer;" class="clickable-row">
             <div>
               <strong>${escapeHtml(s.name)} (${escapeHtml(s.email)})</strong>
-              <div class="muted">${escapeHtml(getSectorLabel(s.sector))} · ${escapeHtml(getObjectiveLabel(s.objective))} · ${modulesCount} módulos</div>
+              <div class="muted">${escapeHtml(getSectorLabel(s.sector))} · ${escapeHtml(callInfo)} · ${modulesCount} módulos</div>
             </div>
             <div>
               <span class="tag ${p.cls}">${escapeHtml(p.label)}</span>
