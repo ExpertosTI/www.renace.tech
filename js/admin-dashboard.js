@@ -407,7 +407,7 @@
       distribucion: 'Distribución',
       servicios: 'Servicios',
       manufactura: 'Manufactura',
-      tecnologia: 'Tecnología',
+      tecnologia: 'Tecnología y Electro',
       salud: 'Salud',
       educacion: 'Educación',
       construccion: 'Construcción',

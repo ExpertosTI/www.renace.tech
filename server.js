@@ -1057,7 +1057,7 @@ function buildQuoteAssistantFallback(context) {
       ],
     },
     tecnologia: {
-      message: 'Para negocios de tecnología y reparación, recomendamos inventario por número de serie, helpdesk para órdenes de servicio y POS integrado.',
+      message: 'Para negocios de tecnología, electrodomésticos y reparación, recomendamos inventario por número de serie, helpdesk para órdenes de servicio y POS integrado.',
       recommendations: [
         'Controla equipos por número de serie y estado de reparación.',
         'Usa helpdesk para gestionar órdenes de servicio y garantías.',
