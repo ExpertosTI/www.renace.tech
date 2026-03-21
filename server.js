@@ -666,6 +666,10 @@ app.post('/api/quote/submit', apiLimiter, async (req, res) => {
     };
     data.submissions.push(submission);
     await saveQuoteData(data);
+    
+    // Notify Admin (Fire and forget to not block the user response)
+    sendAdminNotification(submission, req).catch(err => console.error('[Error in admin notification]:', err.message));
+
     res.json({ status: 'ok', id: submission.id });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -1127,6 +1131,66 @@ function requestChatWebhook(payload, req) {
     preq.end();
   });
 }
+
+async function sendAdminNotification(submission, req) {
+  // 1. WhatsApp / Webhook Notification (OpenClaw)
+  if (CHAT_WEBHOOK) {
+    const chatPayload = {
+      message: `🚨 *Nueva solicitud de cotización*\n\n*Cliente:* ${submission.name}\n*Empresa:* ${submission.business}\n*Sector:* ${submission.sector}\n*WhatsApp:* ${submission.phone}\n*Email:* ${submission.email}\n*Objetivo:* ${submission.objective}\n*Timeline:* ${submission.timeline}\n*Cajas:* ${submission.cashiers} · *Empleados:* ${submission.employees}\n*Ingresos:* ${submission.revenue}\n\n*Mensaje:* ${submission.message || 'Sin mensaje adicional.'}`,
+      sessionId: `admin-notif-${Date.now()}`,
+      source: 'renace-server-notif',
+      mode: 'admin_notification',
+      context: { 
+        name: submission.name, 
+        business: submission.business, 
+        sector: submission.sector, 
+        revenue: submission.revenue 
+      }
+    };
+    try {
+      await requestChatWebhook(chatPayload, req);
+    } catch (e) {
+      console.warn('[Admin Notif Webhook failed]:', e.message);
+    }
+  }
+
+  // 2. Email Notification
+  if (transporter && ADMIN_EMAILS.length > 0) {
+    try {
+      const adminList = ADMIN_EMAILS.join(', ');
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || 'RENACE.TECH <noreply@renace.tech>',
+        to: adminList,
+        subject: `🚨 Nueva Cotización: ${submission.name} — renace.tech`,
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
+            <h2 style="color: #2563eb;">Nueva solicitud de cotización</h2>
+            <p>Se ha recibido una nueva solicitud desde el formulario interactivo.</p>
+            <hr style="border: 0; border-top: 1px solid #eee;">
+            <p><strong>Cliente:</strong> ${submission.name}</p>
+            <p><strong>Email:</strong> ${submission.email}</p>
+            <p><strong>Teléfono/WA:</strong> ${submission.phone}</p>
+            <hr style="border: 0; border-top: 1px solid #eee;">
+            <p><strong>Negocio:</strong> ${submission.business}</p>
+            <p><strong>Sector:</strong> ${submission.sector}</p>
+            <p><strong>Facturación:</strong> ${submission.revenue}</p>
+            <p><strong>Escala:</strong> ${submission.cashiers} cajas / ${submission.employees} empleados</p>
+            <hr style="border: 0; border-top: 1px solid #eee;">
+            <p><strong>Objetivo:</strong> ${submission.objective}</p>
+            <p><strong>Llamada:</strong> ${submission.callDate} a las ${submission.callSlot} (${submission.callTimezone})</p>
+            <p><strong>Módulos:</strong> ${submission.modules.join(', ')}</p>
+            <p><strong>Mensaje:</strong> ${submission.message || 'N/A'}</p>
+            <br>
+            <a href="https://renace.tech/admin-dashboard.html" style="display: inline-block; padding: 10px 20px; background: #2563eb; color: #fff; text-decoration: none; border-radius: 5px;">Abrir Panel de Admin</a>
+          </div>
+        `
+      });
+    } catch (e) {
+      console.warn('[Admin Notif Email failed]:', e.message);
+    }
+  }
+}
+
 
 app.post('/api/chat', chatLimiter, async (req, res) => {
   if (!requireBasicAuth(req, res)) return;
