@@ -1237,6 +1237,23 @@
       .exec-controls { flex-direction: column-reverse; }
       .exec-btn { width: 100%; }
     }
+
+    /* AI Typing Effect */
+    .ai-typing-title {
+      display: inline;
+      border-right: 2px solid rgba(147, 197, 253, 0.85);
+      animation: cursorBlink 0.72s steps(1) infinite;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .ai-typing-title.done {
+      border-right-color: transparent;
+      animation: none;
+    }
+    @keyframes cursorBlink {
+      0%, 49% { border-right-color: rgba(147, 197, 253, 0.85); }
+      50%, 100% { border-right-color: transparent; }
+    }
   </style>
 </head>
 <body>
@@ -1249,7 +1266,7 @@
               <img src="images/renacelogo.svg" alt="Renace Tech">
             </div>
             <span class="badge"><i class="fa-solid fa-phone-volume"></i> Agenda una llamada de diagnóstico</span>
-            <h1>Agenda tu llamada estratégica</h1>
+            <h1><span id="ai-title" class="ai-typing-title"></span></h1>
             <p class="subtitle">Comparte tu contexto, elige tu horario disponible y coordinamos una llamada para definir la mejor solución para tu empresa.</p>
           </div>
           <div id="token-status" class="token-status">Validando token...</div>
@@ -1314,6 +1331,7 @@
                     <button type="button" class="pill-option" data-value="Belleza"><i class="fa-solid fa-spa"></i> Belleza</button>
                     <button type="button" class="pill-option" data-value="Construcción"><i class="fa-solid fa-trowel-bricks"></i> Construcción</button>
                     <button type="button" class="pill-option" data-value="Transporte"><i class="fa-solid fa-truck"></i> Transporte</button>
+                    <button type="button" class="pill-option" data-value="Tecnología / Reparación"><i class="fa-solid fa-microchip"></i> Tecnología</button>
                   </div>
                   <input id="sector" name="sector" required placeholder="Escribe tu sector o selecciona varios de arriba...">
                 </div>
@@ -1381,6 +1399,7 @@
                 <button type="button" class="preset" data-preset="distribucion"><i class="fa-solid fa-truck-fast"></i>Distribución conectada</button>
                 <button type="button" class="preset" data-preset="servicios"><i class="fa-solid fa-briefcase"></i>Servicios escalables</button>
                 <button type="button" class="preset" data-preset="manufactura"><i class="fa-solid fa-industry"></i>Manufactura eficiente</button>
+                <button type="button" class="preset" data-preset="tecnologia"><i class="fa-solid fa-microchip"></i>Tecnología y reparación</button>
               </div>
               <div class="tech-radar" id="tech-radar">
                 <button type="button" class="tech-card" data-tech="ia_agentes"><strong><i class="fa-solid fa-robot"></i> Agentes IA</strong><span>Asistentes inteligentes para ventas, soporte y backoffice.</span></button>
@@ -1574,6 +1593,26 @@
     const requestDraftEl = document.getElementById('request-draft');
     const copyRequestBtn = document.getElementById('copy-request');
     const shareRequestWhatsappEl = document.getElementById('share-request-whatsapp');
+
+    // AI Typing Effect
+    (function initAITyping() {
+      const el = document.getElementById('ai-title');
+      if (!el) return;
+      const text = 'Agenda tu llamada estratégica';
+      let i = 0;
+      function typeChar() {
+        if (i < text.length) {
+          el.textContent += text[i];
+          i++;
+          const delay = text[i - 1] === ' ' ? 80 : 30 + Math.random() * 50;
+          setTimeout(typeChar, delay);
+        } else {
+          setTimeout(() => el.classList.add('done'), 1200);
+        }
+      }
+      setTimeout(typeChar, 400);
+    })();
+
     let activeStep = 0;
     let tokenValid = false;
     let assistantTimer = null;
@@ -1637,13 +1676,19 @@
         objective: 'automatizar_ventas',
         timeline: 'q_siguiente',
         modules: ['ventas', 'contabilidad', 'bi_analytics', 'automatizaciones']
+      },
+      tecnologia: {
+        sector: 'tecnologia',
+        objective: 'automatizar_ventas',
+        timeline: 'plan_60_90',
+        modules: ['ventas', 'inventario', 'punto_de_venta', 'facturacion', 'contabilidad', 'helpdesk']
       }
     };
 
     const assistantLibrary = {
       default: {
-        message: 'Te guío paso a paso para definir una arquitectura digital completa y ejecutable.',
-        reco: ['Empieza por lo esencial para desbloquear cada etapa.', 'Selecciona un escenario para acelerar la configuración.', 'Prioriza una primera fase con impacto medible.']
+        message: 'Te guío paso a paso para definir una arquitectura digital completa y ejecutable. ¿Tu empresa ya emite comprobantes fiscales electrónicos (e-CF)?',
+        reco: ['Empieza por lo esencial para desbloquear cada etapa.', 'Verifica si necesitas facturación electrónica (e-CF) según la DGII.', 'Prioriza una primera fase con impacto medible.']
       },
       retail: {
         message: 'Para retail conviene iniciar con ventas, inventario y POS conectados a reportes ejecutivos.',
@@ -1660,6 +1705,10 @@
       manufactura: {
         message: 'Manufactura requiere una hoja de ruta por fases para ganar control sin frenar planta.',
         reco: ['Consolida datos maestros y compras primero.', 'Define trazabilidad por lote o serie.', 'Agrega BI para control de producción y costos.']
+      },
+      tecnologia: {
+        message: 'En tecnología y reparación, lo clave es controlar inventario de equipos, gestionar órdenes de reparación y automatizar seguimiento con clientes.',
+        reco: ['Controla stock por modelo, marca y estado (nuevo/usado/reparado).', 'Gestiona órdenes de reparación con seguimiento al cliente.', 'Automatiza garantías y contacto post-venta.']
       }
     };
 

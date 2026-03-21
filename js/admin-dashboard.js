@@ -406,7 +406,16 @@
       retail: 'Retail',
       distribucion: 'Distribución',
       servicios: 'Servicios',
-      manufactura: 'Manufactura'
+      manufactura: 'Manufactura',
+      tecnologia: 'Tecnología',
+      salud: 'Salud',
+      educacion: 'Educación',
+      construccion: 'Construcción',
+      transporte: 'Transporte',
+      farmacia: 'Farmacia',
+      belleza: 'Belleza',
+      supermercado: 'Supermercado',
+      ferreteria: 'Ferretería'
     };
     return labels[sector] || String(sector || 'General');
   }

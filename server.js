@@ -695,6 +695,7 @@ app.post('/api/quote/assistant', apiLimiter, async (req, res) => {
     'Eres un arquitecto senior de soluciones empresariales para RENACE.',
     'Debes responder en español con tono empresarial y accionable.',
     'Incluye enfoque de ERP, automatizaciones, integraciones, agentes IA y software a medida cuando aplique.',
+    'IMPORTANTE: Siempre pregunta si la empresa ya emite comprobantes fiscales electrónicos (e-CF) según la DGII. Recomienda incluir facturación electrónica si aún no la tienen.',
     'Devuelve SIEMPRE JSON válido con esta forma exacta:',
     '{"message":"texto corto","recommendations":["r1","r2","r3"],"options":[{"label":"texto","sector":"...","objective":"...","timeline":"...","modules":["..."]}]}',
     'options debe incluir entre 2 y 4 opciones concretas adaptadas al contexto.',
@@ -1049,6 +1050,18 @@ function buildQuoteAssistantFallback(context) {
       options: [
         { label: 'Base operativa manufactura', sector: 'manufactura', objective: 'control_inventario', timeline: 'plan_60_90', modules: ['inventario', 'compras', 'contabilidad', 'bi_analytics'] },
         { label: 'Escalamiento manufactura', sector: 'manufactura', objective: 'escalar_sucursales', timeline: 'q_siguiente', modules: ['manufactura', 'inventario', 'compras', 'rrhh', 'integraciones_api'] },
+      ],
+    },
+    tecnologia: {
+      message: 'Para negocios de tecnología y reparación, recomendamos inventario por número de serie, helpdesk para órdenes de servicio y POS integrado.',
+      recommendations: [
+        'Controla equipos por número de serie y estado de reparación.',
+        'Usa helpdesk para gestionar órdenes de servicio y garantías.',
+        'Conecta POS con inventario para venta de equipos y accesorios.',
+      ],
+      options: [
+        { label: 'Tienda tech con POS', sector: 'tecnologia', objective: 'automatizar_ventas', timeline: 'plan_60_90', modules: ['ventas', 'inventario', 'punto_de_venta', 'facturacion', 'contabilidad'] },
+        { label: 'Taller de reparación digital', sector: 'tecnologia', objective: 'orden_operativa', timeline: 'plan_60_90', modules: ['helpdesk', 'inventario', 'facturacion', 'automatizaciones'] },
       ],
     },
   };
