@@ -470,6 +470,7 @@ app.use((req, res, next) => {
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
         scriptSrcAttr: ["'unsafe-inline'"],
+        formAction: ["'self'", "https://*.renace.tech"],
       },
     },
     crossOriginEmbedderPolicy: false,
@@ -612,6 +613,66 @@ function escAttr(val) {
   return String(val || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+function clientInitials(name) {
+  const words = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (words.length >= 2) return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+  return String(name || 'C').slice(0, 2).toUpperCase();
+}
+
+function clientColor(name) {
+  const palette = ['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#10b981','#ef4444','#06b6d4','#f97316','#14b8a6','#6366f1'];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return palette[Math.abs(hash) % palette.length];
+}
+
+function buildRedirectPage(safeName, safeLogin, safePass, safeUrl) {
+  const initials = escAttr(clientInitials(safeName));
+  const color    = clientColor(safeName);
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Accediendo a ${safeName}…</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{display:flex;align-items:center;justify-content:center;min-height:100vh;
+      background:#070d18;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#e8edf5}
+    .card{text-align:center;padding:2.8rem 3rem;background:#0f1923;
+      border:1px solid rgba(148,163,184,0.1);border-radius:20px;
+      box-shadow:0 24px 64px rgba(0,0,0,.5);max-width:340px;width:90%}
+    .logo-circle{width:72px;height:72px;border-radius:50%;background:${color};
+      display:flex;align-items:center;justify-content:center;margin:0 auto 1.4rem;
+      font-size:1.6rem;font-weight:800;color:#fff;letter-spacing:-0.02em;
+      box-shadow:0 8px 24px ${color}55}
+    h2{font-size:1.2rem;font-weight:700;margin-bottom:.4rem;letter-spacing:-0.02em}
+    p{color:#64748b;font-size:.85rem;margin-bottom:1.8rem}
+    .spinner{width:30px;height:30px;border:2.5px solid #1e293b;border-top-color:${color};
+      border-radius:50%;animation:spin .7s linear infinite;margin:0 auto}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .brand{margin-top:1.6rem;font-size:.7rem;color:#334155;letter-spacing:.05em}
+    .brand span{color:#2dd4bf}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo-circle">${initials}</div>
+    <h2>Accediendo a ${safeName}</h2>
+    <p>Iniciando sesión en tu plataforma…</p>
+    <div class="spinner"></div>
+    <div class="brand">Impulsado por <span>RENACE.TECH</span></div>
+    <form id="f" method="POST" action="${safeUrl}/web/login" style="display:none">
+      <input name="login" value="${safeLogin}">
+      <input name="password" type="password" value="${safePass}">
+      <input name="redirect" value="/odoo/web">
+    </form>
+  </div>
+  <script>setTimeout(()=>document.getElementById('f').submit(),900)</script>
+</body>
+</html>`;
+}
+
 async function odooValidateCredentials(odooUrl, db, login, password) {
   const target = new URL(odooUrl);
   const lib = target.protocol === 'https:' ? https : http;
@@ -677,42 +738,7 @@ app.post('/api/portal/login', portalLimiter, async (req, res) => {
     const safePass  = escAttr(password);
     const safeName  = escAttr(client_name);
 
-    res.type('html').send(`<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Accediendo a ${safeName}…</title>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{display:flex;align-items:center;justify-content:center;min-height:100vh;
-      background:#0a0f1a;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;color:#e8edf5}
-    .card{text-align:center;padding:2.5rem 3rem;background:#111827;border:1px solid rgba(148,163,184,0.12);border-radius:20px;
-      box-shadow:0 20px 60px rgba(0,0,0,.4);max-width:360px;width:90%}
-    .logo{margin-bottom:1.4rem}
-    .logo svg{width:42px;height:42px}
-    h2{font-size:1.15rem;font-weight:700;margin-bottom:.4rem;letter-spacing:-0.02em}
-    p{color:#7b8faa;font-size:.875rem;margin-bottom:1.6rem}
-    .spinner{width:34px;height:34px;border:3px solid #1e293b;border-top-color:#2dd4bf;
-      border-radius:50%;animation:spin .75s linear infinite;margin:0 auto}
-    @keyframes spin{to{transform:rotate(360deg)}}
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="logo"><svg viewBox="0 0 200 200" fill="none"><path d="M165.2,78.1v81.2h-37.5v-55.1L83,159.4H34.8l68.9-85H48.8V40.6h82.7c14,0,26,8.5,31.1,20.6c0,0,0,0,0,0.1c1.7,4,2.6,8.4,2.6,13C165.2,74.3,165.2,76.9,165.2,78.1z" fill="#2dd4bf"/></svg></div>
-    <h2>Accediendo a ${safeName}</h2>
-    <p>Iniciando sesión en tu plataforma…</p>
-    <div class="spinner"></div>
-    <form id="f" method="POST" action="${safeUrl}/web/login" style="display:none">
-      <input name="login" value="${safeLogin}">
-      <input name="password" type="password" value="${safePass}">
-      <input name="redirect" value="/odoo/web">
-    </form>
-  </div>
-  <script>setTimeout(()=>document.getElementById('f').submit(),700)</script>
-</body>
-</html>`);
+    res.type('html').send(buildRedirectPage(safeName, safeLogin, safePass, safeUrl));
   } catch (e) {
     console.error('[portal login]', e.message);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -829,42 +855,7 @@ app.get('/api/portal/google/callback', portalLimiter, async (req, res) => {
     const safePass  = escAttr(odooPassword);
     const safeName  = escAttr(client_name);
 
-    res.type('html').send(`<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Accediendo a ${safeName}…</title>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{display:flex;align-items:center;justify-content:center;min-height:100vh;
-      background:#0a0f1a;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;color:#e8edf5}
-    .card{text-align:center;padding:2.5rem 3rem;background:#111827;border:1px solid rgba(148,163,184,0.12);border-radius:20px;
-      box-shadow:0 20px 60px rgba(0,0,0,.4);max-width:360px;width:90%}
-    .logo{margin-bottom:1.4rem}
-    .logo svg{width:42px;height:42px}
-    h2{font-size:1.15rem;font-weight:700;margin-bottom:.4rem;letter-spacing:-0.02em}
-    p{color:#7b8faa;font-size:.875rem;margin-bottom:1.6rem}
-    .spinner{width:34px;height:34px;border:3px solid #1e293b;border-top-color:#2dd4bf;
-      border-radius:50%;animation:spin .75s linear infinite;margin:0 auto}
-    @keyframes spin{to{transform:rotate(360deg)}}
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="logo"><svg viewBox="0 0 200 200" fill="none"><path d="M165.2,78.1v81.2h-37.5v-55.1L83,159.4H34.8l68.9-85H48.8V40.6h82.7c14,0,26,8.5,31.1,20.6c0,0,0,0,0,0.1c1.7,4,2.6,8.4,2.6,13C165.2,74.3,165.2,76.9,165.2,78.1z" fill="#2dd4bf"/></svg></div>
-    <h2>Accediendo a ${safeName}</h2>
-    <p>Iniciando sesión en tu plataforma…</p>
-    <div class="spinner"></div>
-    <form id="f" method="POST" action="${safeUrl}/web/login" style="display:none">
-      <input name="login" value="${safeLogin}">
-      <input name="password" type="password" value="${safePass}">
-      <input name="redirect" value="/odoo/web">
-    </form>
-  </div>
-  <script>setTimeout(()=>document.getElementById('f').submit(),700)</script>
-</body>
-</html>`);
+    res.type('html').send(buildRedirectPage(safeName, safeLogin, safePass, safeUrl));
   } catch (e) {
     console.error('[google oauth callback]', e.message);
     res.redirect('/portal?error=' + encodeURIComponent('Error interno del servidor.'));
