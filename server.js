@@ -507,6 +507,14 @@ const chatLimiter = rateLimit({
   message: { error: 'Chat limitado, intenta más tarde.' },
 });
 
+const portalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiados intentos de acceso, intenta más tarde.' },
+});
+
 // ── Admin auth + analytics (after rate limiters to avoid hoisting issues) ──
 app.post('/api/admin/login/request-code', apiLimiter, async (req, res) => {
   const email = (req.body?.email || '').trim().toLowerCase();
@@ -568,6 +576,223 @@ app.get('/api/admin/visit-details', apiLimiter, async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// ── Portal de Clientes Odoo ──────────────────────────────────────────
+
+function escAttr(val) {
+  return String(val || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+async function odooValidateCredentials(odooUrl, db, login, password) {
+  const target = new URL(odooUrl);
+  const lib = target.protocol === 'https:' ? https : http;
+  const bodyObj = { jsonrpc: '2.0', method: 'call', id: 1, params: { db, login, password } };
+  const bodyStr = JSON.stringify(bodyObj);
+  return new Promise((resolve, reject) => {
+    const req = lib.request({
+      hostname: target.hostname,
+      port: parseInt(target.port) || (target.protocol === 'https:' ? 443 : 80),
+      path: '/web/session/authenticate',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) },
+    }, (proxyRes) => {
+      let data = '';
+      proxyRes.on('data', chunk => { data += chunk; });
+      proxyRes.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          const uid = parsed?.result?.uid;
+          resolve(!!uid && uid !== false && uid !== null);
+        } catch { resolve(false); }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(9000, () => { req.destroy(); reject(new Error('Timeout al conectar con Odoo')); });
+    req.write(bodyStr);
+    req.end();
+  });
+}
+
+app.get('/portal', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.sendFile(path.join(__dirname, 'portal.html'));
+});
+
+app.post('/api/portal/login', portalLimiter, async (req, res) => {
+  const login = String(req.body?.login || '').trim().slice(0, 254);
+  const password = String(req.body?.password || '').slice(0, 256);
+  if (!login || !password) return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
+
+  try {
+    const result = await pool.query(
+      `SELECT cpu.id, oi.odoo_url, oi.odoo_db, oi.client_name
+       FROM client_portal_users cpu
+       JOIN odoo_instances oi ON oi.id = cpu.instance_id
+       WHERE cpu.odoo_login = $1 AND cpu.active = TRUE AND oi.active = TRUE
+       LIMIT 1`,
+      [login]
+    );
+    if (!result.rows.length) return res.status(401).json({ error: 'Credenciales incorrectas o usuario no registrado' });
+
+    const { odoo_url, odoo_db, client_name } = result.rows[0];
+    let valid = false;
+    try { valid = await odooValidateCredentials(odoo_url, odoo_db, login, password); }
+    catch (e) {
+      console.warn('[portal login] Odoo auth error:', e.message);
+      return res.status(503).json({ error: 'No se pudo conectar con el servicio. Intenta más tarde.' });
+    }
+    if (!valid) return res.status(401).json({ error: 'Credenciales incorrectas' });
+
+    const safeUrl  = odoo_url.replace(/"/g, '');
+    const safeLogin = escAttr(login);
+    const safePass  = escAttr(password);
+    const safeName  = escAttr(client_name);
+
+    res.type('html').send(`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Accediendo a ${safeName}…</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{display:flex;align-items:center;justify-content:center;min-height:100vh;
+      background:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#e2e8f0}
+    .card{text-align:center;padding:2.5rem 3rem;background:#1e293b;border-radius:1rem;
+      box-shadow:0 20px 60px rgba(0,0,0,.5);max-width:360px;width:90%}
+    .logo{width:52px;height:52px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:14px;
+      display:inline-flex;align-items:center;justify-content:center;font-size:1.6rem;margin-bottom:1.4rem}
+    h2{font-size:1.15rem;font-weight:700;margin-bottom:.4rem}
+    p{color:#94a3b8;font-size:.875rem;margin-bottom:1.6rem}
+    .spinner{width:34px;height:34px;border:3px solid #334155;border-top-color:#6366f1;
+      border-radius:50%;animation:spin .75s linear infinite;margin:0 auto}
+    @keyframes spin{to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">🚀</div>
+    <h2>Accediendo a ${safeName}</h2>
+    <p>Iniciando sesión en tu plataforma…</p>
+    <div class="spinner"></div>
+    <form id="f" method="POST" action="${safeUrl}/web/login" style="display:none">
+      <input name="login" value="${safeLogin}">
+      <input name="password" type="password" value="${safePass}">
+      <input name="redirect" value="/odoo/web">
+    </form>
+  </div>
+  <script>setTimeout(()=>document.getElementById('f').submit(),700)</script>
+</body>
+</html>`);
+  } catch (e) {
+    console.error('[portal login]', e.message);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// ── Admin: CRUD Odoo Instances ──
+app.get('/api/admin/odoo-instances', apiLimiter, async (req, res) => {
+  if (!requireAdminToken(req, res)) return;
+  try {
+    const r = await pool.query('SELECT id, client_name, odoo_url, odoo_db, active, created_at FROM odoo_instances ORDER BY created_at DESC');
+    res.json(r.rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/admin/odoo-instances', apiLimiter, async (req, res) => {
+  if (!requireAdminToken(req, res)) return;
+  const client_name = String(req.body?.client_name || '').replace(/[<>]/g, '').trim().slice(0, 255);
+  const odoo_url    = String(req.body?.odoo_url || '').trim().slice(0, 500);
+  const odoo_db     = String(req.body?.odoo_db || '').replace(/[<>]/g, '').trim().slice(0, 255);
+  if (!client_name || !odoo_url || !odoo_db) return res.status(400).json({ error: 'Nombre, URL y base de datos son requeridos' });
+  try { new URL(odoo_url); } catch { return res.status(400).json({ error: 'URL inválida' }); }
+  try {
+    const r = await pool.query(
+      'INSERT INTO odoo_instances (client_name, odoo_url, odoo_db) VALUES ($1,$2,$3) RETURNING *',
+      [client_name, odoo_url, odoo_db]
+    );
+    res.json(r.rows[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/admin/odoo-instances/:id', apiLimiter, async (req, res) => {
+  if (!requireAdminToken(req, res)) return;
+  const id = parseInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'ID inválido' });
+  const client_name = String(req.body?.client_name || '').replace(/[<>]/g, '').trim().slice(0, 255);
+  const odoo_url    = String(req.body?.odoo_url || '').trim().slice(0, 500);
+  const odoo_db     = String(req.body?.odoo_db || '').replace(/[<>]/g, '').trim().slice(0, 255);
+  const active      = req.body?.active !== undefined ? !!req.body.active : true;
+  if (!client_name || !odoo_url || !odoo_db) return res.status(400).json({ error: 'Campos requeridos' });
+  try { new URL(odoo_url); } catch { return res.status(400).json({ error: 'URL inválida' }); }
+  try {
+    const r = await pool.query(
+      'UPDATE odoo_instances SET client_name=$1, odoo_url=$2, odoo_db=$3, active=$4 WHERE id=$5 RETURNING *',
+      [client_name, odoo_url, odoo_db, active, id]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: 'No encontrado' });
+    res.json(r.rows[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/admin/odoo-instances/:id', apiLimiter, async (req, res) => {
+  if (!requireAdminToken(req, res)) return;
+  const id = parseInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'ID inválido' });
+  try { await pool.query('DELETE FROM odoo_instances WHERE id=$1', [id]); res.json({ ok: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Admin: CRUD Portal Users ──
+app.get('/api/admin/portal-users', apiLimiter, async (req, res) => {
+  if (!requireAdminToken(req, res)) return;
+  try {
+    const r = await pool.query(
+      `SELECT cpu.id, cpu.odoo_login, cpu.active, cpu.created_at, oi.client_name, oi.id AS instance_id
+       FROM client_portal_users cpu
+       JOIN odoo_instances oi ON oi.id = cpu.instance_id
+       ORDER BY cpu.created_at DESC`
+    );
+    res.json(r.rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/admin/portal-users', apiLimiter, async (req, res) => {
+  if (!requireAdminToken(req, res)) return;
+  const odoo_login  = String(req.body?.odoo_login || '').replace(/[<>]/g, '').trim().slice(0, 254);
+  const instance_id = parseInt(req.body?.instance_id);
+  if (!odoo_login || !instance_id) return res.status(400).json({ error: 'Login e instancia son requeridos' });
+  try {
+    const r = await pool.query(
+      'INSERT INTO client_portal_users (odoo_login, instance_id) VALUES ($1,$2) RETURNING *',
+      [odoo_login, instance_id]
+    );
+    res.json(r.rows[0]);
+  } catch (e) {
+    if (e.code === '23505') return res.status(409).json({ error: 'Este usuario ya está registrado en esa instancia' });
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/admin/portal-users/:id', apiLimiter, async (req, res) => {
+  if (!requireAdminToken(req, res)) return;
+  const id = parseInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'ID inválido' });
+  const active = !!req.body?.active;
+  try {
+    const r = await pool.query('UPDATE client_portal_users SET active=$1 WHERE id=$2 RETURNING *', [active, id]);
+    if (!r.rows.length) return res.status(404).json({ error: 'No encontrado' });
+    res.json(r.rows[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/admin/portal-users/:id', apiLimiter, async (req, res) => {
+  if (!requireAdminToken(req, res)) return;
+  const id = parseInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'ID inválido' });
+  try { await pool.query('DELETE FROM client_portal_users WHERE id=$1', [id]); res.json({ ok: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // HTML routes
@@ -790,6 +1015,22 @@ const pool = new Pool({
 async function initDB() {
   try {
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS odoo_instances (
+        id SERIAL PRIMARY KEY,
+        client_name VARCHAR(255) NOT NULL,
+        odoo_url VARCHAR(500) NOT NULL,
+        odoo_db VARCHAR(255) NOT NULL,
+        active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS client_portal_users (
+        id SERIAL PRIMARY KEY,
+        odoo_login VARCHAR(255) NOT NULL,
+        instance_id INTEGER REFERENCES odoo_instances(id) ON DELETE CASCADE,
+        active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(odoo_login, instance_id)
+      );
       CREATE TABLE IF NOT EXISTS documents (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,

@@ -679,6 +679,7 @@
       setLoginStatus('Autenticado');
       await hideLoginWithBlur();
       await loadAnalytics();
+      loadOdooSection();
       startAutoRefresh();
     } catch (e) {
       setMessage(e.message, 'error');
@@ -889,10 +890,170 @@
     }
   });
 
+  // ── Odoo Clients Section ──
+  const odooSection = document.getElementById('odoo-clients');
+  const instancesTbody = document.getElementById('instances-tbody');
+  const usersTbody = document.getElementById('users-tbody');
+  const userInstanceSelect = document.getElementById('user-instance');
+  const instancesMsg = document.getElementById('instances-msg');
+  const usersMsg = document.getElementById('users-msg');
+
+  function odooMsg(el, text, type = 'muted') {
+    if (!el) return;
+    el.textContent = text;
+    el.className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'muted';
+  }
+
+  function adminFetch(url, options = {}) {
+    return fetch(url, {
+      ...options,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...(options.headers || {}) },
+    });
+  }
+
+  async function loadInstances() {
+    if (!instancesTbody) return;
+    try {
+      const res = await adminFetch('/api/admin/odoo-instances');
+      const data = await res.json();
+      if (!res.ok) { instancesTbody.innerHTML = `<tr><td colspan="5" class="error">${escapeHtml(data.error)}</td></tr>`; return; }
+      if (!data.length) { instancesTbody.innerHTML = '<tr><td colspan="5" class="muted" style="padding:14px 8px;">Sin instancias registradas.</td></tr>'; return; }
+      instancesTbody.innerHTML = data.map(inst => `
+        <tr>
+          <td><strong>${escapeHtml(inst.client_name)}</strong></td>
+          <td><a href="${escapeHtml(inst.odoo_url)}" target="_blank" rel="noopener" style="color:var(--accent);font-size:11px;">${escapeHtml(inst.odoo_url)}</a></td>
+          <td>${escapeHtml(inst.odoo_db)}</td>
+          <td><span class="${inst.active ? 'pill-active' : 'pill-inactive'}">${inst.active ? 'Activa' : 'Inactiva'}</span></td>
+          <td style="white-space:nowrap;">
+            <button class="icon-btn-sm" onclick="window.toggleInstance(${inst.id},${!inst.active},'${escapeHtml(inst.client_name)}','${escapeHtml(inst.odoo_url)}','${escapeHtml(inst.odoo_db)}')">${inst.active ? 'Desactivar' : 'Activar'}</button>
+            <button class="icon-btn-sm danger" onclick="window.deleteInstance(${inst.id})">Eliminar</button>
+          </td>
+        </tr>`).join('');
+      populateInstanceSelect(data);
+    } catch (e) { if (instancesTbody) instancesTbody.innerHTML = `<tr><td colspan="5" class="error">${escapeHtml(e.message)}</td></tr>`; }
+  }
+
+  function populateInstanceSelect(instances) {
+    if (!userInstanceSelect) return;
+    const active = (instances || []).filter(i => i.active);
+    userInstanceSelect.innerHTML = '<option value="">— Selecciona instancia —</option>' +
+      active.map(i => `<option value="${i.id}">${escapeHtml(i.client_name)}</option>`).join('');
+  }
+
+  async function loadPortalUsers() {
+    if (!usersTbody) return;
+    try {
+      const res = await adminFetch('/api/admin/portal-users');
+      const data = await res.json();
+      if (!res.ok) { usersTbody.innerHTML = `<tr><td colspan="4" class="error">${escapeHtml(data.error)}</td></tr>`; return; }
+      if (!data.length) { usersTbody.innerHTML = '<tr><td colspan="4" class="muted" style="padding:14px 8px;">Sin usuarios registrados.</td></tr>'; return; }
+      usersTbody.innerHTML = data.map(u => `
+        <tr>
+          <td>${escapeHtml(u.odoo_login)}</td>
+          <td>${escapeHtml(u.client_name)}</td>
+          <td><span class="${u.active ? 'pill-active' : 'pill-inactive'}">${u.active ? 'Activo' : 'Inactivo'}</span></td>
+          <td style="white-space:nowrap;">
+            <button class="icon-btn-sm" onclick="window.togglePortalUser(${u.id},${!u.active})">${u.active ? 'Desactivar' : 'Activar'}</button>
+            <button class="icon-btn-sm danger" onclick="window.deletePortalUser(${u.id})">Eliminar</button>
+          </td>
+        </tr>`).join('');
+    } catch (e) { if (usersTbody) usersTbody.innerHTML = `<tr><td colspan="4" class="error">${escapeHtml(e.message)}</td></tr>`; }
+  }
+
+  window.toggleInstance = async function(id, active, client_name, odoo_url, odoo_db) {
+    try {
+      const res = await adminFetch(`/api/admin/odoo-instances/${id}`, { method: 'PUT', body: JSON.stringify({ client_name, odoo_url, odoo_db, active }) });
+      const data = await res.json();
+      if (!res.ok) { odooMsg(instancesMsg, data.error, 'error'); return; }
+      odooMsg(instancesMsg, `Instancia ${active ? 'activada' : 'desactivada'}.`, 'success');
+      await loadInstances();
+    } catch (e) { odooMsg(instancesMsg, e.message, 'error'); }
+  };
+
+  window.deleteInstance = async function(id) {
+    if (!confirm('¿Eliminar esta instancia? También se eliminarán sus usuarios del portal.')) return;
+    try {
+      const res = await adminFetch(`/api/admin/odoo-instances/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) { odooMsg(instancesMsg, data.error, 'error'); return; }
+      odooMsg(instancesMsg, 'Instancia eliminada.', 'success');
+      await loadInstances();
+    } catch (e) { odooMsg(instancesMsg, e.message, 'error'); }
+  };
+
+  window.togglePortalUser = async function(id, active) {
+    try {
+      const res = await adminFetch(`/api/admin/portal-users/${id}`, { method: 'PUT', body: JSON.stringify({ active }) });
+      const data = await res.json();
+      if (!res.ok) { odooMsg(usersMsg, data.error, 'error'); return; }
+      odooMsg(usersMsg, `Usuario ${active ? 'activado' : 'desactivado'}.`, 'success');
+      await loadPortalUsers();
+    } catch (e) { odooMsg(usersMsg, e.message, 'error'); }
+  };
+
+  window.deletePortalUser = async function(id) {
+    if (!confirm('¿Eliminar acceso de este usuario?')) return;
+    try {
+      const res = await adminFetch(`/api/admin/portal-users/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) { odooMsg(usersMsg, data.error, 'error'); return; }
+      odooMsg(usersMsg, 'Usuario eliminado.', 'success');
+      await loadPortalUsers();
+    } catch (e) { odooMsg(usersMsg, e.message, 'error'); }
+  };
+
+  document.getElementById('btn-add-instance')?.addEventListener('click', async () => {
+    const client_name = document.getElementById('inst-name')?.value.trim();
+    const odoo_url    = document.getElementById('inst-url')?.value.trim();
+    const odoo_db     = document.getElementById('inst-db')?.value.trim();
+    if (!client_name || !odoo_url || !odoo_db) { odooMsg(instancesMsg, 'Completa todos los campos.', 'error'); return; }
+    try {
+      const res = await adminFetch('/api/admin/odoo-instances', { method: 'POST', body: JSON.stringify({ client_name, odoo_url, odoo_db }) });
+      const data = await res.json();
+      if (!res.ok) { odooMsg(instancesMsg, data.error, 'error'); return; }
+      odooMsg(instancesMsg, `Instancia "${data.client_name}" creada.`, 'success');
+      document.getElementById('inst-name').value = '';
+      document.getElementById('inst-url').value = '';
+      document.getElementById('inst-db').value = '';
+      await loadInstances();
+    } catch (e) { odooMsg(instancesMsg, e.message, 'error'); }
+  });
+
+  document.getElementById('btn-add-user')?.addEventListener('click', async () => {
+    const odoo_login  = document.getElementById('user-login')?.value.trim();
+    const instance_id = parseInt(userInstanceSelect?.value);
+    if (!odoo_login || !instance_id) { odooMsg(usersMsg, 'Completa el login y selecciona una instancia.', 'error'); return; }
+    try {
+      const res = await adminFetch('/api/admin/portal-users', { method: 'POST', body: JSON.stringify({ odoo_login, instance_id }) });
+      const data = await res.json();
+      if (!res.ok) { odooMsg(usersMsg, data.error, 'error'); return; }
+      odooMsg(usersMsg, `Usuario "${data.odoo_login}" agregado.`, 'success');
+      document.getElementById('user-login').value = '';
+      await loadPortalUsers();
+    } catch (e) { odooMsg(usersMsg, e.message, 'error'); }
+  });
+
+  document.querySelectorAll('.odoo-tab[data-tab]').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.odoo-tab[data-tab]').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.odoo-panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      const panelId = `panel-${tab.dataset.tab}`;
+      document.getElementById(panelId)?.classList.add('active');
+    });
+  });
+
+  function loadOdooSection() {
+    if (odooSection) odooSection.style.display = 'block';
+    loadInstances();
+    loadPortalUsers();
+  }
+
   setPresentationMode(presentationMode);
   if (token) {
     setLoginStatus('Autenticado (token guardado)');
     loadAnalytics();
+    loadOdooSection();
     startAutoRefresh();
   }
 })();

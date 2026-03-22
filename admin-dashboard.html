@@ -736,6 +736,40 @@
       text-transform: uppercase;
     }
 
+    /* Odoo Clients Section */
+    .odoo-section { display: grid; gap: 12px; }
+    .odoo-tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 14px; }
+    .odoo-tab {
+      padding: 5px 14px;
+      border-radius: 8px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      transition: all 0.18s;
+    }
+    .odoo-tab:hover { background: rgba(125,211,252,0.07); color: var(--text); }
+    .odoo-tab.active { background: rgba(37,99,235,0.2); border-color: rgba(125,211,252,0.35); color: var(--accent); }
+    .odoo-panel { display: none; }
+    .odoo-panel.active { display: block; }
+    .odoo-form { display: grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap: 8px; align-items: end; margin-bottom: 14px; }
+    .odoo-form input { width: 100%; }
+    .odoo-form .field-full { grid-column: 1 / -1; }
+    .odoo-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .odoo-table th { color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; }
+    .odoo-table td { padding: 7px 8px; border-bottom: 1px solid rgba(148,163,184,0.08); vertical-align: middle; }
+    .odoo-table tr:hover td { background: rgba(255,255,255,0.02); }
+    .pill-active { background: rgba(52,211,153,0.15); color: #34d399; border: 1px solid rgba(52,211,153,0.3); border-radius: 999px; padding: 2px 8px; font-size: 10px; font-weight: 700; }
+    .pill-inactive { background: rgba(248,113,113,0.12); color: #f87171; border: 1px solid rgba(248,113,113,0.25); border-radius: 999px; padding: 2px 8px; font-size: 10px; font-weight: 700; }
+    .icon-btn-sm { background: none; border: 1px solid var(--line); border-radius: 6px; color: var(--muted); padding: 3px 7px; font-size: 11px; cursor: pointer; transition: all 0.15s; }
+    .icon-btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+    .icon-btn-sm.danger:hover { border-color: var(--bad); color: var(--bad); }
+    .odoo-select { width: 100%; background: rgba(5,12,25,0.85); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; color: var(--text); font-family: inherit; font-size: 12px; outline: none; cursor: pointer; }
+    .odoo-select:focus { border-color: rgba(125,211,252,0.5); }
     /* Login Card Blur Transition */
     #login-card {
       transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
@@ -923,6 +957,92 @@
         <div class="bar-grid" id="projections-bars"></div>
         <ul id="projection-notes" class="list"></ul>
       </article>
+    </section>
+
+    <section id="odoo-clients" class="card" style="display:none;">
+      <div class="deck" style="margin-bottom:0;">
+        <h3 class="deck-title"><i class="fa-solid fa-server"></i> Clientes Odoo</h3>
+        <div class="muted">Gestión de instancias y acceso al portal de clientes</div>
+      </div>
+
+      <div class="odoo-tabs" style="margin-top:14px;">
+        <button class="odoo-tab active" data-tab="instances"><i class="fa-solid fa-cubes"></i> Instancias</button>
+        <button class="odoo-tab" data-tab="users"><i class="fa-solid fa-users"></i> Usuarios del portal</button>
+        <a href="/portal" target="_blank" class="odoo-tab" style="text-decoration:none;margin-left:auto;"><i class="fa-solid fa-arrow-up-right-from-square"></i> Ver portal</a>
+      </div>
+
+      <!-- Instances panel -->
+      <div class="odoo-panel active" id="panel-instances">
+        <div class="odoo-form">
+          <div>
+            <label>Nombre del cliente</label>
+            <input id="inst-name" type="text" placeholder="Empresa ABC">
+          </div>
+          <div>
+            <label>URL de Odoo</label>
+            <input id="inst-url" type="text" placeholder="https://empresa.renace.tech">
+          </div>
+          <div>
+            <label>Base de datos</label>
+            <input id="inst-db" type="text" placeholder="empresa_db">
+          </div>
+          <div style="align-self:end;">
+            <button id="btn-add-instance" class="secondary"><i class="fa-solid fa-plus"></i> Agregar</button>
+          </div>
+        </div>
+        <div id="instances-msg" class="muted" style="margin-bottom:8px;min-height:16px;"></div>
+        <div style="overflow-x:auto;">
+          <table class="odoo-table">
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th>URL</th>
+                <th>Base de datos</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="instances-tbody">
+              <tr><td colspan="5" class="muted" style="padding:16px 8px;">Cargando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Users panel -->
+      <div class="odoo-panel" id="panel-users">
+        <div class="odoo-form">
+          <div>
+            <label>Usuario Odoo (login/email)</label>
+            <input id="user-login" type="text" placeholder="admin@empresa.com">
+          </div>
+          <div>
+            <label>Instancia</label>
+            <select id="user-instance" class="odoo-select">
+              <option value="">— Selecciona instancia —</option>
+            </select>
+          </div>
+          <div style="align-self:end;">
+            <button id="btn-add-user" class="secondary"><i class="fa-solid fa-plus"></i> Agregar</button>
+          </div>
+        </div>
+        <div id="users-msg" class="muted" style="margin-bottom:8px;min-height:16px;"></div>
+        <div style="overflow-x:auto;">
+          <table class="odoo-table">
+            <thead>
+              <tr>
+                <th>Login</th>
+                <th>Instancia</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody">
+              <tr><td colspan="4" class="muted" style="padding:16px 8px;">Cargando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </section>
   </div>
   <div class="modal" id="visit-modal">
