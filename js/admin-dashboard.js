@@ -155,26 +155,215 @@
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }
 
+  // ── Servicios conocidos (backup JSON) ──────────────────────────────
+  const KNOWN_SERVICES = [
+    { name:'thiagosmart', type:'odoo', url:'https://thiagosmart.renace.tech' },
+    { name:'dyfsmart', type:'odoo', url:'https://dyfsmart.renace.tech' },
+    { name:'soriinails', type:'odoo', url:'https://soriinails.renace.tech' },
+    { name:'odoo', type:'odoo', url:'https://odoo.renace.tech' },
+    { name:'delkilo', type:'odoo', url:'https://delkilo.renace.tech' },
+    { name:'thiago', type:'odoo', url:'https://thiago.renace.tech' },
+    { name:'lakersdisco', type:'odoo', url:'https://lakersdisco.renace.tech' },
+    { name:'alcaduarte', type:'odoo', url:'https://alcaduarte.renace.tech' },
+    { name:'metro', type:'odoo', url:'https://metro.renace.tech' },
+    { name:'hansel', type:'odoo', url:'https://hansel.renace.tech' },
+    { name:'henryh', type:'odoo', url:'https://henryh.renace.tech' },
+    { name:'ceramicajc', type:'odoo', url:'https://ceramicajc.renace.tech' },
+    { name:'clb', type:'odoo', url:'https://clb.renace.tech' },
+    { name:'delkilofood', type:'odoo', url:'https://delkilofood.renace.tech' },
+    { name:'calpad', type:'odoo', url:'https://calpad.renace.tech' },
+    { name:'rey', type:'odoo', url:'https://rey.renace.tech' },
+    { name:'sp', type:'odoo', url:'https://sp.renace.tech' },
+    { name:'guerrero', type:'odoo', url:'https://guerrero.renace.tech' },
+    { name:'universal', type:'odoo', url:'https://universal.renace.tech' },
+    { name:'manuelhookah', type:'odoo', url:'https://manuelhookah.renace.tech' },
+    { name:'nominarf', type:'odoo', url:'https://nominarf.renace.tech' },
+    { name:'reyplaza', type:'odoo', url:'https://reyplaza.renace.tech' },
+    { name:'cacorojo', type:'odoo', url:'https://cacorojo.renace.tech' },
+    { name:'cueromacho', type:'odoo', url:'https://cueromacho.renace.tech' },
+    { name:'launi', type:'odoo', url:'https://launi.renace.tech' },
+    { name:'naje', type:'odoo', url:'https://naje.renace.tech' },
+    { name:'lagrasa', type:'odoo', url:'https://lagrasa.renace.tech' },
+    { name:'ronuimport', type:'odoo', url:'https://ronuimport.renace.tech' },
+    { name:'magile', type:'odoo', url:'https://magile.renace.tech' },
+    { name:'camuflaje', type:'odoo', url:'https://camuflaje.renace.tech' },
+    { name:'tarjetaroja', type:'odoo', url:'https://tarjetaroja.renace.tech' },
+    { name:'heredia', type:'odoo', url:'https://heredia.renace.tech' },
+    { name:'pim', type:'odoo', url:'https://pim.renace.tech' },
+    { name:'easymovil', type:'odoo', url:'https://easymovil.renace.tech' },
+    { name:'disttineo', type:'odoo', url:'https://disttineo.renace.tech' },
+    { name:'yeurismart', type:'odoo', url:'https://yeurismart.renace.tech' },
+    { name:'fullbloke', type:'odoo', url:'https://fullbloke.renace.tech' },
+    { name:'limytech', type:'odoo', url:'https://limytech.renace.tech' },
+    { name:'mojo', type:'odoo', url:'https://mojo.renace.tech' },
+    { name:'bx', type:'web', url:'https://bx.renace.tech' },
+    { name:'forms', type:'web', url:'https://forms.renace.tech' },
+    { name:'mvpflow', type:'web', url:'https://mvpflow.renace.tech' },
+    { name:'prestanace', type:'web', url:'https://prestanace.renace.tech' },
+    { name:'blokeempleo', type:'web', url:'https://blokeempleo.renace.tech' },
+    { name:'chatce', type:'web', url:'https://chatce.renace.tech' },
+    { name:'app', type:'web', url:'https://app.renace.tech' },
+    { name:'www', type:'web', url:'https://www.renace.tech' },
+    { name:'evoapi', type:'api', url:'https://evoapi.renace.tech' },
+    { name:'ai', type:'ai', url:'https://ai.renace.tech' },
+  ];
+
   async function handleChatCommand() {
     const text = chatInput.value.trim();
     if (!text) return;
-    
     addChatMessage(text, 'user');
     chatInput.value = '';
-
     const lower = text.toLowerCase();
-    
-    if (lower.includes('generame') || (lower.includes('solicitud') && lower.includes('link'))) {
+
+    // ── AYUDA ────────────────────────────────────────────────────────
+    if (lower.includes('ayuda') || lower.includes('hola') || lower === '?') {
+      addChatMessageHtml(`
+        <div class="chat-link-card">
+          <strong>Comandos disponibles:</strong>
+          <div>📋 <b>listar instancias</b> — Ver instancias en BD</div>
+          <div>🔍 <b>listar servicios</b> — Ver todos los servicios conocidos</div>
+          <div>🔍 <b>buscar [nombre]</b> — Buscar servicio por nombre</div>
+          <div>➕ <b>crear instancia [cliente] [url] [db]</b> — Registrar nueva instancia</div>
+          <div>🔗 <b>listar usuarios portal</b> — Ver usuarios del portal</div>
+          <div>🔗 <b>vincular [login] [instancia_id]</b> — Agregar usuario portal</div>
+          <div>📎 <b>generame una solicitud</b> — Generar link de cotización</div>
+        </div>
+      `, 'system');
+
+    // ── LISTAR INSTANCIAS (DB) ───────────────────────────────────────
+    } else if (lower.includes('listar instancias') || lower.includes('ver instancias') || lower === 'instancias') {
+      addChatMessage('Consultando instancias registradas…', 'system');
+      try {
+        const res = await adminFetch('/api/admin/odoo-instances');
+        const data = await res.json();
+        if (!res.ok) { addChatMessage('Error: ' + data.error, 'system'); return; }
+        if (!data.length) { addChatMessage('No hay instancias registradas aún.', 'system'); return; }
+        const rows = data.map(i =>
+          `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="font-weight:600;">#${i.id} ${escapeHtml(i.client_name)}</span>
+            <a href="${escapeHtml(i.odoo_url)}" target="_blank" style="color:#7dd3fc;font-size:11px;">${escapeHtml(i.odoo_url)}</a>
+          </div>`
+        ).join('');
+        addChatMessageHtml(`<div class="chat-link-card"><strong>${data.length} instancias registradas:</strong>${rows}</div>`, 'system');
+      } catch (e) { addChatMessage('Error de conexión: ' + e.message, 'system'); }
+
+    // ── LISTAR SERVICIOS (JSON conocidos) ────────────────────────────
+    } else if (lower.includes('listar servicios') || lower === 'servicios') {
+      const odoo = KNOWN_SERVICES.filter(s => s.type === 'odoo');
+      const web  = KNOWN_SERVICES.filter(s => s.type !== 'odoo');
+      const rows = (arr) => arr.map(s =>
+        `<div><a href="${s.url}" target="_blank" style="color:#7dd3fc;">${s.name}</a> <span style="opacity:.5;font-size:10px;">${s.type}</span></div>`
+      ).join('');
+      addChatMessageHtml(`
+        <div class="chat-link-card">
+          <strong>Odoo (${odoo.length}):</strong>${rows(odoo)}
+          <strong style="margin-top:8px;display:block;">Otros (${web.length}):</strong>${rows(web)}
+        </div>`, 'system');
+
+    // ── BUSCAR SERVICIO ─────────────────────────────────────────────
+    } else if (lower.startsWith('buscar ')) {
+      const q = lower.replace('buscar ', '').trim();
+      const found = KNOWN_SERVICES.filter(s => s.name.includes(q) || s.url.includes(q));
+      if (!found.length) {
+        addChatMessage(`No encontré servicios con "${q}".`, 'system');
+      } else {
+        const rows = found.map(s =>
+          `<div><a href="${s.url}" target="_blank" style="color:#7dd3fc;">${s.name}</a> — <span style="opacity:.6;">${s.type}</span>
+           <button class="chat-link-action" style="margin-left:8px;" type="button" data-use-service="${s.name}|${s.url}">Usar</button></div>`
+        ).join('');
+        addChatMessageHtml(`<div class="chat-link-card"><strong>Resultados para "${q}":</strong>${rows}</div>`, 'system');
+      }
+
+    // ── CREAR INSTANCIA ─────────────────────────────────────────────
+    } else if (lower.startsWith('crear instancia')) {
+      // Syntax: crear instancia [client_name] [odoo_url] [odoo_db]
+      const parts = text.replace(/crear instancia\s*/i, '').trim().split(/\s+/);
+      if (parts.length < 3) {
+        addChatMessageHtml(`
+          <div class="chat-link-card">
+            <div>Sintaxis: <code>crear instancia [cliente] [url] [db]</code></div>
+            <div style="opacity:.6;font-size:11px;">Ejemplo: crear instancia "Mojo Fashion" https://mojo.renace.tech mojo_prod</div>
+            <div style="opacity:.6;font-size:11px;">Tip: busca el URL con "buscar [nombre]"</div>
+          </div>`, 'system');
+        return;
+      }
+      // Support quoted name: collect until we hit something that looks like a URL
+      let client_name, odoo_url, odoo_db;
+      const urlIdx = parts.findIndex(p => p.startsWith('http'));
+      if (urlIdx === -1) { addChatMessage('No encontré URL. Asegúrate de incluir https://...', 'system'); return; }
+      client_name = parts.slice(0, urlIdx).join(' ').replace(/"/g, '');
+      odoo_url    = parts[urlIdx];
+      odoo_db     = parts.slice(urlIdx + 1).join('') || '';
+      if (!client_name || !odoo_url || !odoo_db) {
+        addChatMessage('Faltan datos. Usa: crear instancia [cliente] [url] [db]', 'system'); return;
+      }
+      addChatMessage(`Creando instancia "${client_name}"…`, 'system');
+      try {
+        const res = await adminFetch('/api/admin/odoo-instances', {
+          method: 'POST',
+          body: JSON.stringify({ client_name, odoo_url, odoo_db })
+        });
+        const data = await res.json();
+        if (!res.ok) { addChatMessage('Error: ' + data.error, 'system'); return; }
+        addChatMessageHtml(`
+          <div class="chat-link-card">
+            <div>✅ Instancia creada — ID <strong>#${data.id}</strong></div>
+            <div><a href="${escapeHtml(data.odoo_url)}" target="_blank" style="color:#7dd3fc;">${escapeHtml(data.odoo_url)}</a></div>
+            <div style="opacity:.6;font-size:11px;">Para vincular un usuario: <code>vincular [login] ${data.id}</code></div>
+          </div>`, 'system');
+        if (typeof loadInstances === 'function') loadInstances();
+      } catch (e) { addChatMessage('Error: ' + e.message, 'system'); }
+
+    // ── LISTAR USUARIOS PORTAL ──────────────────────────────────────
+    } else if (lower.includes('listar usuarios') || lower.includes('ver usuarios portal')) {
+      addChatMessage('Consultando usuarios del portal…', 'system');
+      try {
+        const res = await adminFetch('/api/admin/portal-users');
+        const data = await res.json();
+        if (!res.ok) { addChatMessage('Error: ' + data.error, 'system'); return; }
+        if (!data.length) { addChatMessage('No hay usuarios del portal aún.', 'system'); return; }
+        const rows = data.map(u =>
+          `<div style="padding:3px 0;border-bottom:1px solid #1e293b;">
+            <span style="font-weight:600;">${escapeHtml(u.odoo_login)}</span>
+            <span style="opacity:.5;font-size:11px;"> → ${escapeHtml(u.client_name)}</span>
+            ${u.google_email ? `<span style="color:#2dd4bf;font-size:10px;"> 🔗 ${escapeHtml(u.google_email)}</span>` : ''}
+          </div>`
+        ).join('');
+        addChatMessageHtml(`<div class="chat-link-card"><strong>${data.length} usuarios:</strong>${rows}</div>`, 'system');
+      } catch (e) { addChatMessage('Error: ' + e.message, 'system'); }
+
+    // ── VINCULAR USUARIO ────────────────────────────────────────────
+    } else if (lower.startsWith('vincular ')) {
+      // Syntax: vincular [login] [instance_id]
+      const parts = text.replace(/vincular\s*/i, '').trim().split(/\s+/);
+      const odoo_login  = parts[0];
+      const instance_id = parseInt(parts[1]);
+      const google_email = parts[2] || null;
+      if (!odoo_login || !instance_id) {
+        addChatMessageHtml(`
+          <div class="chat-link-card">
+            <div>Sintaxis: <code>vincular [login] [instance_id] [google_email?]</code></div>
+            <div style="opacity:.6;font-size:11px;">Ejemplo: vincular admin@empresa.com 3</div>
+            <div style="opacity:.6;font-size:11px;">Consulta los IDs con "listar instancias"</div>
+          </div>`, 'system');
+        return;
+      }
+      addChatMessage(`Vinculando ${odoo_login} a instancia #${instance_id}…`, 'system');
+      try {
+        const body = { odoo_login, instance_id };
+        if (google_email) body.google_email = google_email;
+        const res = await adminFetch('/api/admin/portal-users', { method: 'POST', body: JSON.stringify(body) });
+        const data = await res.json();
+        if (!res.ok) { addChatMessage('Error: ' + data.error, 'system'); return; }
+        addChatMessage(`✅ Usuario "${data.odoo_login}" vinculado a instancia #${instance_id}.`, 'system');
+        if (typeof loadPortalUsers === 'function') loadPortalUsers();
+      } catch (e) { addChatMessage('Error: ' + e.message, 'system'); }
+
+    // ── GENERAR SOLICITUD ───────────────────────────────────────────
+    } else if (lower.includes('generame') || (lower.includes('solicitud') && lower.includes('link'))) {
       addChatMessage('Generando enlace de solicitud...', 'system');
       try {
-        const res = await fetch('/api/admin/quote-tokens', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}` 
-          },
-          body: JSON.stringify({ label: 'Chat Generated' })
-        });
+        const res = await adminFetch('/api/admin/quote-tokens', { method: 'POST', body: JSON.stringify({ label: 'Chat Generated' }) });
         const data = await res.json();
         if (data.token) {
           const url = `https://renace.tech/cotizacion.html?token=${data.token}`;
@@ -185,23 +374,16 @@
               <a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>
               <div class="chat-link-row">
                 <button class="chat-link-action" type="button" data-copy-link="${url}">Copiar</button>
-                <a class="chat-link-action" href="https://wa.me/?text=${waText}" target="_blank" rel="noopener noreferrer">Compartir WhatsApp</a>
-                <a class="chat-link-action" href="${url}" target="_blank" rel="noopener noreferrer">Abrir solicitud</a>
+                <a class="chat-link-action" href="https://wa.me/?text=${waText}" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+                <a class="chat-link-action" href="${url}" target="_blank" rel="noopener noreferrer">Abrir</a>
               </div>
-            </div>
-          `, 'system');
-          // Refresh list
+            </div>`, 'system');
           loadAnalytics();
-        } else {
-          addChatMessage('Error al generar token.', 'system');
-        }
-      } catch (e) {
-        addChatMessage('Error de conexión.', 'system');
-      }
-    } else if (lower.includes('hola') || lower.includes('ayuda')) {
-      addChatMessage('Comandos disponibles: "Generame una solicitud", "Ver últimas ventas", "Estado del sistema".', 'system');
+        } else { addChatMessage('Error al generar token.', 'system'); }
+      } catch (e) { addChatMessage('Error de conexión.', 'system'); }
+
     } else {
-      addChatMessage('No reconozco ese comando. Intenta "Generame una solicitud".', 'system');
+      addChatMessage('No reconozco ese comando. Escribe "ayuda" para ver los comandos disponibles.', 'system');
     }
   }
 
@@ -214,14 +396,22 @@
   if (chatMessages) {
     chatMessages.addEventListener('click', async (ev) => {
       const copyBtn = ev.target.closest('[data-copy-link]');
-      if (!copyBtn) return;
-      const link = copyBtn.dataset.copyLink || '';
-      if (!link) return;
-      try {
-        await navigator.clipboard.writeText(link);
-        addChatMessage('Enlace copiado al portapapeles.', 'system');
-      } catch {
-        addChatMessage('No se pudo copiar el enlace automáticamente.', 'system');
+      if (copyBtn) {
+        const link = copyBtn.dataset.copyLink || '';
+        if (!link) return;
+        try {
+          await navigator.clipboard.writeText(link);
+          addChatMessage('Enlace copiado al portapapeles.', 'system');
+        } catch {
+          addChatMessage('No se pudo copiar el enlace automáticamente.', 'system');
+        }
+        return;
+      }
+      const useBtn = ev.target.closest('[data-use-service]');
+      if (useBtn) {
+        const [name, url] = (useBtn.dataset.useService || '').split('|');
+        chatInput.value = `crear instancia "${name}" ${url} `;
+        chatInput.focus();
       }
     });
   }

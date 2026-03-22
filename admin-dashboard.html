@@ -475,14 +475,28 @@
       .insight { padding: 8px; }
       .list { max-height: 240px; }
       .chat-widget {
-        bottom: 10px;
-        right: 10px;
-        width: calc(100vw - 20px);
-        max-width: 350px;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        max-width: 100%;
+        border-radius: 16px 16px 0 0;
+        max-height: 75vh;
       }
       .chat-widget.collapsed {
-        width: 160px;
+        width: 52px;
+        height: 52px;
+        min-height: unset;
+        left: auto;
+        right: 16px;
+        bottom: 16px;
+        border-radius: 50%;
+        overflow: hidden;
       }
+      .chat-widget.collapsed .chat-body { display: none; }
+      .chat-widget.collapsed .chat-header span { display: none; }
+      .chat-widget.collapsed .chat-header { padding: 0; justify-content: center; height: 52px; }
+      .chat-body { max-height: calc(75vh - 48px); }
       .toolbar { flex-direction: column; width: 100%; gap: 8px; }
       .toolbar button { width: 100%; }
     }
@@ -497,7 +511,7 @@
       position: fixed;
       bottom: 20px;
       right: 20px;
-      width: 350px;
+      width: 360px;
       background: #0f172a;
       border: 1px solid #1e293b;
       border-radius: 12px;
