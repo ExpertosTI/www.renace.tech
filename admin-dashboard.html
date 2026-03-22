@@ -1157,6 +1157,17 @@
     }
     .node-edit-save   { background: #2563eb; color: #fff; }
     .node-edit-cancel { background: rgba(255,255,255,0.06); color: #94a3b8; }
+    .node-edit-link {
+      background: rgba(45,212,191,0.14);
+      color: #2dd4bf;
+      border: 1px solid rgba(45,212,191,0.25);
+    }
+    .node-edit-hint {
+      margin-top: 8px;
+      font-size: 10px;
+      color: #64748b;
+      line-height: 1.35;
+    }
     .node.hub .node-circle  { width:52px;height:52px; border-color:#7dd3fc; color:#7dd3fc; background:rgba(125,211,252,0.1); font-size:20px; box-shadow:0 0 18px rgba(125,211,252,0.2); }
     .node.vps .node-circle  { width:44px;height:44px; border-color:#f59e0b; color:#f59e0b; background:rgba(245,158,11,0.1);  font-size:17px; }
     .node.odoo .node-circle { width:34px;height:34px; border-color:#3b82f6; color:#3b82f6; background:rgba(59,130,246,0.1);  font-size:14px; }
@@ -1466,12 +1477,22 @@
           <input type="text" id="nep-label" placeholder="Nombre del nodo">
           <label>URL</label>
           <input type="url" id="nep-url" placeholder="https://...">
+          <label>Base de datos Odoo (para crear instancia)</label>
+          <input type="text" id="nep-db" placeholder="mojo_prod">
           <label>Logo URL <span style="color:#334155;font-size:9px;">(opcional)</span></label>
           <input type="url" id="nep-logo" placeholder="https://.../logo.png">
+          <label>Login portal (vincular)</label>
+          <input type="text" id="nep-login" placeholder="admin@empresa.com">
+          <label>Email Google (opcional)</label>
+          <input type="email" id="nep-email" placeholder="usuario@gmail.com">
+          <label>Contraseña Odoo (si vincula Google)</label>
+          <input type="password" id="nep-pass" placeholder="••••••••">
           <div class="node-edit-actions">
             <button class="node-edit-save" id="nep-save">&#10003; Guardar</button>
+            <button class="node-edit-link" id="nep-link">Vincular</button>
             <button class="node-edit-cancel" id="nep-cancel">Cancelar</button>
           </div>
+          <div class="node-edit-hint" id="nep-hint">Tip: guarda cambios visuales o usa Vincular para crear instancia y enlazar usuario.</div>
         </div>
       </div>
     </section>

@@ -629,7 +629,7 @@ function clientColor(name) {
 function buildRedirectPage(safeName, safeUrl) {
   const initials = escAttr(clientInitials(safeName));
   const color    = clientColor(safeName);
-  const dest     = escAttr(safeUrl + '/odoo/web');
+  const dest     = escAttr(safeUrl + '/web');
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -683,12 +683,21 @@ async function odooValidateCredentials(odooUrl, db, login, password) {
       headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) },
     }, (proxyRes) => {
       let data = '';
+      const setCookies = Array.isArray(proxyRes.headers['set-cookie']) ? proxyRes.headers['set-cookie'] : [];
       proxyRes.on('data', chunk => { data += chunk; });
       proxyRes.on('end', () => {
         try {
           const parsed = JSON.parse(data);
           const uid = parsed?.result?.uid;
-          const sessionId = parsed?.result?.session_id || null;
+          let cookieSessionId = null;
+          for (const cookie of setCookies) {
+            const m = String(cookie).match(/(?:^|;\s*)session_id=([^;]+)/);
+            if (m && m[1]) {
+              cookieSessionId = m[1];
+              break;
+            }
+          }
+          const sessionId = parsed?.result?.session_id || cookieSessionId || null;
           const valid = !!uid && uid !== false && uid !== null;
           resolve({ valid, sessionId });
         } catch { resolve({ valid: false, sessionId: null }); }

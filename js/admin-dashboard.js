@@ -271,8 +271,9 @@
 
     const delay = (ms) => new Promise(r => setTimeout(r, ms));
 
-    showTyping();
-    await delay(lower === '?' || lower.includes('ayuda') || lower.includes('hola') ? 400 : 600);
+    try {
+      showTyping();
+      await delay(lower === '?' || lower.includes('ayuda') || lower.includes('hola') ? 400 : 600);
 
     // ── AYUDA ────────────────────────────────────────────────────────
     if (lower.includes('ayuda') || lower.includes('hola') || lower === '?') {
@@ -444,9 +445,15 @@
     } else {
       addChatMessage('No reconozco ese comando. Escribe "ayuda" para ver los comandos disponibles.', 'system');
     }
-
-    if (chatSend) chatSend.disabled = false;
-    chatInput.focus();
+    } catch (e) {
+      hideTyping();
+      addChatMessage('Ocurrió un error procesando el comando. Intenta de nuevo.', 'system');
+      console.error('[chat] command error:', e);
+    } finally {
+      hideTyping();
+      if (chatSend) chatSend.disabled = false;
+      chatInput.focus();
+    }
   }
 
   if (chatSend) {
@@ -1405,6 +1412,7 @@
         if (c.label) n.label = c.label;
         if (c.url)   n.url   = c.url;
         if (c.logoUrl) n.logoUrl = c.logoUrl;
+        if (c.odooDb) n.odooDb = c.odooDb;
       }
       // Auto-assign logo URL for Odoo nodes if not set
       if (!n.logoUrl && n.url && n.type === 'odoo') {
@@ -1419,7 +1427,12 @@
     }
 
     function saveCustom(nd) {
-      customData[nd.id] = { label: nd.label, url: nd.url || '', logoUrl: nd.logoUrl || '' };
+      customData[nd.id] = {
+        label: nd.label,
+        url: nd.url || '',
+        logoUrl: nd.logoUrl || '',
+        odooDb: nd.odooDb || ''
+      };
       localStorage.setItem('rnace_nodes_custom', JSON.stringify(customData));
     }
 
@@ -1449,37 +1462,133 @@
 
     // Edit popover state
     let editingNode = null;
+    const nepLabel = document.getElementById('nep-label');
+    const nepUrl = document.getElementById('nep-url');
+    const nepDb = document.getElementById('nep-db');
+    const nepLogo = document.getElementById('nep-logo');
+    const nepLogin = document.getElementById('nep-login');
+    const nepEmail = document.getElementById('nep-email');
+    const nepPass = document.getElementById('nep-pass');
+    const nepHint = document.getElementById('nep-hint');
+
+    function setPopoverHint(text, type = 'info') {
+      if (!nepHint) return;
+      nepHint.textContent = text;
+      nepHint.style.color = type === 'error' ? '#f87171' : (type === 'ok' ? '#34d399' : '#64748b');
+    }
+
     function openPopover(nd, el) {
       editingNode = nd;
-      document.getElementById('nep-label').value = nd.label || '';
-      document.getElementById('nep-url').value   = nd.url   || '';
-      document.getElementById('nep-logo').value  = nd.logoUrl || '';
-      const rect = el.getBoundingClientRect();
-      const canvasRect = container.getBoundingClientRect();
+      if (nepLabel) nepLabel.value = nd.label || '';
+      if (nepUrl) nepUrl.value = nd.url || '';
+      if (nepDb) nepDb.value = nd.odooDb || '';
+      if (nepLogo) nepLogo.value = nd.logoUrl || '';
+      if (nepLogin) nepLogin.value = '';
+      if (nepEmail) nepEmail.value = '';
+      if (nepPass) nepPass.value = '';
+      setPopoverHint('Tip: guarda cambios visuales o usa Vincular para crear instancia y enlazar usuario.');
       let px = nd.x + 28, py = nd.y - 40;
       if (px + 230 > canvasW) px = nd.x - 250;
       if (py + 180 > canvasH) py = nd.y - 200;
       popover.style.left = px + 'px';
       popover.style.top  = py + 'px';
       popover.classList.add('open');
-      document.getElementById('nep-label').focus();
+      nepLabel?.focus();
     }
     function closePopover() {
       popover.classList.remove('open');
       editingNode = null;
     }
 
-    document.getElementById('nep-cancel')?.addEventListener('click', closePopover);
-    document.getElementById('nep-save')?.addEventListener('click', () => {
+    document.getElementById('nep-cancel').onclick = closePopover;
+    document.getElementById('nep-save').onclick = () => {
       if (!editingNode) return;
-      editingNode.label  = document.getElementById('nep-label').value.trim() || editingNode.label;
-      editingNode.url    = document.getElementById('nep-url').value.trim();
-      editingNode.logoUrl = document.getElementById('nep-logo').value.trim();
+      editingNode.label  = nepLabel?.value.trim() || editingNode.label;
+      editingNode.url    = nepUrl?.value.trim() || '';
+      editingNode.odooDb = nepDb?.value.trim() || '';
+      editingNode.logoUrl = nepLogo?.value.trim() || '';
       saveCustom(editingNode);
       closePopover();
       renderNodes();
       renderEdges();
-    });
+    };
+
+    document.getElementById('nep-link').onclick = async () => {
+      if (!editingNode) return;
+
+      const rawUrl = (nepUrl?.value || editingNode.url || '').trim();
+      const instanceUrl = rawUrl.replace(/\/$/, '');
+      const instanceName = (nepLabel?.value || editingNode.label || 'Instancia').trim();
+      const instanceDb = (nepDb?.value || editingNode.odooDb || '').trim();
+      const odooLogin = (nepLogin?.value || '').trim();
+      const googleEmail = (nepEmail?.value || '').trim();
+      const odooPassword = (nepPass?.value || '').trim();
+
+      if (!instanceUrl) {
+        setPopoverHint('Debes indicar la URL de la instancia.', 'error');
+        return;
+      }
+
+      if (googleEmail && !odooPassword) {
+        setPopoverHint('Si vinculas Google, debes ingresar contraseña Odoo.', 'error');
+        return;
+      }
+
+      try {
+        setPopoverHint('Procesando vinculación...', 'info');
+
+        const listRes = await adminFetch('/api/admin/odoo-instances');
+        const listData = await listRes.json();
+        if (!listRes.ok) throw new Error(listData.error || 'No se pudieron cargar instancias');
+
+        const normalized = instanceUrl.toLowerCase();
+        let instance = Array.isArray(listData)
+          ? listData.find(i => String(i.odoo_url || '').replace(/\/$/, '').toLowerCase() === normalized)
+          : null;
+
+        if (!instance) {
+          if (!instanceDb) {
+            setPopoverHint('La instancia no existe aún; indica la base de datos para crearla.', 'error');
+            return;
+          }
+          const createRes = await adminFetch('/api/admin/odoo-instances', {
+            method: 'POST',
+            body: JSON.stringify({ client_name: instanceName, odoo_url: instanceUrl, odoo_db: instanceDb })
+          });
+          const createData = await createRes.json();
+          if (!createRes.ok) throw new Error(createData.error || 'No se pudo crear la instancia');
+          instance = createData;
+        }
+
+        if (odooLogin) {
+          const userBody = { odoo_login: odooLogin, instance_id: instance.id };
+          if (googleEmail) userBody.google_email = googleEmail;
+          if (odooPassword) userBody.odoo_password = odooPassword;
+          const linkRes = await adminFetch('/api/admin/portal-users', {
+            method: 'POST',
+            body: JSON.stringify(userBody)
+          });
+          const linkData = await linkRes.json();
+          if (!linkRes.ok) throw new Error(linkData.error || 'No se pudo vincular el usuario');
+        }
+
+        editingNode.label = instanceName;
+        editingNode.url = instanceUrl;
+        editingNode.odooDb = instanceDb;
+        saveCustom(editingNode);
+
+        await Promise.all([
+          typeof loadInstances === 'function' ? loadInstances() : Promise.resolve(),
+          typeof loadPortalUsers === 'function' ? loadPortalUsers() : Promise.resolve()
+        ]);
+
+        renderNodes();
+        renderEdges();
+        setPopoverHint('Vinculación completada correctamente.', 'ok');
+      } catch (e) {
+        setPopoverHint(e.message || 'Error en vinculación.', 'error');
+      }
+    };
 
     function renderNodes() {
       container.querySelectorAll('.node').forEach(el => el.remove());
