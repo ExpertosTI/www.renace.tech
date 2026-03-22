@@ -945,19 +945,25 @@
     try {
       const res = await adminFetch('/api/admin/portal-users');
       const data = await res.json();
-      if (!res.ok) { usersTbody.innerHTML = `<tr><td colspan="4" class="error">${escapeHtml(data.error)}</td></tr>`; return; }
-      if (!data.length) { usersTbody.innerHTML = '<tr><td colspan="4" class="muted" style="padding:14px 8px;">Sin usuarios registrados.</td></tr>'; return; }
-      usersTbody.innerHTML = data.map(u => `
+      if (!res.ok) { usersTbody.innerHTML = `<tr><td colspan="5" class="error">${escapeHtml(data.error)}</td></tr>`; return; }
+      if (!data.length) { usersTbody.innerHTML = '<tr><td colspan="5" class="muted" style="padding:14px 8px;">Sin usuarios registrados.</td></tr>'; return; }
+      usersTbody.innerHTML = data.map(u => {
+        const googleBadge = u.google_email
+          ? `<span title="${escapeHtml(u.google_email)}" style="color:var(--accent);font-size:10px;font-weight:700;">&#10003; ${escapeHtml(u.google_email)}</span>`
+          : '<span class="muted" style="font-size:10px;">No vinculado</span>';
+        return `
         <tr>
           <td>${escapeHtml(u.odoo_login)}</td>
           <td>${escapeHtml(u.client_name)}</td>
+          <td>${googleBadge}</td>
           <td><span class="${u.active ? 'pill-active' : 'pill-inactive'}">${u.active ? 'Activo' : 'Inactivo'}</span></td>
           <td style="white-space:nowrap;">
             <button class="icon-btn-sm" onclick="window.togglePortalUser(${u.id},${!u.active})">${u.active ? 'Desactivar' : 'Activar'}</button>
             <button class="icon-btn-sm danger" onclick="window.deletePortalUser(${u.id})">Eliminar</button>
           </td>
-        </tr>`).join('');
-    } catch (e) { if (usersTbody) usersTbody.innerHTML = `<tr><td colspan="4" class="error">${escapeHtml(e.message)}</td></tr>`; }
+        </tr>`;
+      }).join('');
+    } catch (e) { if (usersTbody) usersTbody.innerHTML = `<tr><td colspan="5" class="error">${escapeHtml(e.message)}</td></tr>`; }
   }
 
   window.toggleInstance = async function(id, active, client_name, odoo_url, odoo_db) {
@@ -1020,15 +1026,23 @@
   });
 
   document.getElementById('btn-add-user')?.addEventListener('click', async () => {
-    const odoo_login  = document.getElementById('user-login')?.value.trim();
-    const instance_id = parseInt(userInstanceSelect?.value);
+    const odoo_login    = document.getElementById('user-login')?.value.trim();
+    const instance_id   = parseInt(userInstanceSelect?.value);
+    const google_email  = document.getElementById('user-google-email')?.value.trim() || '';
+    const odoo_password = document.getElementById('user-odoo-pass')?.value || '';
     if (!odoo_login || !instance_id) { odooMsg(usersMsg, 'Completa el login y selecciona una instancia.', 'error'); return; }
+    if (google_email && !odoo_password) { odooMsg(usersMsg, 'Si vinculas Google, debes ingresar la contrase\u00f1a de Odoo.', 'error'); return; }
     try {
-      const res = await adminFetch('/api/admin/portal-users', { method: 'POST', body: JSON.stringify({ odoo_login, instance_id }) });
+      const body = { odoo_login, instance_id };
+      if (google_email) body.google_email = google_email;
+      if (odoo_password) body.odoo_password = odoo_password;
+      const res = await adminFetch('/api/admin/portal-users', { method: 'POST', body: JSON.stringify(body) });
       const data = await res.json();
       if (!res.ok) { odooMsg(usersMsg, data.error, 'error'); return; }
       odooMsg(usersMsg, `Usuario "${data.odoo_login}" agregado.`, 'success');
       document.getElementById('user-login').value = '';
+      document.getElementById('user-google-email').value = '';
+      document.getElementById('user-odoo-pass').value = '';
       await loadPortalUsers();
     } catch (e) { odooMsg(usersMsg, e.message, 'error'); }
   });

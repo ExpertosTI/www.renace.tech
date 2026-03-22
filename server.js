@@ -580,6 +580,34 @@ app.get('/api/admin/visit-details', apiLimiter, async (req, res) => {
 
 // ── Portal de Clientes Odoo ──────────────────────────────────────────
 
+const GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID     || '';
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
+const PORTAL_ENCRYPTION_KEY = process.env.PORTAL_ENCRYPTION_KEY || '';
+const GOOGLE_REDIRECT_URI  = (process.env.NEXT_PUBLIC_BASE_URL || 'https://renace.tech') + '/api/portal/google/callback';
+
+function portalEncrypt(plaintext) {
+  if (!PORTAL_ENCRYPTION_KEY || PORTAL_ENCRYPTION_KEY.length < 16) throw new Error('PORTAL_ENCRYPTION_KEY no configurada');
+  const key = crypto.scryptSync(PORTAL_ENCRYPTION_KEY, 'renace-portal-salt', 32);
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  let encrypted = cipher.update(plaintext, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const tag = cipher.getAuthTag().toString('hex');
+  return iv.toString('hex') + ':' + tag + ':' + encrypted;
+}
+
+function portalDecrypt(ciphertext) {
+  if (!PORTAL_ENCRYPTION_KEY || PORTAL_ENCRYPTION_KEY.length < 16) throw new Error('PORTAL_ENCRYPTION_KEY no configurada');
+  const key = crypto.scryptSync(PORTAL_ENCRYPTION_KEY, 'renace-portal-salt', 32);
+  const [ivHex, tagHex, encHex] = ciphertext.split(':');
+  if (!ivHex || !tagHex || !encHex) throw new Error('Formato de cifrado inválido');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'));
+  decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
+  let decrypted = decipher.update(encHex, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
+}
+
 function escAttr(val) {
   return String(val || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -658,21 +686,21 @@ app.post('/api/portal/login', portalLimiter, async (req, res) => {
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{display:flex;align-items:center;justify-content:center;min-height:100vh;
-      background:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#e2e8f0}
-    .card{text-align:center;padding:2.5rem 3rem;background:#1e293b;border-radius:1rem;
-      box-shadow:0 20px 60px rgba(0,0,0,.5);max-width:360px;width:90%}
-    .logo{width:52px;height:52px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:14px;
-      display:inline-flex;align-items:center;justify-content:center;font-size:1.6rem;margin-bottom:1.4rem}
-    h2{font-size:1.15rem;font-weight:700;margin-bottom:.4rem}
-    p{color:#94a3b8;font-size:.875rem;margin-bottom:1.6rem}
-    .spinner{width:34px;height:34px;border:3px solid #334155;border-top-color:#6366f1;
+      background:#0a0f1a;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;color:#e8edf5}
+    .card{text-align:center;padding:2.5rem 3rem;background:#111827;border:1px solid rgba(148,163,184,0.12);border-radius:20px;
+      box-shadow:0 20px 60px rgba(0,0,0,.4);max-width:360px;width:90%}
+    .logo{margin-bottom:1.4rem}
+    .logo svg{width:42px;height:42px}
+    h2{font-size:1.15rem;font-weight:700;margin-bottom:.4rem;letter-spacing:-0.02em}
+    p{color:#7b8faa;font-size:.875rem;margin-bottom:1.6rem}
+    .spinner{width:34px;height:34px;border:3px solid #1e293b;border-top-color:#2dd4bf;
       border-radius:50%;animation:spin .75s linear infinite;margin:0 auto}
     @keyframes spin{to{transform:rotate(360deg)}}
   </style>
 </head>
 <body>
   <div class="card">
-    <div class="logo">🚀</div>
+    <div class="logo"><svg viewBox="0 0 200 200" fill="none"><path d="M165.2,78.1v81.2h-37.5v-55.1L83,159.4H34.8l68.9-85H48.8V40.6h82.7c14,0,26,8.5,31.1,20.6c0,0,0,0,0,0.1c1.7,4,2.6,8.4,2.6,13C165.2,74.3,165.2,76.9,165.2,78.1z" fill="#2dd4bf"/></svg></div>
     <h2>Accediendo a ${safeName}</h2>
     <p>Iniciando sesión en tu plataforma…</p>
     <div class="spinner"></div>
@@ -688,6 +716,158 @@ app.post('/api/portal/login', portalLimiter, async (req, res) => {
   } catch (e) {
     console.error('[portal login]', e.message);
     res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// ── Google OAuth for Portal ──
+const _googleOAuthStates = new Map();
+
+app.get('/api/portal/google', portalLimiter, (req, res) => {
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+    return res.redirect('/portal?error=' + encodeURIComponent('Login con Google no configurado.'));
+  }
+  const state = crypto.randomBytes(20).toString('hex');
+  _googleOAuthStates.set(state, Date.now() + 5 * 60 * 1000);
+  // Cleanup old states
+  for (const [k, exp] of _googleOAuthStates.entries()) { if (exp < Date.now()) _googleOAuthStates.delete(k); }
+  const params = new URLSearchParams({
+    client_id: GOOGLE_CLIENT_ID,
+    redirect_uri: GOOGLE_REDIRECT_URI,
+    response_type: 'code',
+    scope: 'openid email profile',
+    state,
+    access_type: 'online',
+    prompt: 'select_account',
+  });
+  res.redirect('https://accounts.google.com/o/oauth2/v2/auth?' + params.toString());
+});
+
+app.get('/api/portal/google/callback', portalLimiter, async (req, res) => {
+  const { code, state, error: oauthErr } = req.query;
+  if (oauthErr) return res.redirect('/portal?error=' + encodeURIComponent('Acceso con Google cancelado.'));
+  if (!code || !state) return res.redirect('/portal?error=' + encodeURIComponent('Parámetros de autenticación inválidos.'));
+
+  const stateExp = _googleOAuthStates.get(state);
+  _googleOAuthStates.delete(state);
+  if (!stateExp || stateExp < Date.now()) {
+    return res.redirect('/portal?error=' + encodeURIComponent('Sesión expirada, intenta de nuevo.'));
+  }
+
+  try {
+    // Exchange code for token
+    const tokenBody = new URLSearchParams({
+      code,
+      client_id: GOOGLE_CLIENT_ID,
+      client_secret: GOOGLE_CLIENT_SECRET,
+      redirect_uri: GOOGLE_REDIRECT_URI,
+      grant_type: 'authorization_code',
+    });
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: tokenBody.toString(),
+    });
+    const tokenData = await tokenRes.json();
+    if (!tokenRes.ok || !tokenData.access_token) {
+      console.warn('[google oauth] token exchange failed:', tokenData);
+      return res.redirect('/portal?error=' + encodeURIComponent('No se pudo autenticar con Google.'));
+    }
+
+    // Get user info
+    const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+    const userInfo = await userInfoRes.json();
+    if (!userInfo.email) {
+      return res.redirect('/portal?error=' + encodeURIComponent('No se pudo obtener el correo de Google.'));
+    }
+
+    const googleEmail = userInfo.email.toLowerCase();
+
+    // Look up linked portal user
+    const result = await pool.query(
+      `SELECT cpu.id, cpu.odoo_login, cpu.odoo_password_enc, oi.odoo_url, oi.odoo_db, oi.client_name
+       FROM client_portal_users cpu
+       JOIN odoo_instances oi ON oi.id = cpu.instance_id
+       WHERE LOWER(cpu.google_email) = $1 AND cpu.active = TRUE AND oi.active = TRUE
+       LIMIT 1`,
+      [googleEmail]
+    );
+
+    if (!result.rows.length) {
+      return res.redirect('/portal?error=' + encodeURIComponent('Tu cuenta de Google no está vinculada. Contacta al administrador.'));
+    }
+
+    const { odoo_login, odoo_password_enc, odoo_url, odoo_db, client_name } = result.rows[0];
+
+    if (!odoo_password_enc) {
+      return res.redirect('/portal?error=' + encodeURIComponent('Credenciales de Odoo no configuradas para login con Google. Contacta al administrador.'));
+    }
+
+    let odooPassword;
+    try { odooPassword = portalDecrypt(odoo_password_enc); }
+    catch (e) {
+      console.error('[google oauth] decrypt failed:', e.message);
+      return res.redirect('/portal?error=' + encodeURIComponent('Error al procesar credenciales. Contacta al administrador.'));
+    }
+
+    // Validate against Odoo
+    let valid = false;
+    try { valid = await odooValidateCredentials(odoo_url, odoo_db, odoo_login, odooPassword); }
+    catch (e) {
+      console.warn('[google oauth] Odoo auth error:', e.message);
+      return res.redirect('/portal?error=' + encodeURIComponent('No se pudo conectar con Odoo. Intenta más tarde.'));
+    }
+
+    if (!valid) {
+      return res.redirect('/portal?error=' + encodeURIComponent('Las credenciales de Odoo vinculadas son inválidas. Contacta al administrador.'));
+    }
+
+    // Auto-submit form to Odoo
+    const safeUrl   = odoo_url.replace(/"/g, '');
+    const safeLogin = escAttr(odoo_login);
+    const safePass  = escAttr(odooPassword);
+    const safeName  = escAttr(client_name);
+
+    res.type('html').send(`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Accediendo a ${safeName}…</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{display:flex;align-items:center;justify-content:center;min-height:100vh;
+      background:#0a0f1a;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;color:#e8edf5}
+    .card{text-align:center;padding:2.5rem 3rem;background:#111827;border:1px solid rgba(148,163,184,0.12);border-radius:20px;
+      box-shadow:0 20px 60px rgba(0,0,0,.4);max-width:360px;width:90%}
+    .logo{margin-bottom:1.4rem}
+    .logo svg{width:42px;height:42px}
+    h2{font-size:1.15rem;font-weight:700;margin-bottom:.4rem;letter-spacing:-0.02em}
+    p{color:#7b8faa;font-size:.875rem;margin-bottom:1.6rem}
+    .spinner{width:34px;height:34px;border:3px solid #1e293b;border-top-color:#2dd4bf;
+      border-radius:50%;animation:spin .75s linear infinite;margin:0 auto}
+    @keyframes spin{to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo"><svg viewBox="0 0 200 200" fill="none"><path d="M165.2,78.1v81.2h-37.5v-55.1L83,159.4H34.8l68.9-85H48.8V40.6h82.7c14,0,26,8.5,31.1,20.6c0,0,0,0,0,0.1c1.7,4,2.6,8.4,2.6,13C165.2,74.3,165.2,76.9,165.2,78.1z" fill="#2dd4bf"/></svg></div>
+    <h2>Accediendo a ${safeName}</h2>
+    <p>Iniciando sesión en tu plataforma…</p>
+    <div class="spinner"></div>
+    <form id="f" method="POST" action="${safeUrl}/web/login" style="display:none">
+      <input name="login" value="${safeLogin}">
+      <input name="password" type="password" value="${safePass}">
+      <input name="redirect" value="/odoo/web">
+    </form>
+  </div>
+  <script>setTimeout(()=>document.getElementById('f').submit(),700)</script>
+</body>
+</html>`);
+  } catch (e) {
+    console.error('[google oauth callback]', e.message);
+    res.redirect('/portal?error=' + encodeURIComponent('Error interno del servidor.'));
   }
 });
 
@@ -749,7 +929,9 @@ app.get('/api/admin/portal-users', apiLimiter, async (req, res) => {
   if (!requireAdminToken(req, res)) return;
   try {
     const r = await pool.query(
-      `SELECT cpu.id, cpu.odoo_login, cpu.active, cpu.created_at, oi.client_name, oi.id AS instance_id
+      `SELECT cpu.id, cpu.odoo_login, cpu.google_email, cpu.active, cpu.created_at,
+              cpu.odoo_password_enc IS NOT NULL AS has_password,
+              oi.client_name, oi.id AS instance_id
        FROM client_portal_users cpu
        JOIN odoo_instances oi ON oi.id = cpu.instance_id
        ORDER BY cpu.created_at DESC`
@@ -760,13 +942,20 @@ app.get('/api/admin/portal-users', apiLimiter, async (req, res) => {
 
 app.post('/api/admin/portal-users', apiLimiter, async (req, res) => {
   if (!requireAdminToken(req, res)) return;
-  const odoo_login  = String(req.body?.odoo_login || '').replace(/[<>]/g, '').trim().slice(0, 254);
-  const instance_id = parseInt(req.body?.instance_id);
+  const odoo_login   = String(req.body?.odoo_login || '').replace(/[<>]/g, '').trim().slice(0, 254);
+  const instance_id  = parseInt(req.body?.instance_id);
+  const google_email = String(req.body?.google_email || '').replace(/[<>]/g, '').trim().toLowerCase().slice(0, 254) || null;
+  const odoo_password = String(req.body?.odoo_password || '').slice(0, 256) || null;
   if (!odoo_login || !instance_id) return res.status(400).json({ error: 'Login e instancia son requeridos' });
+  let passwordEnc = null;
+  if (odoo_password) {
+    try { passwordEnc = portalEncrypt(odoo_password); }
+    catch (e) { return res.status(500).json({ error: 'No se pudo cifrar la contraseña: ' + e.message }); }
+  }
   try {
     const r = await pool.query(
-      'INSERT INTO client_portal_users (odoo_login, instance_id) VALUES ($1,$2) RETURNING *',
-      [odoo_login, instance_id]
+      'INSERT INTO client_portal_users (odoo_login, instance_id, google_email, odoo_password_enc) VALUES ($1,$2,$3,$4) RETURNING *',
+      [odoo_login, instance_id, google_email, passwordEnc]
     );
     res.json(r.rows[0]);
   } catch (e) {
@@ -779,9 +968,31 @@ app.put('/api/admin/portal-users/:id', apiLimiter, async (req, res) => {
   if (!requireAdminToken(req, res)) return;
   const id = parseInt(req.params.id);
   if (!id) return res.status(400).json({ error: 'ID inválido' });
-  const active = !!req.body?.active;
+  const active = req.body?.active !== undefined ? !!req.body.active : undefined;
+  const google_email = req.body?.google_email !== undefined
+    ? (String(req.body.google_email || '').replace(/[<>]/g, '').trim().toLowerCase().slice(0, 254) || null)
+    : undefined;
+  const odoo_password = req.body?.odoo_password !== undefined
+    ? (String(req.body.odoo_password || '').slice(0, 256) || null)
+    : undefined;
+
+  const sets = [];
+  const vals = [];
+  let idx = 1;
+  if (active !== undefined) { sets.push(`active=$${idx++}`); vals.push(active); }
+  if (google_email !== undefined) { sets.push(`google_email=$${idx++}`); vals.push(google_email); }
+  if (odoo_password !== undefined) {
+    let enc = null;
+    if (odoo_password) {
+      try { enc = portalEncrypt(odoo_password); }
+      catch (e) { return res.status(500).json({ error: 'No se pudo cifrar la contraseña: ' + e.message }); }
+    }
+    sets.push(`odoo_password_enc=$${idx++}`); vals.push(enc);
+  }
+  if (!sets.length) return res.status(400).json({ error: 'Nada que actualizar' });
+  vals.push(id);
   try {
-    const r = await pool.query('UPDATE client_portal_users SET active=$1 WHERE id=$2 RETURNING *', [active, id]);
+    const r = await pool.query(`UPDATE client_portal_users SET ${sets.join(',')} WHERE id=$${idx} RETURNING *`, vals);
     if (!r.rows.length) return res.status(404).json({ error: 'No encontrado' });
     res.json(r.rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -1027,10 +1238,20 @@ async function initDB() {
         id SERIAL PRIMARY KEY,
         odoo_login VARCHAR(255) NOT NULL,
         instance_id INTEGER REFERENCES odoo_instances(id) ON DELETE CASCADE,
+        google_email VARCHAR(255),
+        odoo_password_enc TEXT,
         active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(odoo_login, instance_id)
       );
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='client_portal_users' AND column_name='google_email') THEN
+          ALTER TABLE client_portal_users ADD COLUMN google_email VARCHAR(255);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='client_portal_users' AND column_name='odoo_password_enc') THEN
+          ALTER TABLE client_portal_users ADD COLUMN odoo_password_enc TEXT;
+        END IF;
+      END $$;
       CREATE TABLE IF NOT EXISTS documents (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,

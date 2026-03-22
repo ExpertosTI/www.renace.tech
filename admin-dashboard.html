@@ -1013,7 +1013,7 @@
       <div class="odoo-panel" id="panel-users">
         <div class="odoo-form">
           <div>
-            <label>Usuario Odoo (login/email)</label>
+            <label>Usuario Odoo (login)</label>
             <input id="user-login" type="text" placeholder="admin@empresa.com">
           </div>
           <div>
@@ -1021,6 +1021,14 @@
             <select id="user-instance" class="odoo-select">
               <option value="">— Selecciona instancia —</option>
             </select>
+          </div>
+          <div>
+            <label>Email Google <span style="font-weight:400;opacity:.6;">(opcional)</span></label>
+            <input id="user-google-email" type="email" placeholder="usuario@gmail.com">
+          </div>
+          <div>
+            <label>Contraseña Odoo <span style="font-weight:400;opacity:.6;">(para Google login)</span></label>
+            <input id="user-odoo-pass" type="password" placeholder="Requerido si vincula Google">
           </div>
           <div style="align-self:end;">
             <button id="btn-add-user" class="secondary"><i class="fa-solid fa-plus"></i> Agregar</button>
@@ -1033,12 +1041,13 @@
               <tr>
                 <th>Login</th>
                 <th>Instancia</th>
+                <th>Google</th>
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
             </thead>
             <tbody id="users-tbody">
-              <tr><td colspan="4" class="muted" style="padding:16px 8px;">Cargando…</td></tr>
+              <tr><td colspan="5" class="muted" style="padding:16px 8px;">Cargando…</td></tr>
             </tbody>
           </table>
         </div>
