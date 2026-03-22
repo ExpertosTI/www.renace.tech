@@ -127,31 +127,78 @@
   // Chat Widget Logic
   const chatWidget = document.getElementById('admin-chat-widget');
   const chatToggle = document.getElementById('chat-toggle');
-  const chatInput = document.getElementById('chat-input');
-  const chatSend = document.getElementById('chat-send');
+  const chatInput  = document.getElementById('chat-input');
+  const chatSend   = document.getElementById('chat-send');
   const chatMessages = document.getElementById('chat-messages');
-  const chatIcon = document.getElementById('chat-icon');
+  const chatIcon   = document.getElementById('chat-icon');
+  const chatChips  = document.getElementById('chat-chips');
 
   if (chatToggle) {
-    chatToggle.addEventListener('click', () => {
-      chatWidget.classList.toggle('collapsed');
-      const isCollapsed = chatWidget.classList.contains('collapsed');
-      chatIcon.className = isCollapsed ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
+    chatToggle.addEventListener('click', (e) => {
+      if (e.target.closest('#chat-toggle-btn') || e.currentTarget === chatToggle) {
+        chatWidget.classList.toggle('collapsed');
+        const isCollapsed = chatWidget.classList.contains('collapsed');
+        if (chatIcon) chatIcon.className = isCollapsed ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
+      }
     });
   }
 
-  function addChatMessage(text, type = 'user') {
-    const div = document.createElement('div');
-    div.className = `msg ${type}`;
-    div.textContent = text;
-    chatMessages.appendChild(div);
+  // Quick chips
+  if (chatChips) {
+    chatChips.addEventListener('click', (e) => {
+      const chip = e.target.closest('[data-cmd]');
+      if (!chip) return;
+      chatInput.value = chip.dataset.cmd;
+      handleChatCommand();
+    });
+  }
+
+  let _typingRow = null;
+
+  function showTyping() {
+    if (_typingRow) return;
+    _typingRow = document.createElement('div');
+    _typingRow.className = 'msg-row';
+    _typingRow.innerHTML = `<img class="msg-avatar" src="images/support.png" alt="AI"><div class="msg-typing"><span></span><span></span><span></span></div>`;
+    chatMessages.appendChild(_typingRow);
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }
+
+  function hideTyping() {
+    if (_typingRow) { _typingRow.remove(); _typingRow = null; }
+  }
+
+  function addChatMessage(text, type = 'user') {
+    hideTyping();
+    if (type === 'user') {
+      const row = document.createElement('div');
+      row.className = 'msg-row user-row';
+      row.innerHTML = `<div class="msg user"></div>`;
+      row.querySelector('.msg').textContent = text;
+      chatMessages.appendChild(row);
+    } else {
+      const row = document.createElement('div');
+      row.className = 'msg-row';
+      const bubble = document.createElement('div');
+      bubble.className = 'msg system';
+      bubble.textContent = text;
+      row.innerHTML = `<img class="msg-avatar" src="images/support.png" alt="AI">`;
+      row.appendChild(bubble);
+      chatMessages.appendChild(row);
+    }
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
   function addChatMessageHtml(html, type = 'system') {
-    const div = document.createElement('div');
-    div.className = `msg ${type}`;
-    div.innerHTML = html;
-    chatMessages.appendChild(div);
+    hideTyping();
+    const row = document.createElement('div');
+    row.className = 'msg-row';
+    const bubble = document.createElement('div');
+    bubble.className = `msg ${type}`;
+    bubble.innerHTML = html;
+    row.innerHTML = `<img class="msg-avatar" src="images/support.png" alt="AI">`;
+    row.appendChild(bubble);
+    chatMessages.appendChild(row);
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }
 
@@ -213,7 +260,13 @@
     if (!text) return;
     addChatMessage(text, 'user');
     chatInput.value = '';
+    if (chatSend) chatSend.disabled = true;
     const lower = text.toLowerCase();
+
+    const delay = (ms) => new Promise(r => setTimeout(r, ms));
+
+    showTyping();
+    await delay(lower === '?' || lower.includes('ayuda') || lower.includes('hola') ? 400 : 600);
 
     // ── AYUDA ────────────────────────────────────────────────────────
     if (lower.includes('ayuda') || lower.includes('hola') || lower === '?') {
@@ -385,6 +438,9 @@
     } else {
       addChatMessage('No reconozco ese comando. Escribe "ayuda" para ver los comandos disponibles.', 'system');
     }
+
+    if (chatSend) chatSend.disabled = false;
+    chatInput.focus();
   }
 
   if (chatSend) {
