@@ -1012,6 +1012,176 @@ app.delete('/api/admin/portal-users/:id', apiLimiter, async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── SSO: Generate Token for Portal Login ──
+app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
+  const odoo_login = String(req.body?.odoo_login || '').trim().slice(0, 254);
+  const password = String(req.body?.password || '').slice(0, 256);
+  
+  if (!odoo_login || !password) {
+    return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
+  }
+
+  try {
+    // Find user and instance
+    const userResult = await pool.query(
+      `SELECT cpu.id, cpu.odoo_login, oi.id AS instance_id, oi.odoo_url, oi.odoo_db, oi.client_name
+       FROM client_portal_users cpu
+       JOIN odoo_instances oi ON oi.id = cpu.instance_id
+       WHERE cpu.odoo_login = $1 AND cpu.active = TRUE AND oi.active = TRUE
+       LIMIT 1`,
+      [odoo_login]
+    );
+
+    if (!userResult.rows.length) {
+      return res.status(401).json({ error: 'Credenciales incorrectas o usuario no registrado' });
+    }
+
+    const user = userResult.rows[0];
+
+    // Validate credentials against Odoo
+    let authResult;
+    try {
+      authResult = await odooValidateCredentials(user.odoo_url, user.odoo_db, odoo_login, password);
+    } catch (e) {
+      console.warn('[sso generate] Odoo auth error:', e.message);
+      return res.status(503).json({ error: 'No se pudo conectar con el servicio. Intenta más tarde.' });
+    }
+
+    if (!authResult.valid) {
+      return res.status(401).json({ error: 'Credenciales incorrectas' });
+    }
+
+    // Store password if not already stored
+    const hashedPassword = crypto.createHash('sha256').update(password).digest('hex');
+    await pool.query(
+      `UPDATE client_portal_users 
+       SET odoo_password_enc = $1, password_updated_at = NOW() 
+       WHERE id = $2 AND (odoo_password_enc IS NULL OR odoo_password_enc != $1)`,
+      [hashedPassword, user.id]
+    );
+
+    // Generate SSO token
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+    await pool.query(
+      `INSERT INTO sso_tokens (token, user_id, instance_id, odoo_login, expires_at, ip_address, user_agent)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [token, user.id, user.instance_id, odoo_login, expiresAt, req.ip, req.get('user-agent')]
+    );
+
+    // Return redirect URL with token
+    const redirectUrl = `${user.odoo_url}/renace/sso?token=${token}`;
+    
+    res.json({
+      success: true,
+      token,
+      redirect_url: redirectUrl,
+      client_name: user.client_name,
+      expires_at: expiresAt.toISOString()
+    });
+
+  } catch (e) {
+    console.error('[sso generate]', e.message);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// ── SSO: Verify Token (called by Odoo module) ──
+app.get('/api/sso/verify', apiLimiter, async (req, res) => {
+  const token = String(req.query.token || '').trim();
+  
+  if (!token) {
+    return res.status(400).json({ error: 'Token requerido' });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT st.id, st.user_id, st.odoo_login, st.used, st.expires_at,
+              oi.odoo_url, oi.odoo_db, oi.client_name,
+              cpu.odoo_password_enc
+       FROM sso_tokens st
+       JOIN client_portal_users cpu ON cpu.id = st.user_id
+       JOIN odoo_instances oi ON oi.id = st.instance_id
+       WHERE st.token = $1
+       LIMIT 1`,
+      [token]
+    );
+
+    if (!result.rows.length) {
+      return res.status(404).json({ error: 'Token inválido' });
+    }
+
+    const tokenData = result.rows[0];
+
+    // Check if already used
+    if (tokenData.used) {
+      return res.status(403).json({ error: 'Token ya utilizado' });
+    }
+
+    // Check if expired
+    if (new Date(tokenData.expires_at) < new Date()) {
+      return res.status(403).json({ error: 'Token expirado' });
+    }
+
+    // Mark token as used
+    await pool.query(
+      `UPDATE sso_tokens SET used = TRUE, used_at = NOW() WHERE id = $1`,
+      [tokenData.id]
+    );
+
+    // Return user data for Odoo to create session
+    res.json({
+      valid: true,
+      odoo_login: tokenData.odoo_login,
+      odoo_db: tokenData.odoo_db,
+      client_name: tokenData.client_name
+    });
+
+  } catch (e) {
+    console.error('[sso verify]', e.message);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// ── Admin: Link User Without Password ──
+app.post('/api/admin/portal-users/link', apiLimiter, async (req, res) => {
+  if (!requireAdminToken(req, res)) return;
+  
+  const odoo_login = String(req.body?.odoo_login || '').trim().slice(0, 254);
+  const instance_id = parseInt(req.body?.instance_id);
+  const google_email = String(req.body?.google_email || '').trim().slice(0, 254) || null;
+  
+  if (!odoo_login || !instance_id) {
+    return res.status(400).json({ error: 'Login de Odoo e ID de instancia son requeridos' });
+  }
+
+  try {
+    // Check if user already exists
+    const existing = await pool.query(
+      'SELECT id FROM client_portal_users WHERE odoo_login = $1 AND instance_id = $2',
+      [odoo_login, instance_id]
+    );
+
+    if (existing.rows.length) {
+      return res.status(409).json({ error: 'Usuario ya existe para esta instancia' });
+    }
+
+    // Create user without password
+    const result = await pool.query(
+      `INSERT INTO client_portal_users (odoo_login, instance_id, google_email, active)
+       VALUES ($1, $2, $3, TRUE)
+       RETURNING id, odoo_login, google_email, active, created_at`,
+      [odoo_login, instance_id, google_email]
+    );
+
+    res.json(result.rows[0]);
+  } catch (e) {
+    console.error('[link user]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // HTML routes
 app.get('/admin-dashboard.html', (req, res) => {
   res.type('html');

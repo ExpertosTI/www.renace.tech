@@ -703,26 +703,59 @@
 
       setLoading(true);
 
+      // Detectar si estamos dentro del Cascarón (app nativa)
+      const isShellApp = window.navigator.userAgent.includes('RENACE-App') || 
+                         window.location.href.includes('?shell=true') ||
+                         window.parent !== window;
+
       try {
-        const res = await fetch('/api/portal/login', {
+        // Usar el nuevo endpoint SSO para generar token
+        const res = await fetch('/api/sso/generate-token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ login, password }),
         });
 
-        const contentType = res.headers.get('content-type') || '';
+        const data = await res.json().catch(() => ({ error: 'Respuesta inesperada del servidor.' }));
 
-        if (res.ok && contentType.includes('text/html')) {
-          const html = await res.text();
+        if (!res.ok || !data.success) {
+          showError(data.error || 'Error al iniciar sesion. Intenta de nuevo.');
+          return;
+        }
+
+        // Guardar token en localStorage para futuros logins automáticos
+        if (data.token) {
+          localStorage.setItem('renace_sso_token', data.token);
+          localStorage.setItem('renace_client_name', data.client_name);
+        }
+
+        // Si estamos en el Cascarón, redirigir a la URL /renace del cliente
+        if (isShellApp && data.redirect_url) {
+          window.location.href = data.redirect_url;
+          return;
+        }
+
+        // Fallback: usar el método tradicional con redirect HTML
+        const legacyRes = await fetch('/api/portal/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ login, password }),
+        });
+
+        const contentType = legacyRes.headers.get('content-type') || '';
+        if (legacyRes.ok && contentType.includes('text/html')) {
+          const html = await legacyRes.text();
           document.open();
           document.write(html);
           document.close();
           return;
         }
 
-        const data = await res.json().catch(() => ({ error: 'Respuesta inesperada del servidor.' }));
-        showError(data.error || 'Error al iniciar sesion. Intenta de nuevo.');
-      } catch {
+        const legacyData = await legacyRes.json().catch(() => ({ error: 'Respuesta inesperada.' }));
+        showError(legacyData.error || 'Error al iniciar sesion.');
+
+      } catch (e) {
+        console.error('[portal login]', e);
         showError('No se pudo conectar con el servidor. Verifica tu conexion.');
       } finally {
         setLoading(false);
