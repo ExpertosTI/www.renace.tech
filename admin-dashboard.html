@@ -534,14 +534,25 @@
     .chat-avatar-wrap {
       position: relative;
       flex-shrink: 0;
+      width: 32px;
+      height: 32px;
     }
-    .chat-avatar-wrap img {
+    .chat-avatar {
       width: 32px;
       height: 32px;
       border-radius: 50%;
-      object-fit: cover;
+      background: linear-gradient(135deg, #1e3a5f 0%, #0d1b35 100%);
       border: 2px solid rgba(45,212,191,0.4);
-      display: block;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #7dd3fc;
+      font-size: 14px;
+    }
+    .chat-avatar svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
     }
     .chat-status-dot {
       position: absolute;
@@ -616,9 +627,17 @@
       width: 24px;
       height: 24px;
       border-radius: 50%;
-      object-fit: cover;
       flex-shrink: 0;
+      background: linear-gradient(135deg, #1e3a5f 0%, #0d1b35 100%);
       border: 1px solid rgba(45,212,191,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .msg-avatar svg {
+      width: 14px;
+      height: 14px;
+      fill: #7dd3fc;
     }
     .msg {
       padding: 9px 13px;
@@ -1531,12 +1550,14 @@
     <div class="chat-header" id="chat-toggle">
       <div class="chat-header-left">
         <div class="chat-avatar-wrap">
-          <img src="images/support.png" alt="RENACE AI">
+          <div class="chat-avatar">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+          </div>
           <span class="chat-status-dot"></span>
         </div>
         <div class="chat-header-info">
           <span class="chat-header-name">RENACE AI</span>
-          <span class="chat-header-sub">● En l&iacute;nea</span>
+          <span class="chat-header-sub">● En línea</span>
         </div>
       </div>
       <button class="chat-collapse-btn" id="chat-toggle-btn" aria-label="Minimizar">

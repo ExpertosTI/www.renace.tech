@@ -137,7 +137,7 @@
   if (chatMessages) {
     const welcomeRow = document.createElement('div');
     welcomeRow.className = 'msg-row';
-    welcomeRow.innerHTML = `<img class="msg-avatar" src="images/support.png" alt="AI"><div class="msg system">Hola! Soy tu asistente. Escribe <code>ayuda</code> o usa los chips de abajo.</div>`;
+    welcomeRow.innerHTML = `${CHAT_AVATAR_SVG}<div class="msg system">Hola! Soy tu asistente. Escribe <code>ayuda</code> o usa los chips de abajo.</div>`;
     chatMessages.appendChild(welcomeRow);
   }
 
@@ -159,13 +159,14 @@
     });
   }
 
-  let _typingRow = null;
+  // Chat Avatar SVG constant
+  const CHAT_AVATAR_SVG = `<div class="msg-avatar"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg></div>`;
 
   function showTyping() {
     if (_typingRow) return;
     _typingRow = document.createElement('div');
     _typingRow.className = 'msg-row';
-    _typingRow.innerHTML = `<img class="msg-avatar" src="images/support.png" alt="AI"><div class="msg-typing"><span></span><span></span><span></span></div>`;
+    _typingRow.innerHTML = `${CHAT_AVATAR_SVG}<div class="msg-typing"><span></span><span></span><span></span></div>`;
     chatMessages.appendChild(_typingRow);
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }
@@ -188,7 +189,7 @@
       const bubble = document.createElement('div');
       bubble.className = 'msg system';
       bubble.textContent = text;
-      row.innerHTML = `<img class="msg-avatar" src="images/support.png" alt="AI">`;
+      row.innerHTML = CHAT_AVATAR_SVG;
       row.appendChild(bubble);
       chatMessages.appendChild(row);
     }
@@ -202,7 +203,7 @@
     const bubble = document.createElement('div');
     bubble.className = `msg ${type}`;
     bubble.innerHTML = html;
-    row.innerHTML = `<img class="msg-avatar" src="images/support.png" alt="AI">`;
+    row.innerHTML = CHAT_AVATAR_SVG;
     row.appendChild(bubble);
     chatMessages.appendChild(row);
     chatMessages.scrollTop = chatMessages.scrollHeight;
