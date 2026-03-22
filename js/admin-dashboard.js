@@ -133,13 +133,19 @@
   const chatIcon   = document.getElementById('chat-icon');
   const chatChips  = document.getElementById('chat-chips');
 
+  // Inject welcome message via JS so animation runs on first expand
+  if (chatMessages) {
+    const welcomeRow = document.createElement('div');
+    welcomeRow.className = 'msg-row';
+    welcomeRow.innerHTML = `<img class="msg-avatar" src="images/support.png" alt="AI"><div class="msg system">Hola! Soy tu asistente. Escribe <code>ayuda</code> o usa los chips de abajo.</div>`;
+    chatMessages.appendChild(welcomeRow);
+  }
+
   if (chatToggle) {
-    chatToggle.addEventListener('click', (e) => {
-      if (e.target.closest('#chat-toggle-btn') || e.currentTarget === chatToggle) {
-        chatWidget.classList.toggle('collapsed');
-        const isCollapsed = chatWidget.classList.contains('collapsed');
-        if (chatIcon) chatIcon.className = isCollapsed ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
-      }
+    chatToggle.addEventListener('click', () => {
+      chatWidget.classList.toggle('collapsed');
+      const isCollapsed = chatWidget.classList.contains('collapsed');
+      if (chatIcon) chatIcon.className = isCollapsed ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
     });
   }
 
@@ -926,6 +932,7 @@
       await hideLoginWithBlur();
       await loadAnalytics();
       loadOdooSection();
+      initNodesGraph();
       startAutoRefresh();
     } catch (e) {
       setMessage(e.message, 'error');
@@ -1309,11 +1316,201 @@
     loadPortalUsers();
   }
 
+  // ── Nodes Section ─────────────────────────────────────────────────
+  const nodesSection = document.getElementById('nodes-section');
+
+  const VPS_GROUPS = {
+    vps1: ['thiagosmart','dyfsmart','soriinails','odoo','delkilo','thiago','lakersdisco','alcaduarte','metro','hansel','henryh'],
+    vps2: ['ceramicajc','clb','delkilofood','calpad','rey','sp','guerrero','universal'],
+    vps3: ['manuelhookah','nominarf','reyplaza','cacorojo','cueromacho','launi','naje','lagrasa'],
+    vps4: ['ronuimport','magile','camuflaje','tarjetaroja','heredia','pim','easymovil','disttineo','yeurismart','fullbloke','limytech','mojo'],
+  };
+  const VPS_META = {
+    vps1: { label:'VPS-1', ip:'85.31.224.232' },
+    vps2: { label:'VPS-2', ip:'85.31.224.233' },
+    vps3: { label:'VPS-3', ip:'85.31.224.234' },
+    vps4: { label:'VPS-4', ip:'85.31.224.235' },
+  };
+  const NODE_ICONS = { hub:'🏢', vps:'🖥️', odoo:'⚡', web:'🌐', api:'🔌', ai:'🤖' };
+  const ODOO_KNOWN = new Set(Object.values(VPS_GROUPS).flat());
+
+  function buildNodeGraph(canvasW, canvasH) {
+    const cx = canvasW / 2, cy = canvasH / 2;
+    const nodes = [], edges = [];
+
+    nodes.push({ id:'hub', label:'RENACE', sublabel:'renace.tech', type:'hub', x:cx, y:cy });
+
+    const vpsIds = Object.keys(VPS_GROUPS);
+    const vpsR = Math.min(canvasW, canvasH) * 0.30;
+    vpsIds.forEach((vpsId, vi) => {
+      const angle = (vi / vpsIds.length) * 2 * Math.PI - Math.PI / 2;
+      const vx = cx + vpsR * Math.cos(angle);
+      const vy = cy + vpsR * Math.sin(angle);
+      const meta = VPS_META[vpsId];
+      nodes.push({ id:vpsId, label:meta.label, sublabel:meta.ip, type:'vps', x:vx, y:vy });
+      edges.push({ from:'hub', to:vpsId, weight:2 });
+
+      const services = VPS_GROUPS[vpsId];
+      const svcR = 90;
+      const fanAngle = Math.PI * 0.85;
+      const awayAngle = Math.atan2(vy - cy, vx - cx);
+      services.forEach((svcName, si) => {
+        const svc = KNOWN_SERVICES.find(s => s.name === svcName);
+        if (!svc) return;
+        const count = services.length;
+        const sAngle = awayAngle - fanAngle / 2 + (count > 1 ? (si / (count - 1)) * fanAngle : 0);
+        const rVar = svcR + (si % 3) * 18;
+        nodes.push({ id:svcName, label:svcName, type:svc.type, url:svc.url,
+          x: vx + rVar * Math.cos(sAngle), y: vy + rVar * Math.sin(sAngle) });
+        edges.push({ from:vpsId, to:svcName, weight:1 });
+      });
+    });
+
+    const others = KNOWN_SERVICES.filter(s => !ODOO_KNOWN.has(s.name));
+    const othR = Math.min(canvasW, canvasH) * 0.18;
+    others.forEach((svc, oi) => {
+      const angle = Math.PI * 0.5 + (oi / others.length) * 2 * Math.PI;
+      nodes.push({ id:svc.name, label:svc.name, type:svc.type, url:svc.url,
+        x: cx + othR * Math.cos(angle), y: cy + othR * Math.sin(angle) });
+      edges.push({ from:'hub', to:svc.name, weight:1 });
+    });
+
+    return { nodes, edges };
+  }
+
+  function initNodesGraph() {
+    if (!nodesSection) return;
+    nodesSection.style.display = 'block';
+    const container = document.getElementById('nodes-container');
+    const svgEl     = document.getElementById('nodes-svg');
+    const edgesGrp  = document.getElementById('nodes-edges');
+    if (!container || !svgEl || !edgesGrp) return;
+
+    const canvasW = container.offsetWidth  || 860;
+    const canvasH = container.offsetHeight || 560;
+    svgEl.setAttribute('viewBox', `0 0 ${canvasW} ${canvasH}`);
+
+    const { nodes, edges } = buildNodeGraph(canvasW, canvasH);
+
+    // Apply saved positions
+    const saved = JSON.parse(localStorage.getItem('rnace_nodes_pos') || '{}');
+    nodes.forEach(n => { if (saved[n.id]) { n.x = saved[n.id].x; n.y = saved[n.id].y; } });
+
+    function savePos() {
+      const pos = {};
+      nodes.forEach(n => { pos[n.id] = { x: n.x, y: n.y }; });
+      localStorage.setItem('rnace_nodes_pos', JSON.stringify(pos));
+    }
+
+    function renderEdges() {
+      edgesGrp.innerHTML = '';
+      edges.forEach(e => {
+        const from = nodes.find(n => n.id === e.from);
+        const to   = nodes.find(n => n.id === e.to);
+        if (!from || !to) return;
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', from.x); line.setAttribute('y1', from.y);
+        line.setAttribute('x2', to.x);   line.setAttribute('y2', to.y);
+        line.setAttribute('stroke', e.weight === 2 ? 'rgba(125,211,252,0.25)' : 'rgba(125,211,252,0.1)');
+        line.setAttribute('stroke-width', e.weight === 2 ? '1.5' : '1');
+        line.setAttribute('stroke-dasharray', e.weight === 2 ? '0' : '3,4');
+        edgesGrp.appendChild(line);
+      });
+    }
+
+    function renderNodes() {
+      container.querySelectorAll('.node').forEach(el => el.remove());
+      nodes.forEach(nd => {
+        const el = document.createElement('div');
+        el.className = `node ${nd.type}`;
+        el.style.cssText = `left:${nd.x}px;top:${nd.y}px`;
+        el.dataset.nodeId = nd.id;
+        el.innerHTML = `<div class="node-circle">${NODE_ICONS[nd.type] || '●'}</div>`
+          + `<div class="node-label">${escapeHtml(nd.label)}</div>`
+          + (nd.sublabel ? `<div class="node-sublabel">${escapeHtml(nd.sublabel)}</div>` : '');
+
+        // Drag
+        let dragging = false, startX, startY, startNX, startNY;
+        el.addEventListener('mousedown', ev => {
+          if (ev.button !== 0) return;
+          ev.preventDefault(); dragging = true;
+          startX = ev.clientX; startY = ev.clientY;
+          startNX = nd.x; startNY = nd.y;
+          el.style.zIndex = 20; el.style.transition = 'none';
+        });
+        const onMove = ev => {
+          if (!dragging) return;
+          nd.x = startNX + ev.clientX - startX;
+          nd.y = startNY + ev.clientY - startY;
+          el.style.left = nd.x + 'px'; el.style.top = nd.y + 'px';
+          renderEdges();
+        };
+        const onUp = () => {
+          if (!dragging) return;
+          dragging = false; el.style.zIndex = '';
+          el.style.transition = '';
+          savePos();
+        };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+
+        // Touch drag
+        el.addEventListener('touchstart', ev => {
+          const t = ev.touches[0];
+          dragging = true; startX = t.clientX; startY = t.clientY;
+          startNX = nd.x; startNY = nd.y;
+        }, { passive: true });
+        el.addEventListener('touchmove', ev => {
+          if (!dragging) return;
+          ev.preventDefault();
+          const t = ev.touches[0];
+          nd.x = startNX + t.clientX - startX; nd.y = startNY + t.clientY - startY;
+          el.style.left = nd.x + 'px'; el.style.top = nd.y + 'px';
+          renderEdges();
+        }, { passive: false });
+        el.addEventListener('touchend', () => { dragging = false; savePos(); });
+
+        // Click to open URL
+        el.addEventListener('click', ev => {
+          if (Math.abs(nd.x - startNX) > 5 || Math.abs(nd.y - startNY) > 5) return;
+          if (nd.url) window.open(nd.url, '_blank');
+        });
+
+        container.appendChild(el);
+      });
+    }
+
+    renderEdges();
+    renderNodes();
+
+    // Filter buttons
+    document.querySelectorAll('[data-node-filter]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-node-filter]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const f = btn.dataset.nodeFilter;
+        container.querySelectorAll('.node').forEach(el => {
+          const nd = nodes.find(n => n.id === el.dataset.nodeId);
+          const show = f === 'all' || nd?.type === f || (f === 'api' && (nd?.type === 'api' || nd?.type === 'ai')) || (f === 'vps' && nd?.type === 'vps');
+          el.style.opacity = show ? '1' : '0.08';
+          el.style.pointerEvents = show ? '' : 'none';
+        });
+      });
+    });
+
+    // Reset layout
+    document.getElementById('btn-nodes-reset')?.addEventListener('click', () => {
+      localStorage.removeItem('rnace_nodes_pos');
+      initNodesGraph();
+    });
+  }
+
   setPresentationMode(presentationMode);
   if (token) {
     setLoginStatus('Autenticado (token guardado)');
     loadAnalytics();
     loadOdooSection();
+    initNodesGraph();
     startAutoRefresh();
   }
 })();
