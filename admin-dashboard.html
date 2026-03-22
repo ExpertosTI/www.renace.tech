@@ -139,6 +139,37 @@
       border: 1px solid rgba(125, 211, 252, 0.22);
       color: #b8d7f4;
     }
+    #btn-request,
+    #btn-verify {
+      min-height: 42px;
+      border-radius: 12px;
+      font-size: 12px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      transition: transform 0.2s ease, box-shadow 0.24s ease, border-color 0.24s ease, filter 0.24s ease;
+    }
+    #btn-request {
+      background: linear-gradient(135deg, #4f46e5 0%, #2563eb 48%, #0891b2 100%);
+      border: 1px solid rgba(125, 211, 252, 0.38);
+      box-shadow: 0 10px 24px rgba(37, 99, 235, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+      color: #f5fbff;
+    }
+    #btn-request:hover {
+      transform: translateY(-2px) scale(1.01);
+      filter: brightness(1.05);
+      box-shadow: 0 14px 30px rgba(59, 130, 246, 0.42), 0 0 0 1px rgba(125, 211, 252, 0.34) inset;
+    }
+    #btn-verify {
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.92));
+      border: 1px solid rgba(148, 163, 184, 0.34);
+      color: #dbeafe;
+      box-shadow: 0 8px 22px rgba(2, 6, 23, 0.52), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+    #btn-verify:hover {
+      transform: translateY(-2px);
+      border-color: rgba(125, 211, 252, 0.52);
+      box-shadow: 0 12px 26px rgba(30, 64, 175, 0.28), 0 0 0 1px rgba(125, 211, 252, 0.2) inset;
+    }
     button:hover, .btn-link:hover { transform: translateY(-1px); }
     button:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
     .error { color: #fca5a5; font-size: 13px; margin-top: 8px; }
@@ -1262,8 +1293,8 @@
         <div>
           <label>Acción</label>
           <div class="actions">
-            <button id="btn-request"><i class="fa-solid fa-paper-plane"></i> Enviar código</button>
-            <button id="btn-verify" class="secondary"><i class="fa-solid fa-check"></i> Validar</button>
+            <button id="btn-request"><i class="fa-solid fa-paper-plane"></i> Solicitar acceso</button>
+            <button id="btn-verify" class="secondary"><i class="fa-solid fa-check"></i> Ingresar</button>
           </div>
         </div>
       </div>

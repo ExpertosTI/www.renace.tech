@@ -241,6 +241,31 @@ a *, button *, [onclick] *, .finder-control *, .control *, .terminal-btn *, .btn
 }
 .nav-links li a:hover { color: var(--text-primary); background: var(--bg-glass-hover); }
 
+.login-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1.25rem;
+  margin-left: 1rem;
+  background: linear-gradient(135deg, #4f46e5 0%, #2563eb 48%, #0891b2 100%);
+  border: 1px solid rgba(125, 211, 252, 0.38);
+  border-radius: 24px;
+  color: #f5fbff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: all 0.2s ease;
+}
+.login-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.36), 0 0 0 1px rgba(125, 211, 252, 0.3) inset;
+  filter: brightness(1.05);
+}
+.login-btn i {
+  font-size: 1.1rem;
+}
+
 .menu-toggle {
   display: none; background: none; border: none; color: var(--text-primary);
   font-size: 1.5rem; cursor: pointer; padding: 0.5rem;
@@ -248,6 +273,18 @@ a *, button *, [onclick] *, .finder-control *, .control *, .terminal-btn *, .btn
 
 @media (max-width: 768px) {
   .menu-toggle { display: block; }
+  .login-btn {
+    margin-left: 0.5rem;
+    padding: 0.4rem 1rem;
+    font-size: 0.85rem;
+  }
+  .login-btn span {
+    display: none;
+  }
+  .login-btn i {
+    font-size: 1.3rem;
+    margin: 0;
+  }
   .nav-links {
     display: none; position: absolute; top: 100%; left: 0; right: 0;
     flex-direction: column; background: rgba(10, 14, 23, 0.95);
