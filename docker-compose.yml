@@ -57,6 +57,9 @@ services:
       - "host.docker.internal:host-gateway"
     depends_on:
       - db
+    volumes:
+      - renace_form_data:/app/form
+      - renace_quotes_data:/app/data
     networks:
       - renace_internal
       - RenaceNet
@@ -88,6 +91,10 @@ services:
 
 volumes:
   renace_db_data:
+    driver: local
+  renace_form_data:
+    driver: local
+  renace_quotes_data:
     driver: local
 
 networks:
