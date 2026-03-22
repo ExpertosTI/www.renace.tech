@@ -1384,6 +1384,7 @@
     const container = document.getElementById('nodes-container');
     const svgEl     = document.getElementById('nodes-svg');
     const edgesGrp  = document.getElementById('nodes-edges');
+    const popover   = document.getElementById('node-edit-popover');
     if (!container || !svgEl || !edgesGrp) return;
 
     const canvasW = container.offsetWidth  || 860;
@@ -1392,14 +1393,34 @@
 
     const { nodes, edges } = buildNodeGraph(canvasW, canvasH);
 
-    // Apply saved positions
-    const saved = JSON.parse(localStorage.getItem('rnace_nodes_pos') || '{}');
-    nodes.forEach(n => { if (saved[n.id]) { n.x = saved[n.id].x; n.y = saved[n.id].y; } });
+    // Saved positions
+    const savedPos = JSON.parse(localStorage.getItem('rnace_nodes_pos') || '{}');
+    nodes.forEach(n => { if (savedPos[n.id]) { n.x = savedPos[n.id].x; n.y = savedPos[n.id].y; } });
+
+    // Custom node overrides: label, url, logoUrl
+    const customData = JSON.parse(localStorage.getItem('rnace_nodes_custom') || '{}');
+    nodes.forEach(n => {
+      const c = customData[n.id];
+      if (c) {
+        if (c.label) n.label = c.label;
+        if (c.url)   n.url   = c.url;
+        if (c.logoUrl) n.logoUrl = c.logoUrl;
+      }
+      // Auto-assign logo URL for Odoo nodes if not set
+      if (!n.logoUrl && n.url && n.type === 'odoo') {
+        n.logoUrl = n.url.replace(/\/$/, '') + '/web/image/res.company/1/logo';
+      }
+    });
 
     function savePos() {
       const pos = {};
       nodes.forEach(n => { pos[n.id] = { x: n.x, y: n.y }; });
       localStorage.setItem('rnace_nodes_pos', JSON.stringify(pos));
+    }
+
+    function saveCustom(nd) {
+      customData[nd.id] = { label: nd.label, url: nd.url || '', logoUrl: nd.logoUrl || '' };
+      localStorage.setItem('rnace_nodes_custom', JSON.stringify(customData));
     }
 
     function renderEdges() {
@@ -1418,6 +1439,48 @@
       });
     }
 
+    function buildCircleInner(nd) {
+      if (nd.logoUrl) {
+        return `<img src="${escapeHtml(nd.logoUrl)}" alt="${escapeHtml(nd.label)}" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">`
+          + `<span class="node-icon-fallback" style="display:none">${NODE_ICONS[nd.type] || '●'}</span>`;
+      }
+      return `<span class="node-icon-fallback">${NODE_ICONS[nd.type] || '●'}</span>`;
+    }
+
+    // Edit popover state
+    let editingNode = null;
+    function openPopover(nd, el) {
+      editingNode = nd;
+      document.getElementById('nep-label').value = nd.label || '';
+      document.getElementById('nep-url').value   = nd.url   || '';
+      document.getElementById('nep-logo').value  = nd.logoUrl || '';
+      const rect = el.getBoundingClientRect();
+      const canvasRect = container.getBoundingClientRect();
+      let px = nd.x + 28, py = nd.y - 40;
+      if (px + 230 > canvasW) px = nd.x - 250;
+      if (py + 180 > canvasH) py = nd.y - 200;
+      popover.style.left = px + 'px';
+      popover.style.top  = py + 'px';
+      popover.classList.add('open');
+      document.getElementById('nep-label').focus();
+    }
+    function closePopover() {
+      popover.classList.remove('open');
+      editingNode = null;
+    }
+
+    document.getElementById('nep-cancel')?.addEventListener('click', closePopover);
+    document.getElementById('nep-save')?.addEventListener('click', () => {
+      if (!editingNode) return;
+      editingNode.label  = document.getElementById('nep-label').value.trim() || editingNode.label;
+      editingNode.url    = document.getElementById('nep-url').value.trim();
+      editingNode.logoUrl = document.getElementById('nep-logo').value.trim();
+      saveCustom(editingNode);
+      closePopover();
+      renderNodes();
+      renderEdges();
+    });
+
     function renderNodes() {
       container.querySelectorAll('.node').forEach(el => el.remove());
       nodes.forEach(nd => {
@@ -1425,9 +1488,33 @@
         el.className = `node ${nd.type}`;
         el.style.cssText = `left:${nd.x}px;top:${nd.y}px`;
         el.dataset.nodeId = nd.id;
-        el.innerHTML = `<div class="node-circle">${NODE_ICONS[nd.type] || '●'}</div>`
-          + `<div class="node-label">${escapeHtml(nd.label)}</div>`
-          + (nd.sublabel ? `<div class="node-sublabel">${escapeHtml(nd.sublabel)}</div>` : '');
+
+        const circle = document.createElement('div');
+        circle.className = 'node-circle';
+        circle.innerHTML = buildCircleInner(nd);
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'node-edit-btn';
+        editBtn.title = 'Editar nodo';
+        editBtn.innerHTML = '✏';
+        editBtn.addEventListener('click', ev => {
+          ev.stopPropagation();
+          openPopover(nd, el);
+        });
+
+        const labelEl = document.createElement('div');
+        labelEl.className = 'node-label';
+        labelEl.textContent = nd.label;
+
+        el.appendChild(circle);
+        el.appendChild(editBtn);
+        el.appendChild(labelEl);
+        if (nd.sublabel) {
+          const sub = document.createElement('div');
+          sub.className = 'node-sublabel';
+          sub.textContent = nd.sublabel;
+          el.appendChild(sub);
+        }
 
         // Drag
         let dragging = false, startX, startY, startNX, startNY;
@@ -1436,7 +1523,7 @@
           ev.preventDefault(); dragging = true;
           startX = ev.clientX; startY = ev.clientY;
           startNX = nd.x; startNY = nd.y;
-          el.style.zIndex = 20; el.style.transition = 'none';
+          el.style.zIndex = 20;
         });
         const onMove = ev => {
           if (!dragging) return;
@@ -1448,13 +1535,12 @@
         const onUp = () => {
           if (!dragging) return;
           dragging = false; el.style.zIndex = '';
-          el.style.transition = '';
           savePos();
         };
         window.addEventListener('mousemove', onMove);
         window.addEventListener('mouseup', onUp);
 
-        // Touch drag
+        // Touch
         el.addEventListener('touchstart', ev => {
           const t = ev.touches[0];
           dragging = true; startX = t.clientX; startY = t.clientY;
@@ -1470,8 +1556,8 @@
         }, { passive: false });
         el.addEventListener('touchend', () => { dragging = false; savePos(); });
 
-        // Click to open URL
-        el.addEventListener('click', ev => {
+        // Click → open URL (only if not dragged)
+        el.addEventListener('click', () => {
           if (Math.abs(nd.x - startNX) > 5 || Math.abs(nd.y - startNY) > 5) return;
           if (nd.url) window.open(nd.url, '_blank');
         });
@@ -1483,6 +1569,13 @@
     renderEdges();
     renderNodes();
 
+    // Close popover on canvas click
+    container.addEventListener('click', ev => {
+      if (!ev.target.closest('.node-edit-popover') && !ev.target.closest('.node-edit-btn')) {
+        closePopover();
+      }
+    });
+
     // Filter buttons
     document.querySelectorAll('[data-node-filter]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1491,7 +1584,9 @@
         const f = btn.dataset.nodeFilter;
         container.querySelectorAll('.node').forEach(el => {
           const nd = nodes.find(n => n.id === el.dataset.nodeId);
-          const show = f === 'all' || nd?.type === f || (f === 'api' && (nd?.type === 'api' || nd?.type === 'ai')) || (f === 'vps' && nd?.type === 'vps');
+          const show = f === 'all' || nd?.type === f
+            || (f === 'api' && (nd?.type === 'api' || nd?.type === 'ai'))
+            || (f === 'vps' && nd?.type === 'vps');
           el.style.opacity = show ? '1' : '0.08';
           el.style.pointerEvents = show ? '' : 'none';
         });

@@ -503,15 +503,15 @@
       border-radius: 16px;
       box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04) inset;
       z-index: 1000;
-      transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+      transition: width 0.3s ease, border-radius 0.3s ease;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
     }
     .chat-widget.collapsed {
       height: 56px;
       width: 220px;
       border-radius: 28px;
+      overflow: hidden;
     }
     .chat-widget.collapsed .chat-body { display: none; }
     .chat-header {
@@ -1077,10 +1077,86 @@
       border: 2px solid;
       transition: transform 0.2s, box-shadow 0.2s;
       flex-shrink: 0;
+      overflow: hidden;
+      position: relative;
+    }
+    .node-circle img {
+      width: 60%;
+      height: 60%;
+      object-fit: contain;
+      border-radius: 2px;
+    }
+    .node-circle .node-icon-fallback {
+      font-size: inherit;
     }
     .node:hover .node-circle {
       transform: scale(1.18);
     }
+    .node-edit-btn {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      width: 18px;
+      height: 18px;
+      background: #1e3a5f;
+      border: 1px solid rgba(125,211,252,0.4);
+      border-radius: 50%;
+      color: #7dd3fc;
+      font-size: 9px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 5;
+      transition: background 0.15s;
+    }
+    .node-edit-btn:hover { background: #2563eb; color: #fff; }
+    .node:hover .node-edit-btn { display: flex; }
+    /* Edit Popover */
+    .node-edit-popover {
+      position: absolute;
+      background: #0d1b33;
+      border: 1px solid rgba(125,211,252,0.2);
+      border-radius: 12px;
+      padding: 12px 14px;
+      z-index: 200;
+      min-width: 220px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+      display: none;
+    }
+    .node-edit-popover.open { display: block; }
+    .node-edit-popover label {
+      display: block;
+      font-size: 10px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      margin-bottom: 3px;
+      margin-top: 8px;
+    }
+    .node-edit-popover label:first-of-type { margin-top: 0; }
+    .node-edit-popover input {
+      width: 100%;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(125,211,252,0.15);
+      border-radius: 6px;
+      padding: 5px 8px;
+      color: #e2e8f0;
+      font-size: 12px;
+    }
+    .node-edit-popover input:focus {
+      outline: none;
+      border-color: rgba(125,211,252,0.4);
+    }
+    .node-edit-actions {
+      display: flex; gap: 6px; margin-top: 10px;
+    }
+    .node-edit-actions button {
+      flex: 1; padding: 5px; border-radius: 6px; font-size: 11px;
+      font-weight: 600; cursor: pointer; border: none;
+    }
+    .node-edit-save   { background: #2563eb; color: #fff; }
+    .node-edit-cancel { background: rgba(255,255,255,0.06); color: #94a3b8; }
     .node.hub .node-circle  { width:52px;height:52px; border-color:#7dd3fc; color:#7dd3fc; background:rgba(125,211,252,0.1); font-size:20px; box-shadow:0 0 18px rgba(125,211,252,0.2); }
     .node.vps .node-circle  { width:44px;height:44px; border-color:#f59e0b; color:#f59e0b; background:rgba(245,158,11,0.1);  font-size:17px; }
     .node.odoo .node-circle { width:34px;height:34px; border-color:#3b82f6; color:#3b82f6; background:rgba(59,130,246,0.1);  font-size:14px; }
@@ -1385,6 +1461,18 @@
       <div class="nodes-canvas-wrap">
         <svg class="nodes-svg" id="nodes-svg"><g id="nodes-edges"></g></svg>
         <div id="nodes-container" class="nodes-container"></div>
+        <div class="node-edit-popover" id="node-edit-popover">
+          <label>Nombre</label>
+          <input type="text" id="nep-label" placeholder="Nombre del nodo">
+          <label>URL</label>
+          <input type="url" id="nep-url" placeholder="https://...">
+          <label>Logo URL <span style="color:#334155;font-size:9px;">(opcional)</span></label>
+          <input type="url" id="nep-logo" placeholder="https://.../logo.png">
+          <div class="node-edit-actions">
+            <button class="node-edit-save" id="nep-save">&#10003; Guardar</button>
+            <button class="node-edit-cancel" id="nep-cancel">Cancelar</button>
+          </div>
+        </div>
       </div>
     </section>
   </div>
