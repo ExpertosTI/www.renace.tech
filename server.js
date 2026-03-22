@@ -1087,6 +1087,111 @@ app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
   }
 });
 
+// ── SSO: Admin Generate Token (called by Odoo module, authenticated via HMAC) ──
+app.post('/api/sso/admin-generate', apiLimiter, async (req, res) => {
+  const { odoo_login, odoo_db, odoo_url, instance_name, timestamp, signature } = req.body || {};
+
+  if (!odoo_login || !odoo_db || !odoo_url || !timestamp || !signature) {
+    return res.status(400).json({ error: 'Parámetros incompletos' });
+  }
+
+  // ── Verify timestamp (prevent replay attacks: ±5 minutes) ──
+  const ts = parseInt(timestamp, 10);
+  const now = Math.floor(Date.now() / 1000);
+  if (isNaN(ts) || Math.abs(now - ts) > 300) {
+    return res.status(401).json({ error: 'Timestamp inválido o expirado' });
+  }
+
+  // ── Verify HMAC signature ──
+  const portalKey = PORTAL_ENCRYPTION_KEY;
+  if (!portalKey) {
+    return res.status(500).json({ error: 'PORTAL_ENCRYPTION_KEY no configurada en el servidor' });
+  }
+
+  const { createHmac } = require('crypto');
+  const expectedSig = createHmac('sha256', portalKey)
+    .update(`${odoo_login}:${odoo_db}:${timestamp}`)
+    .digest('hex');
+
+  if (!require('crypto').timingSafeEqual(
+    Buffer.from(signature, 'hex'),
+    Buffer.from(expectedSig, 'hex')
+  )) {
+    return res.status(401).json({ error: 'Firma inválida' });
+  }
+
+  try {
+    // Find or create the portal user linked to this Odoo instance
+    let userResult = await pool.query(
+      `SELECT cpu.id, cpu.odoo_login, oi.id AS instance_id, oi.odoo_url, oi.odoo_db, oi.client_name
+       FROM client_portal_users cpu
+       JOIN odoo_instances oi ON oi.id = cpu.instance_id
+       WHERE cpu.odoo_login = $1 AND oi.odoo_db = $2 AND cpu.active = TRUE AND oi.active = TRUE
+       LIMIT 1`,
+      [odoo_login, odoo_db]
+    );
+
+    // If user doesn't exist, auto-create the instance + user
+    if (!userResult.rows.length) {
+      // Upsert the Odoo instance
+      const instanceResult = await pool.query(
+        `INSERT INTO odoo_instances (odoo_url, odoo_db, client_name, active)
+         VALUES ($1, $2, $3, TRUE)
+         ON CONFLICT (odoo_db) DO UPDATE SET odoo_url = EXCLUDED.odoo_url, client_name = EXCLUDED.client_name, active = TRUE
+         RETURNING id`,
+        [odoo_url, odoo_db, instance_name || odoo_url]
+      );
+      const instanceId = instanceResult.rows[0].id;
+
+      // Create the portal user
+      const newUser = await pool.query(
+        `INSERT INTO client_portal_users (odoo_login, instance_id, active)
+         VALUES ($1, $2, TRUE)
+         ON CONFLICT (odoo_login, instance_id) DO UPDATE SET active = TRUE
+         RETURNING id`,
+        [odoo_login, instanceId]
+      );
+
+      // Re-fetch full user row
+      userResult = await pool.query(
+        `SELECT cpu.id, cpu.odoo_login, oi.id AS instance_id, oi.odoo_url, oi.odoo_db, oi.client_name
+         FROM client_portal_users cpu
+         JOIN odoo_instances oi ON oi.id = cpu.instance_id
+         WHERE cpu.id = $1`,
+        [newUser.rows[0].id]
+      );
+    }
+
+    const user = userResult.rows[0];
+
+    // Generate SSO token (5 minute expiry for admin-generated tokens)
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await pool.query(
+      `INSERT INTO sso_tokens (token, user_id, instance_id, odoo_login, expires_at, ip_address, user_agent)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [token, user.id, user.instance_id, odoo_login, expiresAt, req.ip, 'RENACE-SSO-Admin-Module']
+    );
+
+    const redirectUrl = `${user.odoo_url}/renace/sso?token=${token}`;
+
+    console.log(`[sso admin-generate] Token generated for ${odoo_login}@${odoo_db}`);
+
+    res.json({
+      success: true,
+      token,
+      redirect_url: redirectUrl,
+      client_name: user.client_name,
+      expires_at: expiresAt.toISOString(),
+    });
+
+  } catch (e) {
+    console.error('[sso admin-generate]', e.message);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 // ── SSO: Verify Token (called by Odoo module) ──
 app.get('/api/sso/verify', apiLimiter, async (req, res) => {
   const token = String(req.query.token || '').trim();
