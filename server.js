@@ -626,9 +626,10 @@ function clientColor(name) {
   return palette[Math.abs(hash) % palette.length];
 }
 
-function buildRedirectPage(safeName, safeLogin, safePass, safeUrl) {
+function buildRedirectPage(safeName, safeUrl) {
   const initials = escAttr(clientInitials(safeName));
   const color    = clientColor(safeName);
+  const dest     = escAttr(safeUrl + '/odoo/web');
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -662,13 +663,8 @@ function buildRedirectPage(safeName, safeLogin, safePass, safeUrl) {
     <p>Iniciando sesión en tu plataforma…</p>
     <div class="spinner"></div>
     <div class="brand">Impulsado por <span>RENACE.TECH</span></div>
-    <form id="f" method="POST" action="${safeUrl}/web/login" style="display:none">
-      <input name="login" value="${safeLogin}">
-      <input name="password" type="password" value="${safePass}">
-      <input name="redirect" value="/odoo/web">
-    </form>
   </div>
-  <script>setTimeout(()=>document.getElementById('f').submit(),900)</script>
+  <script>setTimeout(function(){window.location.href='${dest}'},800)</script>
 </body>
 </html>`;
 }
@@ -692,11 +688,13 @@ async function odooValidateCredentials(odooUrl, db, login, password) {
         try {
           const parsed = JSON.parse(data);
           const uid = parsed?.result?.uid;
-          resolve(!!uid && uid !== false && uid !== null);
-        } catch { resolve(false); }
+          const sessionId = parsed?.result?.session_id || null;
+          const valid = !!uid && uid !== false && uid !== null;
+          resolve({ valid, sessionId });
+        } catch { resolve({ valid: false, sessionId: null }); }
       });
     });
-    req.on('error', reject);
+    req.on('error', (e) => reject(e));
     req.setTimeout(9000, () => { req.destroy(); reject(new Error('Timeout al conectar con Odoo')); });
     req.write(bodyStr);
     req.end();
@@ -725,20 +723,25 @@ app.post('/api/portal/login', portalLimiter, async (req, res) => {
     if (!result.rows.length) return res.status(401).json({ error: 'Credenciales incorrectas o usuario no registrado' });
 
     const { odoo_url, odoo_db, client_name } = result.rows[0];
-    let valid = false;
-    try { valid = await odooValidateCredentials(odoo_url, odoo_db, login, password); }
+    let authResult;
+    try { authResult = await odooValidateCredentials(odoo_url, odoo_db, login, password); }
     catch (e) {
       console.warn('[portal login] Odoo auth error:', e.message);
       return res.status(503).json({ error: 'No se pudo conectar con el servicio. Intenta más tarde.' });
     }
-    if (!valid) return res.status(401).json({ error: 'Credenciales incorrectas' });
+    if (!authResult.valid) return res.status(401).json({ error: 'Credenciales incorrectas' });
 
     const safeUrl  = odoo_url.replace(/"/g, '');
-    const safeLogin = escAttr(login);
-    const safePass  = escAttr(password);
     const safeName  = escAttr(client_name);
 
-    res.type('html').send(buildRedirectPage(safeName, safeLogin, safePass, safeUrl));
+    // Relay the Odoo session cookie via our domain so the browser sends it to the Odoo subdomain
+    if (authResult.sessionId) {
+      const cookieDomain = '.' + (new URL(safeUrl).hostname.split('.').slice(-2).join('.'));
+      res.setHeader('Set-Cookie',
+        `session_id=${authResult.sessionId}; Domain=${cookieDomain}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`);
+    }
+
+    res.type('html').send(buildRedirectPage(safeName, safeUrl));
   } catch (e) {
     console.error('[portal login]', e.message);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -838,24 +841,27 @@ app.get('/api/portal/google/callback', portalLimiter, async (req, res) => {
     }
 
     // Validate against Odoo
-    let valid = false;
-    try { valid = await odooValidateCredentials(odoo_url, odoo_db, odoo_login, odooPassword); }
+    let authResult;
+    try { authResult = await odooValidateCredentials(odoo_url, odoo_db, odoo_login, odooPassword); }
     catch (e) {
       console.warn('[google oauth] Odoo auth error:', e.message);
       return res.redirect('/portal?error=' + encodeURIComponent('No se pudo conectar con Odoo. Intenta más tarde.'));
     }
 
-    if (!valid) {
+    if (!authResult.valid) {
       return res.redirect('/portal?error=' + encodeURIComponent('Las credenciales de Odoo vinculadas son inválidas. Contacta al administrador.'));
     }
 
-    // Auto-submit form to Odoo
-    const safeUrl   = odoo_url.replace(/"/g, '');
-    const safeLogin = escAttr(odoo_login);
-    const safePass  = escAttr(odooPassword);
-    const safeName  = escAttr(client_name);
+    const safeUrl  = odoo_url.replace(/"/g, '');
+    const safeName = escAttr(client_name);
 
-    res.type('html').send(buildRedirectPage(safeName, safeLogin, safePass, safeUrl));
+    if (authResult.sessionId) {
+      const cookieDomain = '.' + (new URL(safeUrl).hostname.split('.').slice(-2).join('.'));
+      res.setHeader('Set-Cookie',
+        `session_id=${authResult.sessionId}; Domain=${cookieDomain}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`);
+    }
+
+    res.type('html').send(buildRedirectPage(safeName, safeUrl));
   } catch (e) {
     console.error('[google oauth callback]', e.message);
     res.redirect('/portal?error=' + encodeURIComponent('Error interno del servidor.'));
