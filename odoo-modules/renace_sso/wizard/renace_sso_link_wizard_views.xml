@@ -16,8 +16,8 @@
                         <strong>¿Cómo funciona?</strong> Se generará un enlace único de acceso para
                         <strong><field name="odoo_login" nolabel="1" readonly="1" class="d-inline"/></strong>
                         que le permitirá iniciar sesión en Odoo directamente desde el portal de
-                        <strong>renace.tech</strong> sin necesidad de contraseña.
-                        El enlace expira en <strong>5 minutos</strong>.
+                        <strong>renace.tech</strong> usando sus credenciales de Odoo habituales.
+                        El registro se realizará de forma permanente y segura en el portal con un solo clic.
                     </div>
 
                     <group>
@@ -32,8 +32,8 @@
                 <div invisible="state != 'done'">
                     <div class="alert alert-success mb-3" role="status">
                         <i class="fa fa-check-circle me-2"/>
-                        <strong>¡Enlace generado exitosamente!</strong>
-                        Copia el enlace y compártelo con el usuario. Expira en <strong>5 minutos</strong>.
+                        <strong>¡Registro completado exitosamente!</strong>
+                        El usuario ya está vinculado y puede iniciar sesión en el portal con sus credenciales de Odoo.
                     </div>
 
                     <group>
@@ -41,14 +41,14 @@
                         <field name="odoo_login" readonly="1"/>
                     </group>
 
-                    <separator string="Enlace de Acceso"/>
+                    <separator string="Enlace del Portal de Clientes"/>
                     <div class="mb-2">
                         <field name="sso_link" readonly="1" widget="url"
                                style="font-size: 0.85rem; word-break: break-all;"/>
                     </div>
                     <div class="text-muted small mt-1">
-                        <i class="fa fa-clock-o me-1"/>
-                        Este enlace es de un solo uso y expira en 5 minutos.
+                        <i class="fa fa-info-circle me-1"/>
+                        Puedes copiar y compartir este enlace genérico con el usuario para que acceda al portal.
                     </div>
                 </div>
 

@@ -1200,26 +1200,15 @@ app.post('/api/sso/admin-generate', apiLimiter, async (req, res) => {
 
     const user = userResult.rows[0];
 
-    // Generate SSO token (5 minute expiry for admin-generated tokens)
-    const token = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    // Registro garantizado en el portal. No generamos token de 5 minutos según solicitud.
+    const redirectUrl = `https://renace.tech/portal`;
 
-    await pool.query(
-      `INSERT INTO sso_tokens (token, user_id, instance_id, odoo_login, expires_at, ip_address, user_agent)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [token, user.id, user.instance_id, odoo_login, expiresAt, req.ip, 'RENACE-SSO-Admin-Module']
-    );
-
-    const redirectUrl = `${user.odoo_url}/renace/sso?token=${token}`;
-
-    console.log(`[sso admin-generate] Token generated for ${odoo_login}@${odoo_db}`);
+    console.log(`[sso admin-generate] Usuario registrado exitosamente desde Odoo: ${odoo_login}@${odoo_db}`);
 
     res.json({
       success: true,
-      token,
       redirect_url: redirectUrl,
-      client_name: user.client_name,
-      expires_at: expiresAt.toISOString(),
+      client_name: user.client_name
     });
 
   } catch (e) {

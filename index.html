@@ -5,15 +5,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description"
-        content="RENACE.TECH digitaliza tu empresa: automatizamos procesos, facturación, POS, CRM y sistemas de gestión para llevar tu negocio al siguiente nivel.">
+        content="RENACE.TECH digitaliza tu empresa: Facturación Electrónica (e-CF) avalada por DGII, automatización de procesos, POS, CRM y sistemas de gestión Odoo.">
     <meta name="keywords"
-        content="digitalización de empresas, transformación digital, Odoo, ERP, CRM, facturación, POS, automatización de procesos, República Dominicana">
+        content="facturación electrónica, e-cf, dgii, republica dominicana, digitalización de empresas, Odoo, ERP, CRM, POS, automatización de procesos, renace tech">
     <meta name="theme-color" content="#2e8bc3">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-    <title>RENACE.TECH - Digitaliza tu empresa</title>
+    <title>RENACE.TECH — Facturación Electrónica, POS y Gestión ERP</title>
 
     <meta name="author" content="RENACE.TECH">
     <meta name="robots" content="index, follow">
@@ -21,9 +21,9 @@
 
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://renace.tech/">
-    <meta property="og:title" content="RENACE.TECH - Digitaliza tu empresa">
+    <meta property="og:title" content="RENACE.TECH — Facturación Electrónica, POS y Gestión ERP">
     <meta property="og:description"
-        content="Digitalización de empresas en República Dominicana: implementación de sistemas, automatización de procesos, Odoo, facturación, POS y CRM para tu negocio.">
+        content="RENACE.TECH digitaliza tu empresa: Facturación Electrónica (e-CF) avalada por DGII, automatización de procesos, Odoo, POS y CRM para tu negocio.">
     <meta property="og:image" content="https://renace.tech/images/logo.svg">
 
     <meta property="twitter:card" content="summary_large_image">
@@ -477,25 +477,43 @@
         </div>
     </footer>
 
-    <div class="rg-action-center-root" aria-live="polite" role="complementary" aria-label="Centro de Acciones">
-        <button class="rg-action-center-toggle" type="button" aria-label="Abrir Centro de Acciones">
-            <i class="fas fa-th-large"></i>
+    <div class="rg-bot-root" aria-live="polite" role="complementary" aria-label="Asistente de Inteligencia Artificial">
+        <button class="rg-bot-toggle" type="button" aria-label="Abrir Asistente">
+            <i class="fas fa-robot"></i>
         </button>
-        <section id="rg-action-window" class="rg-action-window" aria-label="Acciones RENACE" aria-hidden="true"
+        <section id="rg-chat-window" class="rg-chat-window" aria-label="Chatbot de RENACE" aria-hidden="true"
             role="dialog" aria-modal="false">
-            <header class="rg-action-header">
-                <div class="rg-action-header-main">
-                    <div class="rg-action-heading">
-                        <h2>Acciones Rápidas</h2>
-                        <p>Atajos a funciones principales</p>
+            <header class="rg-chat-header">
+                <div class="rg-chat-header-main">
+                    <div class="rg-chat-heading">
+                        <h2>RENACE AI</h2>
+                        <p>Asistente Inteligente</p>
                     </div>
                 </div>
-                <button class="rg-action-close" type="button" aria-label="Cerrar panel">
+                <button class="rg-chat-close" type="button" aria-label="Cerrar chat">
                     <i class="fas fa-times"></i>
                 </button>
             </header>
-            <div class="rg-action-body" id="rg-actions-container">
-                <!-- Actions materialize here via JS -->
+            
+            <div class="rg-chat-chips-scroll">
+                <div class="rg-chat-chips" id="rg-chat-chips">
+                    <button type="button" class="rg-chat-chip" data-action="cotizar"><i class="fas fa-file-invoice-dollar"></i> Cotizar</button>
+                    <button type="button" class="rg-chat-chip" data-action="catalogo"><i class="fas fa-box-open"></i> Catálogo</button>
+                    <button type="button" class="rg-chat-chip" data-action="portal"><i class="fas fa-user-circle"></i> Portal</button>
+                    <button type="button" class="rg-chat-chip" data-action="whatsapp"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+                </div>
+            </div>
+
+            <div class="rg-chat-body" id="rg-chat-messages">
+                <!-- Messages will be injected here -->
+            </div>
+            <div class="rg-chat-footer">
+                <form id="rg-chat-form" class="rg-chat-form" aria-label="Formulario de envío de chat">
+                    <input type="text" id="rg-chat-input" class="rg-chat-input" placeholder="Pregúntale a nuestra IA..." autocomplete="off">
+                    <button type="submit" class="rg-chat-send" aria-label="Enviar mensaje">
+                        <i class="fas fa-paper-plane" aria-hidden="true"></i>
+                    </button>
+                </form>
             </div>
         </section>
     </div>

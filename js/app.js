@@ -686,179 +686,198 @@ function initDocumentsUpload() {
   }
 }
 
-// GUIDED ACTION PANEL (Replaces chat — materialize actions on screen)
+// AI CHATBOT SYSTEM
 // ═══════════════════════════════════════════════════════════════
 function initRgChat() {
-  const root = document.querySelector('.rg-action-center-root');
+  const root = document.querySelector('.rg-bot-root');
   if (!root) return;
 
-  const toggle = root.querySelector('.rg-action-center-toggle');
-  const windowEl = root.querySelector('.rg-action-window');
-  const closeBtn = root.querySelector('.rg-action-close');
-  const container = document.getElementById('rg-actions-container');
+  const toggle = root.querySelector('.rg-bot-toggle');
+  const windowEl = root.querySelector('.rg-chat-window');
+  const closeBtn = root.querySelector('.rg-chat-close');
+  const messagesContainer = document.getElementById('rg-chat-messages');
+  const form = document.getElementById('rg-chat-form');
+  const input = document.getElementById('rg-chat-input');
+  
+  // Custom Action Chips
+  const chips = document.querySelectorAll('.rg-chat-chip');
 
-  if (!toggle || !windowEl || !container) return;
+  if (!toggle || !windowEl || !messagesContainer || !form || !input) return;
 
   toggle.setAttribute('aria-expanded', 'false');
-  toggle.setAttribute('aria-controls', 'rg-action-window');
+  toggle.setAttribute('aria-controls', 'rg-chat-window');
 
-  // ── Action definitions ──
-  const MAIN_ACTIONS = [
-    {
-      id: 'quote',
-      icon: 'fas fa-file-invoice-dollar',
-      label: 'Solicitar Cotización',
-      desc: 'Obtén un presupuesto personalizado para tu proyecto',
-      gradient: 'linear-gradient(135deg, #0077b6, #00b4d8)',
-      action: () => { window.location.href = '/cotizacion.html'; }
-    },
-    {
-      id: 'catalog',
-      icon: 'fas fa-store',
-      label: 'Ver Catálogo',
-      desc: 'Explora nuestros productos y servicios disponibles',
-      gradient: 'linear-gradient(135deg, #023e8a, #0096c7)',
-      action: () => {
-        if (window.odooShop?.showProducts) {
-          window.odooShop.showProducts();
-        } else {
-          window.location.href = '/#servicios';
-        }
-        close();
+  // Load chat history or create new session ID
+  let sessionId = sessionStorage.getItem('rg_chat_session');
+  if (!sessionId) {
+    sessionId = 'sess_' + Math.random().toString(36).substring(2, 11);
+    sessionStorage.setItem('rg_chat_session', sessionId);
+    addMessage('¡Hola! Soy RENACE AI, tu asistente inteligente. ¿En qué te puedo ayudar hoy? 😊', 'bot');
+  } else {
+    try {
+      const history = JSON.parse(sessionStorage.getItem('rg_chat_history') || '[]');
+      if (history.length > 0) {
+        history.forEach(msg => addMessage(msg.text, msg.sender, false));
+      } else {
+        addMessage('¡Hola! Soy RENACE AI, tu asistente inteligente. ¿En qué te puedo ayudar hoy? 😊', 'bot');
       }
-    },
-    {
-      id: 'whatsapp',
-      icon: 'fab fa-whatsapp',
-      label: 'WhatsApp',
-      desc: 'Escríbenos directamente por WhatsApp',
-      gradient: 'linear-gradient(135deg, #03045e, #0077b6)',
-      action: () => { window.open('https://wa.me/18297221009?text=Hola%20RENACE%2C%20necesito%20información', '_blank'); }
-    },
-    {
-      id: 'portal',
-      icon: 'fas fa-sign-in-alt',
-      label: 'Portal de Clientes',
-      desc: 'Accede a tu plataforma Odoo empresarial',
-      gradient: 'linear-gradient(135deg, #0096c7, #48cae4)',
-      action: () => { window.location.href = '/portal'; }
-    },
-    {
-      id: 'docs',
-      icon: 'fas fa-folder-open',
-      label: 'Documentos',
-      desc: 'Descarga manuales, drivers y recursos',
-      gradient: 'linear-gradient(135deg, #0077b6, #023e8a)',
-      action: () => {
-        const docsSection = document.getElementById('archivos');
-        if (docsSection) {
-          docsSection.scrollIntoView({ behavior: 'smooth' });
-          close();
-        }
-      }
-    },
-    {
-      id: 'contact',
-      icon: 'fas fa-envelope',
-      label: 'Contacto',
-      desc: 'Envía un mensaje a nuestro equipo',
-      gradient: 'linear-gradient(135deg, #023e8a, #03045e)',
-      action: () => {
-        const contactSection = document.getElementById('contacto');
-        if (contactSection) {
-          contactSection.scrollIntoView({ behavior: 'smooth' });
-          close();
-        }
-      }
-    }
-  ];
-
-  // ── Render actions with staggered animation ──
-  function renderActions(actions) {
-    container.innerHTML = '';
-
-    // Welcome message
-    const welcome = document.createElement('div');
-    welcome.className = 'rg-action-welcome';
-    welcome.innerHTML = `
-      <p class="rg-action-greeting">Hola 👋</p>
-      <p class="rg-action-subtitle">Selecciona una acción para comenzar</p>
-    `;
-    container.appendChild(welcome);
-
-    // Action grid
-    const grid = document.createElement('div');
-    grid.className = 'rg-action-grid';
-    container.appendChild(grid);
-
-    actions.forEach((action, i) => {
-      const card = document.createElement('button');
-      card.className = 'rg-action-card';
-      card.style.animationDelay = `${i * 0.07}s`;
-      card.setAttribute('data-action', action.id);
-
-      card.innerHTML = `
-        <div class="rg-action-icon" style="background:${action.gradient}">
-          <i class="${action.icon}"></i>
-        </div>
-        <div class="rg-action-text">
-          <span class="rg-action-label">${action.label}</span>
-          <span class="rg-action-desc">${action.desc}</span>
-        </div>
-        <i class="fas fa-chevron-right rg-action-arrow"></i>
-      `;
-
-      card.addEventListener('click', () => {
-        // Visual feedback
-        card.classList.add('rg-action-pressed');
-        sendMetricsEvent('assistant_action', { action: action.id });
-        setTimeout(() => action.action(), 150);
-      });
-
-      grid.appendChild(card);
-    });
-
-    // Cart quick-access (if items exist)
-    if (window.renaceCart?.count?.() > 0) {
-      const cartBar = document.createElement('div');
-      cartBar.className = 'rg-action-cart-bar';
-      const count = window.renaceCart.count();
-      const total = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP', maximumFractionDigits: 0 }).format(window.renaceCart.total());
-      cartBar.innerHTML = `
-        <div class="rg-action-cart-info">
-          <i class="fas fa-shopping-cart"></i>
-          <span>${count} artículo${count !== 1 ? 's' : ''} — ${total}</span>
-        </div>
-        <button class="rg-action-cart-btn" id="rg-open-cart">Ver carrito</button>
-      `;
-      container.appendChild(cartBar);
-      setTimeout(() => {
-        document.getElementById('rg-open-cart')?.addEventListener('click', () => {
-          window.odooShop?.openCart();
-          close();
-        });
-      }, 100);
+    } catch {
+      addMessage('¡Hola! Soy RENACE AI. ¿En qué puedo ayudarte?', 'bot');
     }
   }
 
-  // ── Open / Close ──
+  function saveHistory(text, sender) {
+    try {
+      const current = JSON.parse(sessionStorage.getItem('rg_chat_history') || '[]');
+      current.push({ text, sender });
+      sessionStorage.setItem('rg_chat_history', JSON.stringify(current.slice(-20))); // Keep last 20
+    } catch {}
+  }
+
+  function addMessage(htmlStr, sender, save = true) {
+    const div = document.createElement('div');
+    div.className = `chat-msg ${sender}`;
+    
+    const time = new Date().toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' });
+    div.innerHTML = `
+      <div class="chat-bubble"></div>
+      <div class="chat-time">${time}</div>
+    `;
+    
+    // Use innerHTML so we can render marked up links, bolding from the bot
+    div.querySelector('.chat-bubble').innerHTML = htmlStr.replace(/\n/g, '<br>');
+    
+    messagesContainer.appendChild(div);
+    scrollToBottom();
+    
+    if (save && sender !== 'bot-typing') {
+      saveHistory(htmlStr, sender);
+    }
+    
+    return div;
+  }
+
+  function scrollToBottom() {
+    setTimeout(() => {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }, 50);
+  }
+
+  function removeTyping() {
+    const typings = messagesContainer.querySelectorAll('.bot-typing');
+    typings.forEach(el => el.remove());
+  }
+
+  async function sendMessageToBot(messageText) {
+    if (!messageText.trim()) return;
+
+    // Remove typing indicators
+    removeTyping();
+
+    // Show typing status
+    const typingMsg = addMessage('<div class="typing-dots"><span></span><span></span><span></span></div>', 'bot bot-typing', false);
+
+    try {
+      const webhookUrl = CONFIG.chatWebhook || 'https://ai.renace.tech/webhook/499666c3-d807-4bb7-8195-43932f64a91f/chat';
+      const endpoint = new URL(webhookUrl);
+      
+      const payload = {
+        sessionId: sessionId,
+        action: 'sendMessage',
+        chatInput: messageText,
+        metadata: {
+          url: window.location.href,
+          userAgent: navigator.userAgent
+        }
+      };
+
+      const response = await fetch(endpoint.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      typingMsg.remove(); // Remove typing dots
+
+      if (!response.ok) throw new Error('Network response was not ok');
+
+      const data = await response.json();
+      let botResponse = "Lo siento, hubo un error procesando tu solicitud.";
+
+      if (Array.isArray(data) && data.length > 0 && data[0].output) {
+        botResponse = data[0].output;
+      } else if (data.output) {
+        botResponse = data.output;
+      }
+
+      addMessage(botResponse, 'bot');
+      sendMetricsEvent('chat_interaction', { inputLength: messageText.length });
+
+    } catch (err) {
+      console.error('[Chat Error]', err);
+      typingMsg.remove();
+      addMessage('Lo siento, en este momento el asistente no está disponible. Por favor, intenta de nuevo en unos minutos o contáctanos por WhatsApp.', 'bot');
+    }
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    
+    input.value = '';
+    input.focus();
+    
+    addMessage(text, 'user');
+    sendMessageToBot(text);
+  });
+
+  // Action chips handler
+  chips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      const actionType = chip.getAttribute('data-action');
+      let promptText = '';
+      
+      switch(actionType) {
+        case 'cotizar': promptText = 'Quiero solicitar una cotización.'; break;
+        case 'catalogo': 
+          if(window.odooShop) { window.odooShop.showProducts(); close(); return; }
+          promptText = 'Ver el catálogo de productos.'; 
+          break;
+        case 'portal': window.location.href = '/portal'; close(); return;
+        case 'whatsapp': window.open('https://wa.me/18494577463?text=Hola%2C%20necesito%20ayuda', '_blank'); close(); return;
+      }
+      
+      if(promptText) {
+        addMessage(promptText, 'user');
+        sendMessageToBot(promptText);
+      }
+    });
+  });
+
   function open() {
-    root.classList.add('rg-action-open');
+    root.classList.add('rg-chat-open');
     windowEl.setAttribute('aria-hidden', 'false');
     toggle.setAttribute('aria-expanded', 'true');
-    renderActions(MAIN_ACTIONS);
+    input.focus();
+    scrollToBottom();
   }
 
   function close() {
-    root.classList.remove('rg-action-open');
+    root.classList.remove('rg-chat-open');
     windowEl.setAttribute('aria-hidden', 'true');
     toggle.setAttribute('aria-expanded', 'false');
   }
 
-  toggle.addEventListener('click', open);
+  toggle.addEventListener('click', () => {
+    if (root.classList.contains('rg-chat-open')) close();
+    else open();
+  });
+  
   if (closeBtn) closeBtn.addEventListener('click', close);
+  
   document.addEventListener('keydown', (e) => {
-    if ((e.key === 'Escape') && root.classList.contains('rg-action-open')) close();
+    if ((e.key === 'Escape') && root.classList.contains('rg-chat-open')) close();
   });
 }
 
