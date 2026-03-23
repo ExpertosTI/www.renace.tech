@@ -37,7 +37,23 @@ const QUOTE_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
 const REQUEST_METRICS_MAX = 10000;
 
 const adminCodes = new Map(); // email -> { code, exp }
-const requestMetrics = [];
+const METRICS_DATA_PATH = path.join(__dirname, 'data', 'metrics.json');
+let requestMetrics = [];
+try {
+  if (fs.existsSync(METRICS_DATA_PATH)) {
+    requestMetrics = JSON.parse(fs.readFileSync(METRICS_DATA_PATH, 'utf8'));
+  }
+} catch (e) {
+  console.warn('[Metrics] Error loading metrics:', e.message);
+}
+
+// Persist metrics periodically every minute
+setInterval(() => {
+  fs.writeFile(METRICS_DATA_PATH, JSON.stringify(requestMetrics), (err) => {
+    if (err) console.error('[Metrics] Error saving:', err.message);
+  });
+}, 60000);
+
 const visitGeoCache = new Map();
 
 // ── Quote request storage helpers ──
@@ -1789,10 +1805,10 @@ async function handleContactSubmission(req, res) {
     try {
       await transporter.sendMail({
         from: process.env.SMTP_FROM || 'RENACE.TECH <noreply@renace.tech>',
-        to: process.env.SMTP_USER || 'info@renace.tech',
-        subject: `Contacto de ${safeName} — renace.tech`,
+        to: ADMIN_EMAILS.join(', '),
+        subject: `🎯 Nuevo Lead/Contacto: ${safeName} — renace.tech`,
         text: `Nombre: ${safeName}\nEmail: ${safeEmail}\n\n${safeMessage}`,
-        html: `<h3>Nuevo contacto desde renace.tech</h3>
+        html: `<h3>Nuevo lead desde renace.tech (Formulario de Contacto)</h3>
           <p><strong>Nombre:</strong> ${safeName}</p>
           <p><strong>Email:</strong> ${safeEmail}</p>
           <p>${safeMessage.replace(/\n/g, '<br>')}</p>`,

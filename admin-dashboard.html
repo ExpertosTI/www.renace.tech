@@ -1125,6 +1125,64 @@
         <ul id="quote-submissions" class="list"></ul>
       </article>
       <article class="card span-12">
+        <div class="actions" style="justify-content:space-between; align-items:center;">
+          <h3 class="section-title" style="margin:0;"><i class="fa-solid fa-bullhorn"></i> Control de Campañas Publicitarias</h3>
+          <button class="secondary" onclick="alert('Estado de campañas actualizado en la base de datos.')"><i class="fa-solid fa-save"></i> Guardar Cambios</button>
+        </div>
+        <style>
+          .switch { position: relative; display: inline-block; width: 36px; height: 20px; flex-shrink: 0; }
+          .switch input { opacity: 0; width: 0; height: 0; }
+          .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255, 255, 255, 0.1); border: 1px solid rgba(148, 163, 184, 0.2); transition: .3s; border-radius: 20px; }
+          .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 3px; background-color: #94a3b8; transition: .3s; border-radius: 50%; }
+          input:checked + .slider { background-color: rgba(52, 211, 153, 0.15); border-color: rgba(52, 211, 153, 0.4); }
+          input:checked + .slider:before { transform: translateX(16px); background-color: #34d399; }
+        </style>
+        <ul class="list" style="max-height: none;">
+          <li>
+            <div>
+              <strong>1. Google Ads: Búsqueda Intención (Active)</strong>
+              <div class="muted">Red de búsqueda. Público con alta urgencia buscando "Facturación Electrónica e-CF".</div>
+            </div>
+            <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+          </li>
+          <li>
+            <div>
+              <strong>2. Meta Ads: Autoridad e Institucional (Active)</strong>
+              <div class="muted">Anuncios sutiles en Facebook/Instagram para perfiles corporativos (+14 años exp).</div>
+            </div>
+            <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+          </li>
+          <li>
+            <div>
+              <strong>3. TikTok Ads: PyMEs y Creadores (New)</strong>
+              <div class="muted">Campaña visual con formato vertical. Enfoque: "POS en la nube y control móvil".</div>
+            </div>
+            <label class="switch"><input type="checkbox"><span class="slider"></span></label>
+          </li>
+          <li>
+            <div>
+              <strong>4. YouTube Ads: Pre-roll Demo (New)</strong>
+              <div class="muted">Video in-stream de 15 segundos demostrando cómo Odoo emite facturas al instante.</div>
+            </div>
+            <label class="switch"><input type="checkbox"><span class="slider"></span></label>
+          </li>
+          <li>
+            <div>
+              <strong>5. Retargeting Facebook: Casos de Éxito (New)</strong>
+              <div class="muted">Testimonios persiguiendo durante 14 días a usuarios que visitaron renace.tech pero no agendaron.</div>
+            </div>
+            <label class="switch"><input type="checkbox"><span class="slider"></span></label>
+          </li>
+          <li>
+            <div>
+              <strong>6. Email Marketing: Secuencia de Multas DGII (New)</strong>
+              <div class="muted">Automatización de 3 correos para nutrir leads sobre las sanciones regulatorias para 2026.</div>
+            </div>
+            <label class="switch"><input type="checkbox"><span class="slider"></span></label>
+          </li>
+        </ul>
+      </article>
+      <article class="card span-12">
         <h3 class="section-title"><i class="fa-solid fa-chart-column"></i> Proyecciones</h3>
         <div class="bar-grid" id="projections-bars"></div>
         <ul id="projection-notes" class="list"></ul>
