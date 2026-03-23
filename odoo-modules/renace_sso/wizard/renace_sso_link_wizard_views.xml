@@ -6,8 +6,11 @@
         <field name="arch" type="xml">
             <form string="Generar Enlace de Acceso — RENACE">
 
+                <!-- Hidden fields needed for state management -->
+                <field name="state" invisible="1"/>
+
                 <!-- State: draft — Pending generation -->
-                <div attrs="{'invisible': [('state', '!=', 'draft')]}" class="o_form_view">
+                <div invisible="state != 'draft'">
                     <div class="alert alert-info mb-3" role="status">
                         <i class="fa fa-info-circle me-2"/>
                         <strong>¿Cómo funciona?</strong> Se generará un enlace único de acceso para
@@ -26,7 +29,7 @@
                 </div>
 
                 <!-- State: done — Link generated successfully -->
-                <div attrs="{'invisible': [('state', '!=', 'done')]}" class="o_form_view">
+                <div invisible="state != 'done'">
                     <div class="alert alert-success mb-3" role="status">
                         <i class="fa fa-check-circle me-2"/>
                         <strong>¡Enlace generado exitosamente!</strong>
@@ -39,11 +42,9 @@
                     </group>
 
                     <separator string="Enlace de Acceso"/>
-                    <div class="o_field_char o_field_widget mb-2">
-                        <div class="input-group">
-                            <field name="sso_link" readonly="1" widget="url"
-                                   style="font-size: 0.85rem; word-break: break-all;"/>
-                        </div>
+                    <div class="mb-2">
+                        <field name="sso_link" readonly="1" widget="url"
+                               style="font-size: 0.85rem; word-break: break-all;"/>
                     </div>
                     <div class="text-muted small mt-1">
                         <i class="fa fa-clock-o me-1"/>
@@ -52,7 +53,7 @@
                 </div>
 
                 <!-- State: error -->
-                <div attrs="{'invisible': [('state', '!=', 'error')]}" class="o_form_view">
+                <div invisible="state != 'error'">
                     <div class="alert alert-danger mb-3" role="alert">
                         <i class="fa fa-exclamation-triangle me-2"/>
                         <strong>Error al generar el enlace</strong>
@@ -68,30 +69,27 @@
                     </div>
                 </div>
 
-                <!-- Hidden fields needed for state management -->
-                <field name="state" invisible="1"/>
-
                 <footer>
                     <!-- Draft state buttons -->
                     <button name="action_generate_link"
                             type="object"
                             string="Generar Enlace"
                             class="btn-primary"
-                            attrs="{'invisible': [('state', '!=', 'draft')]}"/>
+                            invisible="state != 'draft'"/>
 
                     <!-- Done state buttons -->
                     <button name="action_copy_done"
                             type="object"
                             string="Cerrar"
                             class="btn-primary"
-                            attrs="{'invisible': [('state', '!=', 'done')]}"/>
+                            invisible="state != 'done'"/>
 
                     <!-- Error state buttons -->
                     <button name="action_generate_link"
                             type="object"
                             string="Reintentar"
                             class="btn-warning"
-                            attrs="{'invisible': [('state', '!=', 'error')]}"/>
+                            invisible="state != 'error'"/>
 
                     <button string="Cancelar"
                             class="btn-secondary"

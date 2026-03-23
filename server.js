@@ -1014,7 +1014,7 @@ app.delete('/api/admin/portal-users/:id', apiLimiter, async (req, res) => {
 
 // ── SSO: Generate Token for Portal Login ──
 app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
-  const odoo_login = String(req.body?.odoo_login || '').trim().slice(0, 254);
+  const odoo_login = String(req.body?.odoo_login || req.body?.login || '').trim().slice(0, 254);
   const password = String(req.body?.password || '').slice(0, 256);
   
   if (!odoo_login || !password) {
