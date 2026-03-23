@@ -14,7 +14,7 @@
 // CONFIGURATION
 // ═══════════════════════════════════════════════════════════════
 const CONFIG = {
-  chatWebhook: '/api/chat',
+  chatWebhook: 'https://ai.renace.tech/webhook/499666c3-d807-4bb7-8195-43932f64a91f/chat',
   metricsWebhook: 'https://ai.renace.tech/webhook/6e33280a-faeb-4394-a34c-142fee0ebfc7',
   scrollThreshold: 100,
   debounceTime: 150,
@@ -689,190 +689,197 @@ function initDocumentsUpload() {
 // AI CHATBOT SYSTEM
 // ═══════════════════════════════════════════════════════════════
 function initRgChat() {
-  const root = document.querySelector('.rg-bot-root');
+  const root = document.querySelector('.rg-chat-root');
   if (!root) return;
 
-  const toggle = root.querySelector('.rg-bot-toggle');
+  const toggle = root.querySelector('.rg-chat-toggle');
   const windowEl = root.querySelector('.rg-chat-window');
   const closeBtn = root.querySelector('.rg-chat-close');
-  const messagesContainer = document.getElementById('rg-chat-messages');
-  const form = document.getElementById('rg-chat-form');
+  const messagesEl = document.getElementById('rg-chat-messages');
   const input = document.getElementById('rg-chat-input');
-  const cartBtn = root.querySelector('.rg-chat-cart');
-  
-  // Custom Action Chips
-  const chips = document.querySelectorAll('.rg-chat-chip');
+  const sendBtn = document.getElementById('rg-chat-send');
 
-  if (!toggle || !windowEl || !messagesContainer || !form || !input) return;
+  if (!toggle || !windowEl || !messagesEl || !input || !sendBtn) return;
 
   toggle.setAttribute('aria-expanded', 'false');
   toggle.setAttribute('aria-controls', 'rg-chat-window');
 
-  // Load chat history or create new session ID
-  let sessionId = sessionStorage.getItem('rg_chat_session');
-  if (!sessionId) {
-    sessionId = 'sess_' + Math.random().toString(36).substring(2, 11);
-    sessionStorage.setItem('rg_chat_session', sessionId);
-    addMessage('¡Hola! Soy RENACE AI, tu asistente inteligente. ¿En qué te puedo ayudar hoy? 😊', 'bot');
-  } else {
-    try {
-      const history = JSON.parse(sessionStorage.getItem('rg_chat_history') || '[]');
-      if (history.length > 0) {
-        history.forEach(msg => addMessage(msg.text, msg.sender, false));
-      } else {
-        addMessage('¡Hola! Soy RENACE AI, tu asistente inteligente. ¿En qué te puedo ayudar hoy? 😊', 'bot');
-      }
-    } catch {
-      addMessage('¡Hola! Soy RENACE AI. ¿En qué puedo ayudarte?', 'bot');
-    }
-  }
-
-  function saveHistory(text, sender) {
-    try {
-      const current = JSON.parse(sessionStorage.getItem('rg_chat_history') || '[]');
-      current.push({ text, sender });
-      sessionStorage.setItem('rg_chat_history', JSON.stringify(current.slice(-20))); // Keep last 20
-    } catch {}
-  }
-
-  function addMessage(htmlStr, sender, save = true) {
-    const div = document.createElement('div');
-    div.className = `chat-msg ${sender}`;
-    
-    const time = new Date().toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' });
-    div.innerHTML = `
-      <div class="chat-bubble"></div>
-      <div class="chat-time">${time}</div>
-    `;
-    
-    // Use innerHTML so we can render marked up links, bolding from the bot
-    div.querySelector('.chat-bubble').innerHTML = htmlStr.replace(/\n/g, '<br>');
-    
-    messagesContainer.appendChild(div);
-    scrollToBottom();
-    
-    if (save && sender !== 'bot-typing') {
-      saveHistory(htmlStr, sender);
-    }
-    
-    return div;
-  }
+  const HISTORY_KEY = 'rg_chat_dom_v1';
 
   function scrollToBottom() {
-    setTimeout(() => {
-      messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }, 50);
+    const body = root.querySelector('.rg-chat-body') || messagesEl;
+    body.scrollTop = body.scrollHeight;
+  }
+
+  // Restore history
+  try {
+    const saved = localStorage.getItem(HISTORY_KEY);
+    if (saved) { messagesEl.innerHTML = saved; scrollToBottom(); }
+  } catch {}
+
+  function persist() {
+    try { localStorage.setItem(HISTORY_KEY, messagesEl.innerHTML); } catch {}
+  }
+
+  function addMessage(sender, text) {
+    const li = document.createElement('li');
+    li.className = 'rg-chat-message ' + (sender === 'user' ? 'rg-chat-user' : 'rg-chat-bot');
+    const bubble = document.createElement('div');
+    bubble.className = 'rg-chat-bubble';
+    bubble.innerHTML = utils.formatMarkdown(text);
+    li.appendChild(bubble);
+    messagesEl.appendChild(li);
+    scrollToBottom();
+    persist();
+  }
+
+  function addHtmlMessage(html) {
+    const li = document.createElement('li');
+    li.className = 'rg-chat-message rg-chat-bot';
+    const bubble = document.createElement('div');
+    bubble.className = 'rg-chat-bubble';
+    bubble.innerHTML = html;
+    li.appendChild(bubble);
+    messagesEl.appendChild(li);
+    scrollToBottom();
+    persist();
+  }
+
+  let typingLi = null;
+  function showTyping() {
+    if (typingLi) return;
+    typingLi = document.createElement('li');
+    typingLi.className = 'rg-chat-message rg-chat-bot';
+    const bubble = document.createElement('div');
+    bubble.className = 'rg-chat-bubble';
+    bubble.textContent = 'Escribiendo…';
+    typingLi.appendChild(bubble);
+    messagesEl.appendChild(typingLi);
+    scrollToBottom();
   }
 
   function removeTyping() {
-    const typings = messagesContainer.querySelectorAll('.bot-typing');
-    typings.forEach(el => el.remove());
+    if (typingLi?.parentNode) typingLi.parentNode.removeChild(typingLi);
+    typingLi = null;
   }
 
-  async function sendMessageToBot(messageText) {
-    if (!messageText.trim()) return;
+  // Normalize n8n response (single implementation)
+  function normalizeReply(data, rawText) {
+    let reply = null;
+    if (data && typeof data === 'object') {
+      reply = data.output || data.reply || data.message || data.text;
+      if (!reply && Array.isArray(data) && data[0]) {
+        reply = data[0].output || data[0].reply || data[0].message || data[0].text;
+      }
+    }
+    if (!reply && rawText && typeof rawText === 'string') {
+      const t = rawText.trim();
+      if ((t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'))) {
+        try {
+          const p = JSON.parse(t);
+          if (p && typeof p === 'object') {
+            reply = p.output || p.reply || p.message || p.text;
+            if (!reply && Array.isArray(p) && p[0]) {
+              reply = p[0].output || p[0].reply || p[0].message || p[0].text;
+            }
+          }
+        } catch {}
+      }
+    }
+    if (!reply && rawText) reply = rawText;
+    return reply != null ? String(reply) : null;
+  }
 
-    // Remove typing indicators
-    removeTyping();
+  // Build sales report card (single implementation)
+  function buildSalesReportCard(report) {
+    if (!report || typeof report !== 'object') return '';
+    const e = utils.escapeHtml;
+    const title = e(report.title || 'Resumen de ventas');
+    const period = e(report.period || report.range || '');
+    const highlight = e(report.highlight || report.summary || '');
+    const items = Array.isArray(report.metrics) ? report.metrics : Array.isArray(report.items) ? report.items : [];
 
-    // Show typing status
-    const typingMsg = addMessage('<div class="typing-dots"><span></span><span></span><span></span></div>', 'bot bot-typing', false);
+    const rows = items.map(item => {
+      if (!item || typeof item !== 'object') return '';
+      const label = e(item.label || item.name || '');
+      const value = e(item.value || item.total || item.amount || '');
+      let trend = '';
+      if (typeof item.trend === 'string') trend = e(item.trend);
+      else if (typeof item.trend === 'number') trend = (item.trend > 0 ? '+' : '') + item.trend + '%';
+      const cls = trend.startsWith('-') ? 'down' : 'up';
+      const trendHtml = trend ? `<div class="sales-report-trend sales-report-trend-${cls}">${trend}</div>` : '';
+      return `<div class="sales-report-row"><div class="sales-report-label">${label}</div><div class="sales-report-value">${value}</div>${trendHtml}</div>`;
+    }).filter(Boolean).join('');
 
+    return `<div class="sales-report-card">
+      <div class="sales-report-header"><div class="sales-report-title">${title}</div>${period ? `<div class="sales-report-period">${period}</div>` : ''}</div>
+      ${highlight ? `<div class="sales-report-highlight">${highlight}</div>` : ''}
+      ${rows ? `<div class="sales-report-body">${rows}</div>` : ''}
+    </div>`;
+  }
+
+  async function sendMessageToN8n(text) {
+    if (!CONFIG.chatWebhook) {
+      addMessage('bot', 'El asistente no está disponible.');
+      return;
+    }
+
+    showTyping();
     try {
-      const webhookUrl = CONFIG.chatWebhook || 'https://ai.renace.tech/webhook/499666c3-d807-4bb7-8195-43932f64a91f/chat';
-      const endpoint = new URL(webhookUrl);
-      
-      const payload = {
-        sessionId: sessionId,
-        action: 'sendMessage',
-        chatInput: messageText,
-        metadata: {
-          url: window.location.href,
-          userAgent: navigator.userAgent
-        }
-      };
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
 
-      const response = await fetch(endpoint.toString(), {
+      const response = await fetch(CONFIG.chatWebhook, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ message: text, sessionId: getSessionId(), source: 'renace-web-chat' }),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
 
-      typingMsg.remove(); // Remove typing dots
+      const rawText = await response.text();
+      let data = null;
+      try { data = rawText ? JSON.parse(rawText) : null; } catch { data = null; }
 
-      if (!response.ok) throw new Error('Network response was not ok');
+      removeTyping();
 
-      const data = await response.json();
-      let botResponse = "Lo siento, hubo un error procesando tu solicitud.";
-
-      if (Array.isArray(data) && data.length > 0 && data[0].output) {
-        botResponse = data[0].output;
-      } else if (data.output) {
-        botResponse = data.output;
+      if (data && typeof data === 'object' && (data.type === 'sales_report' || data.reportType === 'sales')) {
+        const html = buildSalesReportCard(data);
+        if (html) addHtmlMessage(html);
       }
 
-      addMessage(botResponse, 'bot');
-      sendMetricsEvent('chat_interaction', { inputLength: messageText.length });
-
+      const reply = normalizeReply(data, rawText);
+      addMessage('bot', reply || 'El asistente respondió sin contenido.');
     } catch (err) {
-      console.error('[Chat Error]', err);
-      typingMsg.remove();
-      addMessage('Lo siento, en este momento el asistente no está disponible. Por favor, intenta de nuevo en unos minutos o contáctanos por WhatsApp.', 'bot');
+      removeTyping();
+      let msg = 'Hubo un problema de conexión.';
+      if (err.name === 'AbortError') msg = 'La solicitud tardó demasiado.';
+      addMessage('bot', msg + ' Intenta de nuevo.');
     }
   }
 
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
+  function updateSendState() {
+    sendBtn.disabled = !(input.value && input.value.trim().length > 0);
+  }
+
+  async function sendMessage() {
     const text = input.value.trim();
     if (!text) return;
-    
+    addMessage('user', text);
+    sendMetricsEvent('chat_message', { length: text.length });
     input.value = '';
-    input.focus();
-    
-    addMessage(text, 'user');
-    sendMessageToBot(text);
-  });
-
-  // Action chips handler
-  if (cartBtn) {
-    cartBtn.addEventListener('click', () => {
-      if (window.odooShop) { 
-        window.odooShop.showProducts(); 
-        root.classList.remove('rg-chat-open'); 
-      } else {
-        addMessage('Abriendo el catálogo de productos...', 'bot');
-      }
-    });
+    input.style.height = '';
+    updateSendState();
+    await sendMessageToN8n(text);
   }
-  
-  chips.forEach(chip => {
-    chip.addEventListener('click', () => {
-      const actionType = chip.getAttribute('data-action');
-      let promptText = '';
-      
-      switch(actionType) {
-        case 'cotizar': promptText = 'Quiero solicitar una cotización.'; break;
-        case 'catalogo': 
-          if(window.odooShop) { window.odooShop.showProducts(); close(); return; }
-          promptText = 'Ver el catálogo de productos.'; 
-          break;
-        case 'portal': window.location.href = '/portal'; close(); return;
-        case 'whatsapp': window.open('https://wa.me/18494577463?text=Hola%2C%20necesito%20ayuda', '_blank'); close(); return;
-      }
-      
-      if(promptText) {
-        addMessage(promptText, 'user');
-        sendMessageToBot(promptText);
-      }
-    });
-  });
 
+  // Open / Close
   function open() {
     root.classList.add('rg-chat-open');
     windowEl.setAttribute('aria-hidden', 'false');
     toggle.setAttribute('aria-expanded', 'true');
-    input.focus();
     scrollToBottom();
+    try { input.focus(); } catch {}
   }
 
   function close() {
@@ -881,16 +888,32 @@ function initRgChat() {
     toggle.setAttribute('aria-expanded', 'false');
   }
 
-  toggle.addEventListener('click', () => {
-    if (root.classList.contains('rg-chat-open')) close();
-    else open();
-  });
-  
+  toggle.addEventListener('click', open);
   if (closeBtn) closeBtn.addEventListener('click', close);
-  
   document.addEventListener('keydown', (e) => {
     if ((e.key === 'Escape') && root.classList.contains('rg-chat-open')) close();
   });
+
+  input.addEventListener('input', function () {
+    this.style.height = 'auto';
+    this.style.height = this.scrollHeight + 'px';
+    if (!this.value) this.style.height = '';
+    updateSendState();
+  });
+
+  input.addEventListener('keydown', function (e) {
+    if ((e.key === 'Enter') && !e.shiftKey && !e.isComposing) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  sendBtn.addEventListener('click', sendMessage);
+  updateSendState();
+
+  if (messagesEl.children.length === 0) {
+    addMessage('bot', 'Hola, soy Roberto de RENACE. ¿En qué puedo ayudarte hoy?');
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════

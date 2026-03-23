@@ -477,28 +477,38 @@
         </div>
     </footer>
 
-    <div class="rg-bot-root" aria-live="polite" role="complementary" aria-label="Asistente de Inteligencia Artificial">
-        <button class="rg-bot-toggle" type="button" aria-label="Abrir Asistente">
-            <i class="fas fa-robot"></i>
+    <div class="rg-chat-root" aria-live="polite" role="complementary" aria-label="Asistente virtual RENACE">
+        <button class="rg-chat-toggle" type="button" aria-label="Abrir chat con RENACE">
+            <img src="images/support.png" alt="Soporte RENACE" class="rg-chat-toggle-icon" loading="lazy" />
         </button>
-        <section id="rg-chat-window" class="rg-chat-window" aria-label="Chatbot de RENACE" aria-hidden="true"
+        <section id="rg-chat-window" class="rg-chat-window" aria-label="Chat con RENACE" aria-hidden="true"
             role="dialog" aria-modal="false">
             <header class="rg-chat-header">
                 <div class="rg-chat-header-main">
+                    <div class="rg-chat-avatar">
+                        <img src="images/support.png" alt="Soporte RENACE" class="rg-chat-avatar-icon" loading="lazy" />
+                    </div>
                     <div class="rg-chat-heading">
-                        <h2>RENACE AI</h2>
-                        <p>Asistente Inteligente</p>
+                        <h2>Chat RENACE</h2>
+                        <p>Conecta con nuestro equipo asistido por IA.</p>
                     </div>
                 </div>
-                <div class="rg-chat-header-actions">
-                    <button class="rg-chat-cart" type="button" aria-label="Ver Catálogo">
-                        <i class="fas fa-shopping-cart"></i>
-                    </button>
-                    <button class="rg-chat-close" type="button" aria-label="Cerrar chat">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
+                <button class="rg-chat-close" type="button" aria-label="Cerrar chat">
+                    <i class="fas fa-times"></i>
+                </button>
             </header>
+            <div class="rg-chat-body">
+                <ul id="rg-chat-messages" class="rg-chat-messages" role="log" aria-live="polite"
+                    aria-relevant="additions" aria-label="Mensajes del chat"></ul>
+            </div>
+            <div class="rg-chat-input">
+                <textarea id="rg-chat-input" rows="1" placeholder="Escribe tu mensaje..."></textarea>
+                <button id="rg-chat-send" type="button" aria-label="Enviar mensaje">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </section>
+    </div>
             
             <div class="rg-chat-chips-scroll">
                 <div class="rg-chat-chips" id="rg-chat-chips">
