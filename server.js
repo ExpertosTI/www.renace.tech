@@ -1551,6 +1551,19 @@ async function initDB() {
         ip_address VARCHAR(45),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      CREATE TABLE IF NOT EXISTS sso_tokens (
+        id SERIAL PRIMARY KEY,
+        token VARCHAR(255) NOT NULL UNIQUE,
+        user_id INTEGER REFERENCES client_portal_users(id) ON DELETE CASCADE,
+        instance_id INTEGER REFERENCES odoo_instances(id) ON DELETE CASCADE,
+        odoo_login VARCHAR(255) NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        used BOOLEAN DEFAULT FALSE,
+        used_at TIMESTAMP,
+        ip_address VARCHAR(45),
+        user_agent TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
     `);
     console.log('✓ Database tables ready');
   } catch (err) {
