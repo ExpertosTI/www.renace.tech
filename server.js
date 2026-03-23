@@ -1012,6 +1012,28 @@ app.delete('/api/admin/portal-users/:id', apiLimiter, async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── SSO: Service Validator Helper ──
+async function validateServiceCredentials(url, db, login, password) {
+  if (url.includes('forms.renace.tech') || url.includes('forms.local.renace.tech')) {
+    try {
+      // Direct REST auth to RNV Manager
+      const baseUrl = url.replace(/\/admin\/?$/, '');
+      const res = await fetch(baseUrl + '/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: login, password })
+      });
+      const data = await res.json();
+      return { valid: res.ok && !!data.token, sessionId: data.token, customService: true };
+    } catch (e) {
+      console.error('[rnv auth error]', e.message);
+      return { valid: false };
+    }
+  }
+  // Fallback to Odoo XML-RPC
+  return await odooValidateCredentials(url, db, login, password);
+}
+
 // ── SSO: Generate Token for Portal Login ──
 app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
   const odoo_login = String(req.body?.odoo_login || req.body?.login || '').trim().slice(0, 254);
@@ -1033,6 +1055,7 @@ app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
     );
 
     let user = userResult.rows[0];
+    let customServiceToken = null;
 
     // If user not in portal DB, try to auto-wrap from primary Odoo instance
     if (!user) {
@@ -1050,13 +1073,14 @@ app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
       const defaultInstance = defaultInstanceResult.rows[0];
       
       try {
-        const authCheck = await odooValidateCredentials(defaultInstance.odoo_url, defaultInstance.odoo_db, odoo_login, password);
+        const authCheck = await validateServiceCredentials(defaultInstance.odoo_url, defaultInstance.odoo_db, odoo_login, password);
         if (!authCheck.valid) {
-          return res.status(401).json({ error: 'Credenciales incorrectas en Odoo' });
+          return res.status(401).json({ error: 'Credenciales incorrectas en el servicio' });
         }
+        if (authCheck.customService) customServiceToken = authCheck.sessionId;
       } catch (e) {
-        console.warn('[sso generate] Odoo auth check error:', e.message);
-        return res.status(503).json({ error: 'Error verificando credenciales maestras en Odoo' });
+        console.warn('[sso generate] Auth check error:', e.message);
+        return res.status(503).json({ error: 'Error verificando credenciales maestras' });
       }
       
       // Auto-insert user
@@ -1077,12 +1101,13 @@ app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
     } else {
       // Validate existing user credentials
       try {
-        const authResult = await odooValidateCredentials(user.odoo_url, user.odoo_db, odoo_login, password);
+        const authResult = await validateServiceCredentials(user.odoo_url, user.odoo_db, odoo_login, password);
         if (!authResult.valid) {
           return res.status(401).json({ error: 'Credenciales incorrectas' });
         }
+        if (authResult.customService) customServiceToken = authResult.sessionId;
       } catch (e) {
-        console.warn('[sso generate] Odoo auth error:', e.message);
+        console.warn('[sso generate] Auth error:', e.message);
         return res.status(503).json({ error: 'No se pudo conectar con el servicio. Intenta más tarde.' });
       }
     }
@@ -1096,7 +1121,20 @@ app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
       [hashedPassword, user.id]
     );
 
-    // Generate SSO token
+    // If it's a custom service like RNV Manager, it handles its own JWT.
+    // We just return it directly so the frontend can redirect with it.
+    if (customServiceToken) {
+      const redirectUrl = `${user.odoo_url.replace(/\/admin\/?$/, '')}/admin?token=${customServiceToken}`;
+      return res.json({
+        success: true,
+        token: customServiceToken,
+        redirect_url: redirectUrl,
+        client_name: user.client_name,
+        expires_at: new Date(Date.now() + 24 * 3600 * 1000).toISOString()
+      });
+    }
+
+    // Generate Odoo SSO token
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
@@ -1106,7 +1144,7 @@ app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
       [token, user.id, user.instance_id, odoo_login, expiresAt, req.ip, req.get('user-agent')]
     );
 
-    // Return redirect URL with token
+    // Return redirect URL with Odoo token
     const redirectUrl = `${user.odoo_url}/renace/sso?token=${token}`;
     
     res.json({

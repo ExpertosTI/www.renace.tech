@@ -124,90 +124,129 @@
     modal.classList.add('open');
   };
 
-  // Chat Widget Logic
-  const chatWidget = document.getElementById('admin-chat-widget');
-  const chatToggle = document.getElementById('chat-toggle');
-  const chatInput  = document.getElementById('chat-input');
-  const chatSend   = document.getElementById('chat-send');
-  const chatMessages = document.getElementById('chat-messages');
-  const chatIcon   = document.getElementById('chat-icon');
-  const chatChips  = document.getElementById('chat-chips');
+  // ── Guided Action Panel Logic ──
+  const actionRoot = document.querySelector('.rg-action-center-root');
+  const actionToggle = document.querySelector('.rg-action-center-toggle');
+  const actionWindow = document.getElementById('rg-action-window');
+  const actionClose = document.querySelector('.rg-action-close');
+  const actionContainer = document.getElementById('rg-actions-container');
 
-  // Chat Avatar SVG constant
-  const CHAT_AVATAR_SVG = `<div class="msg-avatar"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg></div>`;
-  let _typingRow = null;
-
-  // Inject welcome message via JS so animation runs on first expand
-  if (chatMessages) {
-    const welcomeRow = document.createElement('div');
-    welcomeRow.className = 'msg-row';
-    welcomeRow.innerHTML = `${CHAT_AVATAR_SVG}<div class="msg system">Hola! Soy tu asistente. Escribe <code>ayuda</code> o usa los chips de abajo.</div>`;
-    chatMessages.appendChild(welcomeRow);
-  }
-
-  if (chatToggle) {
-    chatToggle.addEventListener('click', () => {
-      chatWidget.classList.toggle('collapsed');
-      const isCollapsed = chatWidget.classList.contains('collapsed');
-      if (chatIcon) chatIcon.className = isCollapsed ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
-    });
-  }
-
-  // Quick chips
-  if (chatChips) {
-    chatChips.addEventListener('click', (e) => {
-      const chip = e.target.closest('[data-cmd]');
-      if (!chip) return;
-      chatInput.value = chip.dataset.cmd;
-      handleChatCommand();
-    });
-  }
-
-  function showTyping() {
-    if (_typingRow) return;
-    _typingRow = document.createElement('div');
-    _typingRow.className = 'msg-row';
-    _typingRow.innerHTML = `${CHAT_AVATAR_SVG}<div class="msg-typing"><span></span><span></span><span></span></div>`;
-    chatMessages.appendChild(_typingRow);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-  }
-
-  function hideTyping() {
-    if (_typingRow) { _typingRow.remove(); _typingRow = null; }
-  }
-
-  function addChatMessage(text, type = 'user') {
-    hideTyping();
-    if (type === 'user') {
-      const row = document.createElement('div');
-      row.className = 'msg-row user-row';
-      row.innerHTML = `<div class="msg user"></div>`;
-      row.querySelector('.msg').textContent = text;
-      chatMessages.appendChild(row);
-    } else {
-      const row = document.createElement('div');
-      row.className = 'msg-row';
-      const bubble = document.createElement('div');
-      bubble.className = 'msg system';
-      bubble.textContent = text;
-      row.innerHTML = CHAT_AVATAR_SVG;
-      row.appendChild(bubble);
-      chatMessages.appendChild(row);
+  const MAIN_ACTIONS = [
+    {
+      id: 'quote',
+      icon: 'fas fa-file-invoice-dollar',
+      label: 'Solicitar Cotización',
+      desc: 'Obtén un presupuesto personalizado para tu proyecto',
+      gradient: 'linear-gradient(135deg, #0077b6, #00b4d8)',
+      action: () => { window.open('/cotizacion.html', '_blank'); closeAction(); }
+    },
+    {
+      id: 'portal',
+      icon: 'fas fa-sign-in-alt',
+      label: 'Portal de Clientes',
+      desc: 'Accede a tu plataforma empresarial',
+      gradient: 'linear-gradient(135deg, #0096c7, #48cae4)',
+      action: () => { window.open('/portal', '_blank'); closeAction(); }
+    },
+    {
+      id: 'instances',
+      icon: 'fas fa-server',
+      label: 'Gestor de Nodos',
+      desc: 'Visualiza la topología de la infraestructura híbrida',
+      gradient: 'linear-gradient(135deg, #023e8a, #0096c7)',
+      action: () => {
+        document.querySelector('.nodes-canvas-wrap')?.scrollIntoView({ behavior: 'smooth' });
+        closeAction();
+      }
+    },
+    {
+      id: 'whatsapp',
+      icon: 'fab fa-whatsapp',
+      label: 'Soporte VIP',
+      desc: 'Escríbenos directamente por WhatsApp',
+      gradient: 'linear-gradient(135deg, #03045e, #0077b6)',
+      action: () => { window.open('https://wa.me/18494577463?text=Hola%2C%20necesito%20soporte%20tecnico', '_blank'); }
     }
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+  ];
+
+  function renderActions(actions) {
+    if (!actionContainer) return;
+    actionContainer.innerHTML = '';
+
+    const welcome = document.createElement('div');
+    welcome.className = 'rg-action-welcome';
+    welcome.innerHTML = `
+      <p class="rg-action-greeting">Hola 👋 Administrador</p>
+      <p class="rg-action-subtitle">Selecciona una acción para comenzar</p>
+    `;
+    actionContainer.appendChild(welcome);
+
+    const grid = document.createElement('div');
+    grid.className = 'rg-action-grid';
+    actionContainer.appendChild(grid);
+
+    actions.forEach((action, i) => {
+      const card = document.createElement('button');
+      card.className = 'rg-action-card';
+      card.style.animationDelay = `${i * 0.07}s`;
+      card.setAttribute('data-action', action.id);
+      
+      // Inline styles ensuring dark mode contrast
+      card.style.background = 'rgba(15, 23, 42, 0.6)';
+      card.style.border = '1px solid rgba(125, 211, 252, 0.15)';
+      card.style.borderRadius = '16px';
+      card.style.padding = '12px 14px';
+      card.style.display = 'flex';
+      card.style.alignItems = 'center';
+      card.style.gap = '12px';
+      card.style.cursor = 'pointer';
+      card.style.color = '#e2e8f0';
+      card.style.textAlign = 'left';
+
+      card.innerHTML = `
+        <div class="rg-action-icon" style="background:${action.gradient}; width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:18px; box-shadow:0 4px 12px rgba(0,0,0,0.3);">
+          <i class="${action.icon}"></i>
+        </div>
+        <div class="rg-action-text" style="flex:1;">
+          <div class="rg-action-label" style="font-weight:700; font-size:14px; margin-bottom:2px;">${action.label}</div>
+          <div class="rg-action-desc" style="font-size:11px; color:#94a3b8; line-height:1.2;">${action.desc}</div>
+        </div>
+        <i class="fas fa-chevron-right rg-action-arrow" style="color:#475569; font-size:12px;"></i>
+      `;
+
+      card.addEventListener('click', () => {
+        card.style.transform = 'scale(0.96)';
+        setTimeout(() => action.action(), 150);
+      });
+
+      grid.appendChild(card);
+    });
   }
 
-  function addChatMessageHtml(html, type = 'system') {
-    hideTyping();
-    const row = document.createElement('div');
-    row.className = 'msg-row';
-    const bubble = document.createElement('div');
-    bubble.className = `msg ${type}`;
-    bubble.innerHTML = html;
-    row.innerHTML = CHAT_AVATAR_SVG;
-    row.appendChild(bubble);
-    chatMessages.appendChild(row);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+  function openAction() {
+    if (!actionRoot) return;
+    actionRoot.classList.add('rg-action-open');
+    if (actionWindow) actionWindow.setAttribute('aria-hidden', 'false');
+    if (actionToggle) actionToggle.setAttribute('aria-expanded', 'true');
+    renderActions(MAIN_ACTIONS);
+  }
+
+  function closeAction() {
+    if (!actionRoot) return;
+    actionRoot.classList.remove('rg-action-open');
+    if (actionWindow) actionWindow.setAttribute('aria-hidden', 'true');
+    if (actionToggle) actionToggle.setAttribute('aria-expanded', 'false');
+  }
+
+  if (actionToggle) {
+    actionToggle.addEventListener('click', () => {
+      if (actionRoot.classList.contains('rg-action-open')) closeAction();
+      else openAction();
+    });
+  }
+
+  if (actionClose) {
+    actionClose.addEventListener('click', closeAction);
   }
 
   // ── Servicios conocidos (backup JSON) ──────────────────────────────
