@@ -709,7 +709,7 @@ function initRgChat() {
       icon: 'fas fa-file-invoice-dollar',
       label: 'Solicitar Cotización',
       desc: 'Obtén un presupuesto personalizado para tu proyecto',
-      gradient: 'linear-gradient(135deg, #2563eb, #7c3aed)',
+      gradient: 'linear-gradient(135deg, #0077b6, #00b4d8)',
       action: () => { window.location.href = '/cotizacion.html'; }
     },
     {
@@ -717,7 +717,7 @@ function initRgChat() {
       icon: 'fas fa-store',
       label: 'Ver Catálogo',
       desc: 'Explora nuestros productos y servicios disponibles',
-      gradient: 'linear-gradient(135deg, #0891b2, #06b6d4)',
+      gradient: 'linear-gradient(135deg, #023e8a, #0096c7)',
       action: () => {
         if (window.odooShop?.showProducts) {
           window.odooShop.showProducts();
@@ -732,7 +732,7 @@ function initRgChat() {
       icon: 'fab fa-whatsapp',
       label: 'WhatsApp',
       desc: 'Escríbenos directamente por WhatsApp',
-      gradient: 'linear-gradient(135deg, #16a34a, #22c55e)',
+      gradient: 'linear-gradient(135deg, #03045e, #0077b6)',
       action: () => { window.open('https://wa.me/18297221009?text=Hola%20RENACE%2C%20necesito%20información', '_blank'); }
     },
     {
@@ -740,7 +740,7 @@ function initRgChat() {
       icon: 'fas fa-sign-in-alt',
       label: 'Portal de Clientes',
       desc: 'Accede a tu plataforma Odoo empresarial',
-      gradient: 'linear-gradient(135deg, #7c3aed, #a855f7)',
+      gradient: 'linear-gradient(135deg, #0096c7, #48cae4)',
       action: () => { window.location.href = '/portal'; }
     },
     {
@@ -748,7 +748,7 @@ function initRgChat() {
       icon: 'fas fa-folder-open',
       label: 'Documentos',
       desc: 'Descarga manuales, drivers y recursos',
-      gradient: 'linear-gradient(135deg, #d97706, #f59e0b)',
+      gradient: 'linear-gradient(135deg, #0077b6, #023e8a)',
       action: () => {
         const docsSection = document.getElementById('archivos');
         if (docsSection) {
@@ -762,7 +762,7 @@ function initRgChat() {
       icon: 'fas fa-envelope',
       label: 'Contacto',
       desc: 'Envía un mensaje a nuestro equipo',
-      gradient: 'linear-gradient(135deg, #dc2626, #ef4444)',
+      gradient: 'linear-gradient(135deg, #023e8a, #03045e)',
       action: () => {
         const contactSection = document.getElementById('contacto');
         if (contactSection) {
