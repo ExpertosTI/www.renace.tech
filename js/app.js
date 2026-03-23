@@ -689,18 +689,18 @@ function initDocumentsUpload() {
 // GUIDED ACTION PANEL (Replaces chat — materialize actions on screen)
 // ═══════════════════════════════════════════════════════════════
 function initRgChat() {
-  const root = document.querySelector('.rg-chat-root');
+  const root = document.querySelector('.rg-action-center-root');
   if (!root) return;
 
-  const toggle = root.querySelector('.rg-chat-toggle');
-  const windowEl = root.querySelector('.rg-chat-window');
-  const closeBtn = root.querySelector('.rg-chat-close');
+  const toggle = root.querySelector('.rg-action-center-toggle');
+  const windowEl = root.querySelector('.rg-action-window');
+  const closeBtn = root.querySelector('.rg-action-close');
   const container = document.getElementById('rg-actions-container');
 
   if (!toggle || !windowEl || !container) return;
 
   toggle.setAttribute('aria-expanded', 'false');
-  toggle.setAttribute('aria-controls', 'rg-chat-window');
+  toggle.setAttribute('aria-controls', 'rg-action-window');
 
   // ── Action definitions ──
   const MAIN_ACTIONS = [
@@ -843,14 +843,14 @@ function initRgChat() {
 
   // ── Open / Close ──
   function open() {
-    root.classList.add('rg-chat-open');
+    root.classList.add('rg-action-open');
     windowEl.setAttribute('aria-hidden', 'false');
     toggle.setAttribute('aria-expanded', 'true');
     renderActions(MAIN_ACTIONS);
   }
 
   function close() {
-    root.classList.remove('rg-chat-open');
+    root.classList.remove('rg-action-open');
     windowEl.setAttribute('aria-hidden', 'true');
     toggle.setAttribute('aria-expanded', 'false');
   }
@@ -858,7 +858,7 @@ function initRgChat() {
   toggle.addEventListener('click', open);
   if (closeBtn) closeBtn.addEventListener('click', close);
   document.addEventListener('keydown', (e) => {
-    if ((e.key === 'Escape') && root.classList.contains('rg-chat-open')) close();
+    if ((e.key === 'Escape') && root.classList.contains('rg-action-open')) close();
   });
 }
 
@@ -1331,8 +1331,8 @@ window.addEventListener('error', (event) => {
 // GLOBAL CHAT TOGGLE (For external Call-To-Action buttons)
 // ═══════════════════════════════════════════════════════════════
 window.openChat = function() {
-  const toggle = document.querySelector('.rg-chat-toggle');
-  const windowEl = document.querySelector('.rg-chat-window') || document.getElementById('rg-chat-window');
+  const toggle = document.querySelector('.rg-action-center-toggle');
+  const windowEl = document.querySelector('.rg-action-window') || document.getElementById('rg-action-window');
   
   if (windowEl) {
     if (!windowEl.classList.contains('active') && toggle) {

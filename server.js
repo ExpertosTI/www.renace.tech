@@ -699,8 +699,8 @@ async function odooValidateCredentials(odooUrl, db, login, password) {
           }
           const sessionId = parsed?.result?.session_id || cookieSessionId || null;
           const valid = !!uid && uid !== false && uid !== null;
-          resolve({ valid, sessionId });
-        } catch { resolve({ valid: false, sessionId: null }); }
+          resolve({ valid, sessionId, uid });
+        } catch { resolve({ valid: false, sessionId: null, uid: null }); }
       });
     });
     req.on('error', (e) => reject(e));
@@ -1032,23 +1032,59 @@ app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
       [odoo_login]
     );
 
-    if (!userResult.rows.length) {
-      return res.status(401).json({ error: 'Credenciales incorrectas o usuario no registrado' });
-    }
+    let user = userResult.rows[0];
 
-    const user = userResult.rows[0];
-
-    // Validate credentials against Odoo
-    let authResult;
-    try {
-      authResult = await odooValidateCredentials(user.odoo_url, user.odoo_db, odoo_login, password);
-    } catch (e) {
-      console.warn('[sso generate] Odoo auth error:', e.message);
-      return res.status(503).json({ error: 'No se pudo conectar con el servicio. Intenta más tarde.' });
-    }
-
-    if (!authResult.valid) {
-      return res.status(401).json({ error: 'Credenciales incorrectas' });
+    // If user not in portal DB, try to auto-wrap from primary Odoo instance
+    if (!user) {
+      const defaultInstanceResult = await pool.query(
+        `SELECT id AS instance_id, odoo_url, odoo_db, client_name 
+         FROM odoo_instances 
+         WHERE active = TRUE 
+         ORDER BY id ASC LIMIT 1`
+      );
+      
+      if (!defaultInstanceResult.rows.length) {
+        return res.status(401).json({ error: 'No hay instancias configuradas en el portal' });
+      }
+      
+      const defaultInstance = defaultInstanceResult.rows[0];
+      
+      try {
+        const authCheck = await odooValidateCredentials(defaultInstance.odoo_url, defaultInstance.odoo_db, odoo_login, password);
+        if (!authCheck.valid) {
+          return res.status(401).json({ error: 'Credenciales incorrectas en Odoo' });
+        }
+      } catch (e) {
+        console.warn('[sso generate] Odoo auth check error:', e.message);
+        return res.status(503).json({ error: 'Error verificando credenciales maestras en Odoo' });
+      }
+      
+      // Auto-insert user
+      const insertResult = await pool.query(
+        `INSERT INTO client_portal_users (odoo_login, instance_id, active) 
+         VALUES ($1, $2, TRUE) RETURNING id`,
+        [odoo_login, defaultInstance.instance_id]
+      );
+      
+      user = {
+        id: insertResult.rows[0].id,
+        odoo_login,
+        instance_id: defaultInstance.instance_id,
+        odoo_url: defaultInstance.odoo_url,
+        odoo_db: defaultInstance.odoo_db,
+        client_name: defaultInstance.client_name
+      };
+    } else {
+      // Validate existing user credentials
+      try {
+        const authResult = await odooValidateCredentials(user.odoo_url, user.odoo_db, odoo_login, password);
+        if (!authResult.valid) {
+          return res.status(401).json({ error: 'Credenciales incorrectas' });
+        }
+      } catch (e) {
+        console.warn('[sso generate] Odoo auth error:', e.message);
+        return res.status(503).json({ error: 'No se pudo conectar con el servicio. Intenta más tarde.' });
+      }
     }
 
     // Store password if not already stored
@@ -2612,7 +2648,70 @@ rawServer.on('upgrade', (req, socket, head) => {
   upstream.end();
 });
 
+async function initOdooSSOKey() {
+  const odooUrl = process.env.ODOO_URL;
+  const db = process.env.ODOO_DB;
+  const user = process.env.ODOO_API_USER;
+  const pass = process.env.ODOO_API_KEY;
+  const ssoKey = process.env.PORTAL_ENCRYPTION_KEY;
+  
+  if (!odooUrl || !db || !user || !pass || !ssoKey) {
+    console.log('[Odoo SSO Key] Saltando config automática (faltan variables).');
+    return;
+  }
+  
+  try {
+    const authResult = await odooValidateCredentials(odooUrl, db, user, pass);
+    if (!authResult.valid || !authResult.uid) {
+      console.warn('[Odoo SSO Key] Fallo la autenticación de Odoo API.');
+      return;
+    }
+    
+    const target = new URL(odooUrl);
+    const lib = target.protocol === 'https:' ? https : http;
+    const bodyObj = { 
+      jsonrpc: '2.0', 
+      method: 'call', 
+      params: { 
+        service: 'object', 
+        method: 'execute_kw', 
+        args: [
+          db, 
+          authResult.uid, 
+          pass, 
+          'ir.config_parameter', 
+          'set_param', 
+          ['renace_sso.portal_encryption_key', ssoKey]
+        ] 
+      }, 
+      id: Math.floor(Math.random() * 1000)
+    };
+    
+    const bodyStr = JSON.stringify(bodyObj);
+    
+    await new Promise((resolve, reject) => {
+      const req = lib.request({ 
+        hostname: target.hostname, 
+        port: parseInt(target.port) || (target.protocol === 'https:' ? 443 : 80), 
+        path: '/jsonrpc', 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) } 
+      }, proxyRes => { 
+        proxyRes.on('data', () => {}); 
+        proxyRes.on('end', resolve); 
+      });
+      req.on('error', reject); 
+      req.write(bodyStr); 
+      req.end();
+    });
+    console.log('[Odoo SSO Key] Parámetro de cifrado inyectado exitosamente en Odoo.');
+  } catch (e) {
+    console.error('[Odoo SSO Key] Error al sincronizar con Odoo:', e.message);
+  }
+}
+
 rawServer.listen(PORT, async () => {
   console.log(`🚀 RENACE.TECH running on port ${PORT} (${isProd ? 'production' : 'development'})`);
   await initDB();
+  await initOdooSSOKey();
 });
