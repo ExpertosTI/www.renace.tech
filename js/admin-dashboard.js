@@ -1535,5 +1535,69 @@
     loadOdooSection();
     initNodesGraph();
     startAutoRefresh();
+    loadCampaigns();
   }
+
+  // ── Campaign Management ──
+  async function loadCampaigns() {
+    const list = document.getElementById('campaign-list');
+    if (!list || !token) return;
+    try {
+      const res = await fetch('/api/admin/campaigns', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al cargar campañas');
+      
+      list.innerHTML = data.map(c => `
+        <li data-id="${c.id}">
+          <div style="flex:1; margin-right:15px;">
+            <input type="text" class="campaign-title-input" value="${escapeHtml(c.title)}" style="width:100%; font-weight:bold; margin-bottom:4px; padding:4px 8px; border-radius:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#fff;">
+            <textarea class="campaign-desc-input" rows="2" style="width:100%; font-size:12px; padding:4px 8px; border-radius:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#94a3b8; resize:vertical;">${escapeHtml(c.desc)}</textarea>
+          </div>
+          <label class="switch"><input type="checkbox" class="campaign-active-input" ${c.active ? 'checked' : ''}><span class="slider"></span></label>
+        </li>
+      `).join('');
+    } catch (e) {
+      list.innerHTML = `<li class="error">${escapeHtml(e.message)}</li>`;
+    }
+  }
+
+  async function saveCampaigns() {
+    const btn = document.getElementById('btn-save-campaigns');
+    if (!btn || !token) return;
+    
+    const items = document.querySelectorAll('#campaign-list li[data-id]');
+    const campaigns = Array.from(items).map(li => ({
+      id: li.dataset.id,
+      title: li.querySelector('.campaign-title-input').value,
+      desc: li.querySelector('.campaign-desc-input').value,
+      active: li.querySelector('.campaign-active-input').checked
+    }));
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+    
+    try {
+      const res = await fetch('/api/admin/campaigns', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
+        body: JSON.stringify(campaigns)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al guardar');
+      alert('¡Campañas actualizadas correctamente!');
+    } catch (e) {
+      alert('Error: ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-save"></i> Guardar Cambios';
+    }
+  }
+
+  document.getElementById('btn-save-campaigns')?.addEventListener('click', saveCampaigns);
+
 })();

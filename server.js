@@ -36,15 +36,35 @@ const ADMIN_CODE_TTL_MS = 10 * 60 * 1000; // 10 min
 const QUOTE_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
 const REQUEST_METRICS_MAX = 10000;
 
-const adminCodes = new Map(); // email -> { code, exp }
 const METRICS_DATA_PATH = path.join(__dirname, 'data', 'metrics.json');
+const CAMPAIGNS_DATA_PATH = path.join(__dirname, 'data', 'campaigns.json');
+
 let requestMetrics = [];
+let campaignData = [
+  { id: 1, title: 'Google Ads: Búsqueda Intención', desc: 'Red de búsqueda. Público con alta urgencia buscando "Facturación Electrónica e-CF".', active: true },
+  { id: 2, title: 'Meta Ads: Autoridad e Institucional', desc: 'Anuncios sutiles en Facebook/Instagram para perfiles corporativos (+14 años exp).', active: true },
+  { id: 3, title: 'TikTok Ads: PyMEs y Creadores', desc: 'Campaña visual con formato vertical. Enfoque: "POS en la nube y control móvil".', active: false },
+  { id: 4, title: 'YouTube Ads: Pre-roll Demo', desc: 'Video in-stream de 15 segundos demostrando cómo Odoo emite facturas al instante.', active: false },
+  { id: 5, title: 'Retargeting Facebook: Casos de Éxito', desc: 'Testimonios persiguiendo durante 14 días a usuarios que visitaron renace.tech pero no agendaron.', active: false },
+  { id: 6, title: 'Email Marketing: Secuencia de Multas DGII', desc: 'Automatización de 3 correos para nutrir leads sobre las sanciones regulatorias para 2026.', active: false }
+];
+
 try {
   if (fs.existsSync(METRICS_DATA_PATH)) {
     requestMetrics = JSON.parse(fs.readFileSync(METRICS_DATA_PATH, 'utf8'));
   }
 } catch (e) {
   console.warn('[Metrics] Error loading metrics:', e.message);
+}
+
+try {
+  if (fs.existsSync(CAMPAIGNS_DATA_PATH)) {
+    campaignData = JSON.parse(fs.readFileSync(CAMPAIGNS_DATA_PATH, 'utf8'));
+  } else {
+    fs.writeFileSync(CAMPAIGNS_DATA_PATH, JSON.stringify(campaignData, null, 2));
+  }
+} catch (e) {
+  console.warn('[Campaigns] Error loading campaigns:', e.message);
 }
 
 // Persist metrics periodically every minute
@@ -2178,6 +2198,32 @@ app.delete('/api/documents/:id', apiLimiter, async (req, res) => {
     res.json({ message: 'Eliminado' });
   } catch {
     res.status(500).json({ error: 'Error al eliminar' });
+  }
+});
+
+// ── API: Campaigns ──
+app.get('/api/admin/campaigns', apiLimiter, async (req, res) => {
+  if (!requireAdminToken(req, res)) return;
+  res.json(campaignData);
+});
+
+app.post('/api/admin/campaigns', apiLimiter, async (req, res) => {
+  if (!requireAdminToken(req, res)) return;
+  const newCampaigns = req.body;
+  if (!Array.isArray(newCampaigns)) return res.status(400).json({ error: 'Formato inválido' });
+  
+  campaignData = newCampaigns.map(c => ({
+    id: Number(c.id),
+    title: sanitizeText(c.title || ''),
+    desc: sanitizeText(c.desc || ''),
+    active: !!c.active
+  }));
+
+  try {
+    await fs.promises.writeFile(CAMPAIGNS_DATA_PATH, JSON.stringify(campaignData, null, 2));
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
