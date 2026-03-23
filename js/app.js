@@ -686,8 +686,7 @@ function initDocumentsUpload() {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// CHAT SYSTEM (Single Implementation — rg-chat)
+// GUIDED ACTION PANEL (Replaces chat — materialize actions on screen)
 // ═══════════════════════════════════════════════════════════════
 function initRgChat() {
   const root = document.querySelector('.rg-chat-root');
@@ -696,273 +695,158 @@ function initRgChat() {
   const toggle = root.querySelector('.rg-chat-toggle');
   const windowEl = root.querySelector('.rg-chat-window');
   const closeBtn = root.querySelector('.rg-chat-close');
-  const messagesEl = document.getElementById('rg-chat-messages');
-  const input = document.getElementById('rg-chat-input');
-  const sendBtn = document.getElementById('rg-chat-send');
+  const container = document.getElementById('rg-actions-container');
 
-  if (!toggle || !windowEl || !messagesEl || !input || !sendBtn) return;
+  if (!toggle || !windowEl || !container) return;
 
   toggle.setAttribute('aria-expanded', 'false');
   toggle.setAttribute('aria-controls', 'rg-chat-window');
 
-  const HISTORY_KEY = 'rg_chat_dom_v1';
-
-  function scrollToBottom() {
-    const body = root.querySelector('.rg-chat-body') || messagesEl;
-    body.scrollTop = body.scrollHeight;
-  }
-
-  // Restore history
-  try {
-    const saved = localStorage.getItem(HISTORY_KEY);
-    if (saved) { messagesEl.innerHTML = saved; scrollToBottom(); }
-  } catch {}
-
-  function persist() {
-    try { localStorage.setItem(HISTORY_KEY, messagesEl.innerHTML); } catch {}
-  }
-
-  function addMessage(sender, text) {
-    const li = document.createElement('li');
-    li.className = 'rg-chat-message ' + (sender === 'user' ? 'rg-chat-user' : 'rg-chat-bot');
-    const bubble = document.createElement('div');
-    bubble.className = 'rg-chat-bubble';
-    bubble.innerHTML = utils.formatMarkdown(text);
-    li.appendChild(bubble);
-    messagesEl.appendChild(li);
-    scrollToBottom();
-    persist();
-  }
-
-  function addHtmlMessage(html) {
-    const li = document.createElement('li');
-    li.className = 'rg-chat-message rg-chat-bot';
-    const bubble = document.createElement('div');
-    bubble.className = 'rg-chat-bubble';
-    bubble.innerHTML = html;
-    li.appendChild(bubble);
-    messagesEl.appendChild(li);
-    scrollToBottom();
-    persist();
-  }
-
-  let typingLi = null;
-  function showTyping() {
-    if (typingLi) return;
-    typingLi = document.createElement('li');
-    typingLi.className = 'rg-chat-message rg-chat-bot';
-    const bubble = document.createElement('div');
-    bubble.className = 'rg-chat-bubble rg-chat-typing';
-    bubble.innerHTML = '<span class="rg-chat-dots"><span></span><span></span><span></span></span>';
-    typingLi.appendChild(bubble);
-    messagesEl.appendChild(typingLi);
-    scrollToBottom();
-  }
-
-  function removeTyping() {
-    if (typingLi?.parentNode) typingLi.parentNode.removeChild(typingLi);
-    typingLi = null;
-  }
-
-  // Normalize n8n response (single implementation)
-  function normalizeReply(data, rawText) {
-    let reply = null;
-    if (data && typeof data === 'object') {
-      reply = data.output || data.reply || data.message || data.text;
-      if (!reply && Array.isArray(data) && data[0]) {
-        reply = data[0].output || data[0].reply || data[0].message || data[0].text;
+  // ── Action definitions ──
+  const MAIN_ACTIONS = [
+    {
+      id: 'quote',
+      icon: 'fas fa-file-invoice-dollar',
+      label: 'Solicitar Cotización',
+      desc: 'Obtén un presupuesto personalizado para tu proyecto',
+      gradient: 'linear-gradient(135deg, #2563eb, #7c3aed)',
+      action: () => { window.location.href = '/cotizacion.html'; }
+    },
+    {
+      id: 'catalog',
+      icon: 'fas fa-store',
+      label: 'Ver Catálogo',
+      desc: 'Explora nuestros productos y servicios disponibles',
+      gradient: 'linear-gradient(135deg, #0891b2, #06b6d4)',
+      action: () => {
+        if (window.odooShop?.showProducts) {
+          window.odooShop.showProducts();
+        } else {
+          window.location.href = '/#servicios';
+        }
+        close();
+      }
+    },
+    {
+      id: 'whatsapp',
+      icon: 'fab fa-whatsapp',
+      label: 'WhatsApp',
+      desc: 'Escríbenos directamente por WhatsApp',
+      gradient: 'linear-gradient(135deg, #16a34a, #22c55e)',
+      action: () => { window.open('https://wa.me/18297221009?text=Hola%20RENACE%2C%20necesito%20información', '_blank'); }
+    },
+    {
+      id: 'portal',
+      icon: 'fas fa-sign-in-alt',
+      label: 'Portal de Clientes',
+      desc: 'Accede a tu plataforma Odoo empresarial',
+      gradient: 'linear-gradient(135deg, #7c3aed, #a855f7)',
+      action: () => { window.location.href = '/portal'; }
+    },
+    {
+      id: 'docs',
+      icon: 'fas fa-folder-open',
+      label: 'Documentos',
+      desc: 'Descarga manuales, drivers y recursos',
+      gradient: 'linear-gradient(135deg, #d97706, #f59e0b)',
+      action: () => {
+        const docsSection = document.getElementById('archivos');
+        if (docsSection) {
+          docsSection.scrollIntoView({ behavior: 'smooth' });
+          close();
+        }
+      }
+    },
+    {
+      id: 'contact',
+      icon: 'fas fa-envelope',
+      label: 'Contacto',
+      desc: 'Envía un mensaje a nuestro equipo',
+      gradient: 'linear-gradient(135deg, #dc2626, #ef4444)',
+      action: () => {
+        const contactSection = document.getElementById('contacto');
+        if (contactSection) {
+          contactSection.scrollIntoView({ behavior: 'smooth' });
+          close();
+        }
       }
     }
-    if (!reply && rawText && typeof rawText === 'string') {
-      const t = rawText.trim();
-      if ((t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'))) {
-        try {
-          const p = JSON.parse(t);
-          if (p && typeof p === 'object') {
-            reply = p.output || p.reply || p.message || p.text;
-            if (!reply && Array.isArray(p) && p[0]) {
-              reply = p[0].output || p[0].reply || p[0].message || p[0].text;
-            }
-          }
-        } catch {}
-      }
-    }
-    if (!reply && rawText) reply = rawText;
-    return reply != null ? String(reply) : null;
-  }
+  ];
 
-  // Build sales report card (single implementation)
-  function buildSalesReportCard(report) {
-    if (!report || typeof report !== 'object') return '';
-    const e = utils.escapeHtml;
-    const title = e(report.title || 'Resumen de ventas');
-    const period = e(report.period || report.range || '');
-    const highlight = e(report.highlight || report.summary || '');
-    const items = Array.isArray(report.metrics) ? report.metrics : Array.isArray(report.items) ? report.items : [];
+  // ── Render actions with staggered animation ──
+  function renderActions(actions) {
+    container.innerHTML = '';
 
-    const rows = items.map(item => {
-      if (!item || typeof item !== 'object') return '';
-      const label = e(item.label || item.name || '');
-      const value = e(item.value || item.total || item.amount || '');
-      let trend = '';
-      if (typeof item.trend === 'string') trend = e(item.trend);
-      else if (typeof item.trend === 'number') trend = (item.trend > 0 ? '+' : '') + item.trend + '%';
-      const cls = trend.startsWith('-') ? 'down' : 'up';
-      const trendHtml = trend ? `<div class="sales-report-trend sales-report-trend-${cls}">${trend}</div>` : '';
-      return `<div class="sales-report-row"><div class="sales-report-label">${label}</div><div class="sales-report-value">${value}</div>${trendHtml}</div>`;
-    }).filter(Boolean).join('');
+    // Welcome message
+    const welcome = document.createElement('div');
+    welcome.className = 'rg-action-welcome';
+    welcome.innerHTML = `
+      <p class="rg-action-greeting">Hola 👋</p>
+      <p class="rg-action-subtitle">Selecciona una acción para comenzar</p>
+    `;
+    container.appendChild(welcome);
 
-    return `<div class="sales-report-card">
-      <div class="sales-report-header"><div class="sales-report-title">${title}</div>${period ? `<div class="sales-report-period">${period}</div>` : ''}</div>
-      ${highlight ? `<div class="sales-report-highlight">${highlight}</div>` : ''}
-      ${rows ? `<div class="sales-report-body">${rows}</div>` : ''}
-    </div>`;
-  }
+    // Action grid
+    const grid = document.createElement('div');
+    grid.className = 'rg-action-grid';
+    container.appendChild(grid);
 
-  async function sendMessageToN8n(text) {
-    if (!CONFIG.chatWebhook) {
-      addMessage('bot', 'El asistente no está disponible.');
-      return;
-    }
+    actions.forEach((action, i) => {
+      const card = document.createElement('button');
+      card.className = 'rg-action-card';
+      card.style.animationDelay = `${i * 0.07}s`;
+      card.setAttribute('data-action', action.id);
 
-    showTyping();
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 120000); // 120 seconds timeout for Odoo APIs
+      card.innerHTML = `
+        <div class="rg-action-icon" style="background:${action.gradient}">
+          <i class="${action.icon}"></i>
+        </div>
+        <div class="rg-action-text">
+          <span class="rg-action-label">${action.label}</span>
+          <span class="rg-action-desc">${action.desc}</span>
+        </div>
+        <i class="fas fa-chevron-right rg-action-arrow"></i>
+      `;
 
-      const cartContext = window.odooShop?.getCartContext?.();
-      const response = await fetch(CONFIG.chatWebhook, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: text,
-          sessionId: getSessionId(),
-          source: 'renace-web-chat',
-          ...(cartContext ? { cart: cartContext, cartTotal: window.renaceCart?.total?.() } : {}),
-        }),
-        signal: controller.signal,
+      card.addEventListener('click', () => {
+        // Visual feedback
+        card.classList.add('rg-action-pressed');
+        sendMetricsEvent('assistant_action', { action: action.id });
+        setTimeout(() => action.action(), 150);
       });
-      clearTimeout(timeout);
 
-      const rawText = await response.text();
-      let data = null;
-      try { data = rawText ? JSON.parse(rawText) : null; } catch { data = null; }
+      grid.appendChild(card);
+    });
 
-      removeTyping();
-
-      if (!response.ok) {
-        const msg = data?.error || (response.status === 504 ? 'El asistente tardó demasiado (504).' : `Error ${response.status}`);
-        addMessage('bot', msg);
-        return;
-      }
-
-      if (data && typeof data === 'object' && (data.type === 'sales_report' || data.reportType === 'sales')) {
-        const html = buildSalesReportCard(data);
-        if (html) addHtmlMessage(html);
-      }
-
-      const reply = normalizeReply(data, rawText);
-      addMessage('bot', reply || 'El asistente respondió sin contenido.');
-
-      if (data && typeof data === 'object' && Array.isArray(data.options)) {
-        const optionsHtml = data.options.map(opt => `<button class="rg-chat-option-btn" style="display:inline-block; background:rgba(0,180,216,0.2); color:white; border:1px solid rgba(0,180,216,0.6); padding:8px 14px; border-radius:20px; margin:4px; font-size:0.85rem; cursor:pointer">${utils.escapeHtml(opt)}</button>`).join('');
-        addHtmlMessage(`<div class="rg-chat-options" style="display:flex; flex-wrap:wrap; gap:5px; margin-top:5px;">${optionsHtml}</div>`);
-      }
-
-      // Proactive catalog suggestion when AI mentions products/prices
-      const CATALOG_TRIGGER = /precio|producto|cat[aá]logo|disponible|oferta|cotiz|equipo|servicio|tienda|comprar|modelo|marca/i;
-      if (reply && CATALOG_TRIGGER.test(reply)) {
-        addHtmlMessage(`<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;">
-          <button class="rg-chat-option-btn" id="bot-show-catalog-btn" style="background:rgba(56,189,248,0.12);color:#38bdf8;border:1px solid rgba(56,189,248,0.35);padding:6px 14px;border-radius:20px;cursor:pointer;font-size:0.78rem;">
-            <i class="fas fa-store"></i> Ver catálogo
-          </button>
-          ${window.renaceCart?.count?.() > 0 ? `<button class="rg-chat-option-btn" id="bot-show-cart-btn" style="background:rgba(129,140,248,0.12);color:#818cf8;border:1px solid rgba(129,140,248,0.35);padding:6px 14px;border-radius:20px;cursor:pointer;font-size:0.78rem;">
-            <i class="fas fa-shopping-cart"></i> Mi carrito (${window.renaceCart.count()})
-          </button>` : ''}
-        </div>`);
-        setTimeout(() => {
-          document.getElementById('bot-show-catalog-btn')?.addEventListener('click', () => window.odooShop?.showProducts());
-          document.getElementById('bot-show-cart-btn')?.addEventListener('click', () => window.odooShop?.openCart());
-        }, 50);
-      }
-    } catch (err) {
-      removeTyping();
-      let msg = 'Hubo un problema de conexión.';
-      if (err.name === 'AbortError') msg = 'La solicitud tardó demasiado.';
-      addMessage('bot', msg + ' Intenta de nuevo.');
+    // Cart quick-access (if items exist)
+    if (window.renaceCart?.count?.() > 0) {
+      const cartBar = document.createElement('div');
+      cartBar.className = 'rg-action-cart-bar';
+      const count = window.renaceCart.count();
+      const total = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP', maximumFractionDigits: 0 }).format(window.renaceCart.total());
+      cartBar.innerHTML = `
+        <div class="rg-action-cart-info">
+          <i class="fas fa-shopping-cart"></i>
+          <span>${count} artículo${count !== 1 ? 's' : ''} — ${total}</span>
+        </div>
+        <button class="rg-action-cart-btn" id="rg-open-cart">Ver carrito</button>
+      `;
+      container.appendChild(cartBar);
+      setTimeout(() => {
+        document.getElementById('rg-open-cart')?.addEventListener('click', () => {
+          window.odooShop?.openCart();
+          close();
+        });
+      }, 100);
     }
   }
 
-  function updateSendState() {
-    sendBtn.disabled = !(input.value && input.value.trim().length > 0);
-  }
-
-  async function sendMessage() {
-    const text = input.value.trim();
-    if (!text) return;
-    addMessage('user', text);
-    sendMetricsEvent('chat_message', { length: text.length });
-    input.value = '';
-    input.style.height = '';
-    updateSendState();
-
-    // Intercept quote conversation flow — bot asks data one step at a time
-    if (window.odooShop?.isInQuoteFlow()) {
-      window.odooShop.handleQuoteInput(text);
-      return;
-    }
-
-    // Intercept cart command superpowers ("agrega una impresora", "quita la laptop")
-    if (window.odooShop?.isCartCommand(text)) {
-      await window.odooShop.handleCartCommand(text);
-      return;
-    }
-
-    // Intercept cart queries → respond directly from cart state
-    const CART_QUERY = /carrito|qu[eé]\s+(?:ten[ig]|a[gñ]ré?|selecc)|cu[aá]nto\s+(?:es|ser[aá]|me\s+sale|tengo|suman?)|mi[s]?\s+(?:producto|selec|pedido)|ver\s+(?:mi\s+)?carrito|total\s+(?:del?\s+)?carrito/i;
-    if (CART_QUERY.test(text) && window.renaceCart) {
-      const c = window.renaceCart;
-      if (c.count() === 0) {
-        addMessage('bot', 'Tu carrito está vacío. ¿Quieres que te muestre el catálogo de productos?');
-        addHtmlMessage(`<div style="margin-top:6px;"><button class="rg-chat-option-btn" id="empty-cart-catalog" style="background:rgba(56,189,248,0.12);color:#38bdf8;border:1px solid rgba(56,189,248,0.35);padding:6px 14px;border-radius:20px;cursor:pointer;font-size:0.78rem;"><i class="fas fa-store"></i> Ver catálogo</button></div>`);
-        setTimeout(() => document.getElementById('empty-cart-catalog')?.addEventListener('click', () => window.odooShop?.showProducts()), 50);
-      } else {
-        const lines = c.items.map(i => `• ${i.qty}x ${i.name} — ${new Intl.NumberFormat('es-DO',{style:'currency',currency:'DOP',maximumFractionDigits:2}).format(i.price * i.qty)}`).join('\n');
-        const total = new Intl.NumberFormat('es-DO',{style:'currency',currency:'DOP',maximumFractionDigits:2}).format(c.total());
-        addMessage('bot', `🛒 Tienes ${c.count()} artículo${c.count()!==1?'s':''} en tu carrito:\n\n${lines}\n\n**Total: ${total}**`);
-        addHtmlMessage(`<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;"><button class="rg-chat-option-btn" id="cart-q-view" style="background:rgba(129,140,248,0.12);color:#818cf8;border:1px solid rgba(129,140,248,0.35);padding:6px 14px;border-radius:20px;cursor:pointer;font-size:0.78rem;"><i class="fas fa-shopping-cart"></i> Ver carrito</button><button class="rg-chat-option-btn" id="cart-q-quote" style="background:rgba(56,189,248,0.12);color:#38bdf8;border:1px solid rgba(56,189,248,0.35);padding:6px 14px;border-radius:20px;cursor:pointer;font-size:0.78rem;"><i class="fas fa-file-invoice"></i> Solicitar cotización</button></div>`);
-        setTimeout(() => {
-          document.getElementById('cart-q-view')?.addEventListener('click', () => window.odooShop?.openCart());
-          document.getElementById('cart-q-quote')?.addEventListener('click', () => {
-            // trigger quote form directly  
-            window.odooShop?.openCart();
-          });
-        }, 50);
-      }
-      return;
-    }
-
-    // Intercept product search (e.g. "muéstrame impresoras") → filtered Odoo catalog
-    if (window.odooShop?.isSearchQuery(text)) {
-      const query = window.odooShop.getSearchQuery(text);
-      await window.odooShop.searchProducts(query);
-      return;
-    }
-    // Intercept general product / catalog queries → full Odoo catalog
-    if (window.odooShop?.isProductQuery(text)) {
-      await window.odooShop.showProducts();
-      return;
-    }
-    await sendMessageToN8n(text);
-  }
-
-  // Open / Close
+  // ── Open / Close ──
   function open() {
     root.classList.add('rg-chat-open');
     windowEl.setAttribute('aria-hidden', 'false');
     toggle.setAttribute('aria-expanded', 'true');
-    scrollToBottom();
-    try { input.focus(); } catch {}
+    renderActions(MAIN_ACTIONS);
   }
 
   function close() {
@@ -976,34 +860,6 @@ function initRgChat() {
   document.addEventListener('keydown', (e) => {
     if ((e.key === 'Escape') && root.classList.contains('rg-chat-open')) close();
   });
-
-  input.addEventListener('input', function () {
-    this.style.height = 'auto';
-    this.style.height = this.scrollHeight + 'px';
-    if (!this.value) this.style.height = '';
-    updateSendState();
-  });
-
-  input.addEventListener('keydown', function (e) {
-    if ((e.key === 'Enter') && !e.shiftKey && !e.isComposing) {
-      e.preventDefault();
-      sendMessage();
-    }
-  });
-
-  messagesEl.addEventListener('click', (e) => {
-    if (e.target.classList.contains('rg-chat-option-btn')) {
-      input.value = e.target.textContent;
-      sendMessage();
-    }
-  });
-
-  sendBtn.addEventListener('click', sendMessage);
-  updateSendState();
-
-  if (messagesEl.children.length === 0) {
-    addMessage('bot', 'Hola, soy Roberto de RENACE. ¿En qué puedo ayudarte hoy?');
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════
