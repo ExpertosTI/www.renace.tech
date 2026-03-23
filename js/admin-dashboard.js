@@ -301,12 +301,18 @@
         if (!res.ok) { addChatMessage('Error: ' + data.error, 'system'); return; }
         if (!data.length) { addChatMessage('No hay instancias registradas aún.', 'system'); return; }
         const rows = data.map(i =>
-          `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #1e293b;">
-            <span style="font-weight:600;">#${i.id} ${escapeHtml(i.client_name)}</span>
-            <a href="${escapeHtml(i.odoo_url)}" target="_blank" style="color:#7dd3fc;font-size:11px;">${escapeHtml(i.odoo_url)}</a>
+          `<div style="background:rgba(0,180,216,0.08); border: 1px solid rgba(0,180,216,0.2); padding:12px; border-radius:12px; display:flex; flex-direction:column; gap:10px;">
+            <div style="font-weight:600; font-size:13px; color:#fff; display:flex; justify-content:space-between; align-items:center;">
+              <span><i class="fa fa-server" style="color:#00b4d8; margin-right:6px;"></i> ${escapeHtml(i.client_name)}</span>
+              <span style="font-size:10px; background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:10px;">ID #${i.id}</span>
+            </div>
+            <div class="chat-link-row" style="display:grid; grid-template-columns: 1fr auto; gap:6px;">
+              <a href="${escapeHtml(i.odoo_url)}" target="_blank" class="chat-link-action" style="justify-content:center; padding:6px; font-weight:normal; border-radius:8px;"><i class="fa fa-external-link" style="margin-right:4px;"></i> Abrir Odoo</a>
+              <button type="button" class="chat-link-action" onclick="navigator.clipboard.writeText('${escapeHtml(i.odoo_url)}')"" style="padding:6px 12px; justify-content:center; border-radius:8px; background:rgba(0,180,216,0.15); border-color:rgba(0,180,216,0.3);"><i class="fa fa-copy"></i></button>
+            </div>
           </div>`
         ).join('');
-        addChatMessageHtml(`<div class="chat-link-card"><strong>${data.length} instancias registradas:</strong>${rows}</div>`, 'system');
+        addChatMessageHtml(`<div class="chat-link-card" style="gap:10px;"><strong>${data.length} instancias registradas:</strong>${rows}</div>`, 'system');
       } catch (e) { addChatMessage('Error de conexión: ' + e.message, 'system'); }
 
     // ── LISTAR SERVICIOS (JSON conocidos) ────────────────────────────
@@ -314,12 +320,20 @@
       const odoo = KNOWN_SERVICES.filter(s => s.type === 'odoo');
       const web  = KNOWN_SERVICES.filter(s => s.type !== 'odoo');
       const rows = (arr) => arr.map(s =>
-        `<div><a href="${s.url}" target="_blank" style="color:#7dd3fc;">${s.name}</a> <span style="opacity:.5;font-size:10px;">${s.type}</span></div>`
+        `<div style="background:rgba(255,255,255,0.05); padding:10px 14px; border-radius:12px; display:flex; justify-content:space-between; align-items:center; border:1px solid rgba(255,255,255,0.1);">
+           <div style="display:flex; flex-direction:column; gap:2px;">
+             <span style="font-weight:600; font-size:13px; color:#fff;">${s.name}</span>
+             <span style="font-size:10px; opacity:0.6; color:#94a3b8; text-transform:uppercase;">${s.type}</span>
+           </div>
+           <a href="${s.url}" target="_blank" class="chat-link-action" style="padding:5px 12px; border-radius:8px;"><i class="fa fa-external-link" style="margin-right:0;"></i></a>
+         </div>`
       ).join('');
       addChatMessageHtml(`
-        <div class="chat-link-card">
-          <strong>Odoo (${odoo.length}):</strong>${rows(odoo)}
-          <strong style="margin-top:8px;display:block;">Otros (${web.length}):</strong>${rows(web)}
+        <div class="chat-link-card" style="gap:10px;">
+          <strong style="color:#00b4d8; font-size:11px; margin-bottom:-4px;"><i class="fa fa-cube" style="margin-right:4px;"></i> SERVICIOS ODOO (${odoo.length})</strong>
+          <div style="display:flex; flex-direction:column; gap:6px;">${rows(odoo)}</div>
+          <strong style="color:#38bdf8; font-size:11px; margin-top:6px; margin-bottom:-4px;"><i class="fa fa-globe" style="margin-right:4px;"></i> OTROS SERVICIOS WEB (${web.length})</strong>
+          <div style="display:flex; flex-direction:column; gap:6px;">${rows(web)}</div>
         </div>`, 'system');
 
     // ── BUSCAR SERVICIO ─────────────────────────────────────────────
@@ -385,13 +399,17 @@
         if (!res.ok) { addChatMessage('Error: ' + data.error, 'system'); return; }
         if (!data.length) { addChatMessage('No hay usuarios del portal aún.', 'system'); return; }
         const rows = data.map(u =>
-          `<div style="padding:3px 0;border-bottom:1px solid #1e293b;">
-            <span style="font-weight:600;">${escapeHtml(u.odoo_login)}</span>
-            <span style="opacity:.5;font-size:11px;"> → ${escapeHtml(u.client_name)}</span>
-            ${u.google_email ? `<span style="color:#2dd4bf;font-size:10px;"> 🔗 ${escapeHtml(u.google_email)}</span>` : ''}
+          `<div style="background:rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); padding:12px; border-radius:12px; display:flex; flex-direction:column; gap:8px;">
+            <div style="font-weight:600; font-size:13px; color:#fff; display:flex; align-items:center;">
+              <i class="fa fa-user" style="color:#a5b4fc; margin-right:6px;"></i> ${escapeHtml(u.odoo_login)}
+            </div>
+            <div style="font-size:11px; color:#94a3b8; display:flex; align-items:center;">
+              <i class="fa fa-building" style="margin-right:5px; opacity:0.6;"></i> ${escapeHtml(u.client_name)}
+            </div>
+            ${u.google_email ? `<div style="font-size:11px; color:#38bdf8; display:flex; align-items:center; background:rgba(56,189,248,0.1); padding:4px 8px; border-radius:6px; width:fit-content; margin-top:2px;"><i class="fa fa-google" style="margin-right:5px;"></i> ${escapeHtml(u.google_email)}</div>` : ''}
           </div>`
         ).join('');
-        addChatMessageHtml(`<div class="chat-link-card"><strong>${data.length} usuarios:</strong>${rows}</div>`, 'system');
+        addChatMessageHtml(`<div class="chat-link-card" style="gap:10px;"><strong>${data.length} usuarios de portal:</strong>${rows}</div>`, 'system');
       } catch (e) { addChatMessage('Error: ' + e.message, 'system'); }
 
     // ── VINCULAR USUARIO ────────────────────────────────────────────

@@ -1091,7 +1091,7 @@ app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
     const hashedPassword = crypto.createHash('sha256').update(password).digest('hex');
     await pool.query(
       `UPDATE client_portal_users 
-       SET odoo_password_enc = $1, password_updated_at = NOW() 
+       SET odoo_password_enc = $1 
        WHERE id = $2 AND (odoo_password_enc IS NULL OR odoo_password_enc != $1)`,
       [hashedPassword, user.id]
     );
