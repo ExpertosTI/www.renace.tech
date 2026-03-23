@@ -698,6 +698,7 @@ function initRgChat() {
   const messagesContainer = document.getElementById('rg-chat-messages');
   const form = document.getElementById('rg-chat-form');
   const input = document.getElementById('rg-chat-input');
+  const cartBtn = root.querySelector('.rg-chat-cart');
   
   // Custom Action Chips
   const chips = document.querySelectorAll('.rg-chat-chip');
@@ -833,6 +834,17 @@ function initRgChat() {
   });
 
   // Action chips handler
+  if (cartBtn) {
+    cartBtn.addEventListener('click', () => {
+      if (window.odooShop) { 
+        window.odooShop.showProducts(); 
+        root.classList.remove('rg-chat-open'); 
+      } else {
+        addMessage('Abriendo el catálogo de productos...', 'bot');
+      }
+    });
+  }
+  
   chips.forEach(chip => {
     chip.addEventListener('click', () => {
       const actionType = chip.getAttribute('data-action');

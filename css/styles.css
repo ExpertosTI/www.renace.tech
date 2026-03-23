@@ -1146,7 +1146,7 @@ a *, button *, [onclick] *, .finder-control *, .control *, .terminal-btn *, .btn
 
 .rg-bot-toggle {
   width: 56px; height: 56px; border-radius: 16px;
-  background: linear-gradient(135deg, #0056b3, #00b4d8);
+  background: linear-gradient(135deg, #0056b3, #0056b3);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: white; font-size: 1.5rem; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
@@ -1172,9 +1172,12 @@ a *, button *, [onclick] *, .finder-control *, .control *, .terminal-btn *, .btn
 .rg-chat-header { display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 1.25rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
 .rg-chat-header-main { display: flex; align-items: center; gap: 0.6rem; }
 .rg-chat-heading h2 { font-size: 1.1rem; font-weight: 700; color: #fff; letter-spacing: -0.02em; margin-bottom: 2px; }
-.rg-chat-heading p { font-size: 0.75rem; color: #00b4d8; font-weight: 500;}
+.rg-chat-heading p { font-size: 0.75rem; color: #0056b3; font-weight: 500;}
 .rg-chat-close { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; cursor: pointer; font-size: 0.9rem; padding: 0.4rem; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
 .rg-chat-close:hover { color: #fff; background: rgba(255,255,255,0.15); transform: rotate(90deg); }
+.rg-chat-header-actions { display: flex; gap: 0.6rem; align-items: center; }
+.rg-chat-cart { background: rgba(0, 180, 216, 0.15); border: 1px solid rgba(0, 180, 216, 0.3); color: #0056b3; cursor: pointer; font-size: 0.9rem; padding: 0.4rem; width: 36px; height: 36px; border-radius: 12px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+.rg-chat-cart:hover { background: #0056b3; color: #fff; transform: translateY(-2px); }
 
 .rg-chat-chips-scroll { padding: 0.75rem 1rem 0; width: 100%; overflow-x: auto; scrollbar-width: none; }
 .rg-chat-chips-scroll::-webkit-scrollbar { display: none; }
@@ -1192,15 +1195,15 @@ a *, button *, [onclick] *, .finder-control *, .control *, .terminal-btn *, .btn
 .chat-msg.bot { align-self: flex-start; align-items: flex-start; }
 
 .chat-bubble { padding: 10px 14px; border-radius: 16px; font-size: 0.9rem; line-height: 1.4; word-wrap: break-word; }
-.chat-msg.user .chat-bubble { background: linear-gradient(135deg, #0056b3, #00b4d8); color: #fff; border-bottom-right-radius: 4px; box-shadow: 0 4px 15px rgba(0, 180, 216, 0.2); }
+.chat-msg.user .chat-bubble { background: linear-gradient(135deg, #0056b3, #0056b3); color: #fff; border-bottom-right-radius: 4px; box-shadow: 0 4px 15px rgba(0, 180, 216, 0.2); }
 .chat-msg.bot .chat-bubble { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #e2e8f0; border-bottom-left-radius: 4px; }
 .chat-time { font-size: 0.7rem; color: #64748b; margin-top: 4px; }
 
 .rg-chat-footer { padding: 1rem; background: rgba(15, 23, 42, 0.5); border-top: 1px solid rgba(255,255,255,0.05); }
 .rg-chat-form { display: flex; gap: 8px; align-items: center; }
 .rg-chat-input { flex: 1; min-width: 0; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; font-size: 0.9rem; padding: 10px 14px; border-radius: 20px; outline: none; transition: all 0.2s; font-family: inherit; }
-.rg-chat-input:focus { border-color: #00b4d8; background: rgba(255,255,255,0.08); }
-.rg-chat-send { width: 40px; height: 40px; border-radius: 50%; background: #00b4d8; color: #fff; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; }
+.rg-chat-input:focus { border-color: #0056b3; background: rgba(255,255,255,0.08); }
+.rg-chat-send { width: 40px; height: 40px; border-radius: 50%; background: #0056b3; color: #fff; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; }
 .rg-chat-send:hover { background: #0056b3; transform: scale(1.05); }
 
 @media (max-width: 480px) { .rg-bot-root { bottom: 1rem; right: 1rem; } .rg-chat-window { width: calc(100vw - 2rem); height: calc(100vh - 6rem); max-height: calc(100vh - 6rem); right: 0; bottom: calc(100% + 0.8rem); border-radius: 20px; } }

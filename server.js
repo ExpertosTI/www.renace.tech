@@ -2012,7 +2012,6 @@ async function sendAdminNotification(submission, req) {
 
 
 app.post('/api/chat', chatLimiter, async (req, res) => {
-  if (!requireBasicAuth(req, res)) return;
   if (!CHAT_WEBHOOK) return res.status(500).json({ error: 'CHAT_WEBHOOK no configurado' });
   try {
     const upstream = await requestChatWebhook(req.body || {}, req);
@@ -2189,7 +2188,7 @@ function getCategory(ext) {
 // strip /odoo prefix, forward real IP/proto headers, rewrite redirects.
 const ODOO_URL          = process.env.ODOO_URL          || 'http://85.31.224.232:7015';
 const ODOO_LONGPOLL_URL = process.env.ODOO_LONGPOLL_URL || 'http://85.31.224.232:7018';
-const CHAT_WEBHOOK      = process.env.CHAT_WEBHOOK      || '';
+const CHAT_WEBHOOK      = process.env.CHAT_WEBHOOK      || 'https://ai.renace.tech/webhook/6e33280a-faeb-4394-a34c-142fee0ebfc7';
 const DEFAULT_LANG      = process.env.ODOO_LANG         || 'en_US';
 const HOP_BY_HOP = new Set([
   'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
