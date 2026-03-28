@@ -33,7 +33,7 @@ cd openclaw-migration
 
 # 2. Construir y Desplegar
 echo "🐳 Construyendo imagen de Jarvix localmente..."
-docker compose build
+docker compose build --no-cache
 
 echo "🚀 Desplegando stack '$STACK_NAME' en Docker Swarm (RenaceNet)..."
 # Asegurar que la red existe
