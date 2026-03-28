@@ -19,8 +19,5 @@ COPY branding/favicon.svg ./node_modules/openclaw/dist/control-ui/favicon.svg
 COPY branding/favicon-32.png ./node_modules/openclaw/dist/control-ui/favicon-32.png
 COPY branding/apple-touch-icon.png ./node_modules/openclaw/dist/control-ui/apple-touch-icon.png
 
-# Desactivar el entrypoint de node para que no interfiera con el binario
-ENTRYPOINT []
-
-# Ejecutar el binario directamente usando el shell
-CMD openclaw gateway --port 18789
+# Ejecución directa con Node (estándar del proyecto)
+CMD ["node", "node_modules/openclaw/dist/index.js", "gateway", "--port", "18789"]
