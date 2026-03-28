@@ -14,5 +14,8 @@ COPY branding/favicon.svg ./node_modules/openclaw/dist/control-ui/favicon.svg
 COPY branding/favicon-32.png ./node_modules/openclaw/dist/control-ui/favicon-32.png
 COPY branding/apple-touch-icon.png ./node_modules/openclaw/dist/control-ui/apple-touch-icon.png
 
-# Comando de inicio estándar usando node directamente
-CMD ["node", "node_modules/.bin/openclaw", "gateway", "--port", "18789"]
+# Añadir los binarios de node_modules al PATH
+ENV PATH /app/node_modules/.bin:$PATH
+
+# Comando simplificado
+CMD ["openclaw", "gateway", "--port", "18789"]
