@@ -20,4 +20,4 @@ COPY branding/favicon-32.png ./node_modules/openclaw/dist/control-ui/favicon-32.
 COPY branding/apple-touch-icon.png ./node_modules/openclaw/dist/control-ui/apple-touch-icon.png
 
 # Ejecución directa con Node (estándar del proyecto)
-CMD ["node", "node_modules/openclaw/dist/index.js", "gateway", "--port", "18789"]
+CMD ["node", "node_modules/openclaw/index.js", "gateway", "--port", "18789"]
