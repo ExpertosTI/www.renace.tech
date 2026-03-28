@@ -2,7 +2,9 @@
 FROM node:20-alpine
 WORKDIR /app
 
-# Instalar dependencias locales (más estable en contenedores)
+# Añadir compatibilidad para binarios compilados en Alpine
+RUN apk add --no-cache libc6-compat tzdata
+
 RUN npm install openclaw
 
 # Exponer el puerto del gateway
