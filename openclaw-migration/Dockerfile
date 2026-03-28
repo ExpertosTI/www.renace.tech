@@ -7,6 +7,9 @@ RUN apk add --no-cache libc6-compat tzdata
 
 RUN npm install openclaw
 
+# Añadir la ruta de los binarios locales al PATH
+ENV PATH /app/node_modules/.bin:$PATH
+
 # Exponer el puerto del gateway
 EXPOSE 18789
 
