@@ -75,7 +75,28 @@ docker service update --force renace_app 2>/dev/null || true
 echo "🧹 Cleaning up unused Docker images..."
 docker image prune -f
 
-echo "========================================================"
-echo "✅ Deployment successful!"
-echo "📡 Check logs with: docker service logs -f renace_app"
-echo "========================================================"
+# 5. Verify deployment health
+echo "⏳ Waiting for service to become healthy..."
+RETRIES=0
+MAX_RETRIES=30
+while [ $RETRIES -lt $MAX_RETRIES ]; do
+  HEALTH=$(docker inspect --format='{{.Status.Health.Status}}' $(docker ps -q -f name=renace_app) 2>/dev/null || echo "starting")
+  if [ "$HEALTH" = "healthy" ]; then
+    break
+  fi
+  RETRIES=$((RETRIES + 1))
+  sleep 5
+done
+
+if [ "$HEALTH" = "healthy" ]; then
+  echo "========================================================"
+  echo "✅ Deployment successful! Service is healthy."
+  echo "📡 Check logs with: docker service logs -f renace_app"
+  echo "========================================================"
+else
+  echo "========================================================"
+  echo "⚠️  Deployment completed but health check not confirmed after $((MAX_RETRIES * 5))s."
+  echo "📡 Check logs with: docker service logs -f renace_app"
+  echo "========================================================"
+  exit 1
+fi

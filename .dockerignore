@@ -1,11 +1,43 @@
+# Dependencies (reinstalled in build)
 node_modules
+
+# Git
 .git
 .gitignore
+
+# Documentation
 *.md
+
+# Secrets
 .env
 .env.*
 !.env.example
-docs/
-*.log
+*.pem
+*.key
+
+# IDE
+.idea/
+.vscode/
+.superpowers/
+.windsurf/
+
+# OS
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Subprojects not needed in main Docker image
+wedding-invitation/
+openclaw-migration/
+importadorar40.com/
+android/
+android-app/
+
+# Build scripts (not needed at runtime)
+deploy.sh
+build-android.sh
+docker-compose.yml
+Dockerfile

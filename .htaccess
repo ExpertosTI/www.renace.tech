@@ -1,6 +1,6 @@
 <IfModule mod_headers.c>
     # Security Headers - Ultima Generacion
-    Header set Content-Security-Policy "default-src 'self' https:; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https:;"
+    Header set Content-Security-Policy "default-src 'self' https:; script-src 'self' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https:;"
     Header set X-XSS-Protection "1; mode=block"
     Header set X-Frame-Options "SAMEORIGIN"
     Header set X-Content-Type-Options "nosniff"
@@ -26,7 +26,6 @@ Options -Indexes
 RedirectMatch 301 ^/terms/?$ /terminos.html
 RedirectMatch 301 ^/ayuda/?$ /ayuda.php
 
-<IfModule mod_proxy.c>
-    ProxyPass /mail http://45.9.191.18:8080/
-    ProxyPassReverse /mail http://45.9.191.18:8080/
-</IfModule>
+# NOTE: Mail proxy should use environment variable or DNS hostname
+# ProxyPass /mail configured via reverse proxy (Traefik), not here
+# If needed, set MAIL_PROXY_URL in your server config
