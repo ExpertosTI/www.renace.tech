@@ -1,5 +1,5 @@
 # Dockerfile para Jarvix (OpenClaw) - Estándar del Proyecto
-FROM node:20-alpine
+FROM node:22-alpine
 WORKDIR /app
 
 # Compatibilidad Alpine
