@@ -3,7 +3,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Compatibilidad Alpine
-RUN apk add --no-cache libc6-compat tzdata
+RUN apk add --no-cache libc6-compat tzdata git
 
 # Copiar y extraer el paquete real de OpenClaw (v2026.3.x)
 COPY openclaw-real.tar.gz ./
