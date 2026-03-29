@@ -9,6 +9,9 @@ RUN apk add --no-cache libc6-compat tzdata git
 COPY openclaw-real.tar.gz ./
 RUN tar -xzf openclaw-real.tar.gz && rm openclaw-real.tar.gz
 
+# PARCHE CRÍTICO: Forzar escucha en 0.0.0.0 (está hardcodeado a 127.0.0.1)
+RUN sed -i 's/127.0.0.1/0.0.0.0/g' dist/*.js
+
 # Instalar dependencias de OpenClaw
 RUN npm install --production --ignore-scripts
 
