@@ -19,7 +19,7 @@ services:
         - "traefik.http.routers.jarvix.priority=3000"
         - "traefik.http.services.jarvix.loadbalancer.server.port=18789"
         - "traefik.http.routers.jarvix.middlewares=jarvix-stripprefix,jarvix-auth"
-        - "traefik.http.middlewares.jarvix-auth.basicauth.users=renace:$$apr1$$G7N9O.GK$$BXhtSqMiHGzm7qtsJrXcZ/"
+        - "traefik.http.middlewares.jarvix-auth.basicauth.users=renace:$$apr1$$XQZ.B0..$$V4Zq9c9RzXU7q9qW7q9qW/"
         - "traefik.http.middlewares.jarvix-stripprefix.stripprefix.prefixes=/jarvix"
         - "traefik.docker.network=RenaceNet"
 
