@@ -12,8 +12,12 @@ RUN tar -xzf openclaw-real.tar.gz && rm openclaw-real.tar.gz
 # PARCHE CRÍTICO: Forzar escucha en 0.0.0.0 (está hardcodeado a 127.0.0.1)
 RUN sed -i 's/127.0.0.1/0.0.0.0/g' dist/*.js
 
-# Instalar dependencias de OpenClaw
-RUN npm install --production --ignore-scripts
+# Instalar dependencias de OpenClaw de forma ultra-resistente y rápida
+RUN npm config set fetch-retries 10 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm config set fetch-timeout 600000 && \
+    npm install --production --ignore-scripts --no-audit --no-fund --loglevel=error
 
 # Aplicar branding de renace.tech
 COPY branding/favicon.svg ./dist/control-ui/favicon.svg
