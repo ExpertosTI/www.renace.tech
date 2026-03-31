@@ -1,6 +1,7 @@
 services:
   jarvix:
     image: jarvix:latest
+    command: ["node", "--max-old-space-size=1024", "/usr/local/lib/node_modules/openclaw/openclaw.mjs"]
     build: .
     volumes:
       - ./data:/root/.openclaw
