@@ -98,6 +98,104 @@ Paul opera en **DOS MODOS SIMULTÁNEOS**:
 
 ### 3.3 Estructura de Niveles
 
+---
+
+## 3.4 Sistema de Selección de Personaje
+
+### Pantalla de Selección
+```
+╔════════════════════════════════════════════════════════════╗
+║              SELECCIÓN DE PERSONAJE                         ║
+║  [Video Veo 3: Paul en el puente de mando]                 ║
+╠════════════════════════════════════════════════════════════╣
+║                                                            ║
+║  🎖️ PAUL ULTRON (Comandante)              [SKIN] ⚡        ║
+║     Modo: Dual (Soldado + Comandante)                      ║
+║     Difícil - Requiere multitask                           ║
+║                                                            ║
+║  🔫 SGT. JACK "TRIGGER" MURPHY       [MODO] 🔥             ║
+║     Modo: Soldado puro (sin comando AI)                    ║
+║     Difícil - Pero más fácil que Paul                       ║
+║                                                            ║
+║  🎯 CPL. NATASHA "HAWK" KOWALSKI    [MODO] ❄️             ║
+║     Modo: Francotirador (stealth, one-shot kills)          ║
+║     Media - Sigilo y precisión                              ║
+║                                                            ║
+║  💣 SGT. "TNT" TOMÁS RIVERA         [MODO] 💥             ║
+║     Modo: Demoliciones (bazooka, grenades, nuclear)        ║
+║     Media - Explosiones masivas                             ║
+║                                                            ║
+║  🛡️ CPL. HANS "IRON" MÜLLER         [SKIN] 🇩🇪            ║
+║     Modo: Igual a Paul Ultron                               ║
+║     Difícil - Pero con skin alemán                          ║
+║                                                            ║
+╠════════════════════════════════════════════════════════════╣
+║  ⚠️ ¿SELECCIONAR ESTE MODO O SOLO SKIN?                    ║
+║                                                            ║
+║  [JUGAR CON ESTE MODO]    [SOLO USAR SKIN]                 ║
+╚════════════════════════════════════════════════════════════╝
+```
+
+### Tabla de Dificultad por Personaje
+
+| Personaje | Modo | Dificultad | Habilidad Especial |
+|-----------|------|------------|-------------------|
+| Paul Ultron | Dual (Soldado + Comandante) | ★★★☆☆ | Control de unidades AI |
+| Sgt. Murphy | Soldado | ★★☆☆☆ | Disparo rápido |
+| Cpl. Kowalski | Francotirador | ★★★☆☆ | Stealth, headshots |
+| Sgt. Rivera | Demoliciones | ★★☆☆☆ | Bomba nuclear más rápido |
+| Hans Müller | Dual | ★★★☆☆ | Skin alemán (solo cosmético) |
+
+### Sistema de Confirmación
+```
+╔════════════════════════════════════════════════════════════╗
+║  ⚠️ CONFIRMACIÓN DE SELECCIÓN                              ║
+║                                                            ║
+║  Has elegido: SGT. TOMÁS "TNT" RIVERA                     ║
+║                                                            ║
+║  Modo DEMOLICIONES seleccionado:                           ║
+║  • Acceso a: Bazooka, Grenades, Bomba Nuclear              ║
+║  • Sin acceso a: Control de unidades AI                   ║
+║  • Dificultad: ★★☆☆☆ (Media)                              ║
+║                                                            ║
+║  ¿Jugar con este MODO o solo usar este SKIN?               ║
+║                                                            ║
+║  [🔥 JUGAR CON MODO DEMOLICIONES]                          ║
+║  [👤 SOLO USAR SKIN DE RIVERA]                             ║
+║                                                            ║
+╚════════════════════════════════════════════════════════════╝
+```
+
+---
+
+## 3.5 Sistema de Recompensas ($GAN + XP)
+
+```
+╔════════════════════════════════════════════════════════════╗
+║                    SISTEMA DE RECOMPENSAS                   ║
+╠════════════════════════════════════════════════════════════╣
+║                                                            ║
+║  💰 $GAN                                                   ║
+║  ├── Gana por completar niveles                            ║
+║  ├── Bonus por no morir (no game over)                    ║
+║  ├── Bonus por Fury meter lleno                            ║
+║  └── Canjeable por: skins, personajes, upgrades           ║
+║                                                            ║
+║  ⭐ XP / EXPERIENCIA                                       ║
+║  ├── Por cada kill                                         ║
+║  ├── Por completar oleadas                                 ║
+║  ├── Por completar niveles                                 ║
+║  └── Desbloquea: nuevos niveles, habilidades               ║
+║                                                            ║
+║  🏆 LOGROS/TÍTULOS                                         ║
+║  ├── "First Blood" - Primer kill                           ║
+║  ├── "Fury Unleashed" - Primera ejecución                  ║
+║  ├── "Berlin Liberator" - Completar juego                  ║
+║  └── "Nuclear Holocaust" - Usar 10 bombas                  ║
+║                                                            ║
+╚════════════════════════════════════════════════════════════╝
+```
+
 **Mapa Estratégico WWII:**
 
 ```
