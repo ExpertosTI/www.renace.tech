@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  stalwart-mail:
+    image: stalwartlabs/stalwart:latest
+    environment:
+      - STALWART_ADMIN_PASSWORD=JustRenMail2027@
+    ports:
+      - "25:25"
+      - "465:465"
+      - "587:587"
+      - "993:993"
+      - "4190:4190"
+      - target: 8080
+        published: 18085
+        protocol: tcp
+        mode: host
+    volumes:
+      - rncmail_data:/opt/stalwart/data
+      - rncmail_etc:/opt/stalwart/etc
+    networks:
+      - RenaceNet
+    deploy:
+      replicas: 1
+
+  roundcube:
+    image: roundcube/roundcubemail:latest
+    environment:
+      - ROUNDCUBEMAIL_DEFAULT_HOST=stalwart-mail
+      - ROUNDCUBEMAIL_DEFAULT_PORT=143
+      - ROUNDCUBEMAIL_SMTP_SERVER=stalwart-mail
+      - ROUNDCUBEMAIL_SMTP_PORT=587
+      - ROUNDCUBEMAIL_DB_TYPE=sqlite
+      - ROUNDCUBEMAIL_SKIN=elastic
+      - ROUNDCUBEMAIL_PRODUCT_NAME=RENACE Tech Mail
+    volumes:
+      - ./roundcube/config.inc.php:/var/www/html/config/config.inc.php:ro
+      - ./branding/favicon.svg:/var/www/html/skins/elastic/images/renace_logo.svg:ro
+      - ./branding/favicon.svg:/var/www/html/favicon.ico:ro
+    networks:
+      - RenaceNet
+      - renace_renace_internal
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=renace_renace_internal"
+        - "traefik.http.routers.rnc-mail-https.rule=Host(`mail.renace.tech`)"
+        - "traefik.http.routers.rnc-mail-https.entrypoints=websecure"
+        - "traefik.http.routers.rnc-mail-https.tls=true"
+        - "traefik.http.routers.rnc-mail-https.tls.certresolver=letsencryptresolver"
+        - "traefik.http.routers.rnc-mail-https.tls.domains[0].main=mail.renace.tech"
+        - "traefik.http.services.rnc-mail-svc.loadbalancer.server.port=80"
+      replicas: 1
+
+  ai-agent:
+    image: node:20-slim
+    working_dir: /app
+    volumes:
+      - ./ai-agent:/app
+    environment:
+      - GEMINI_API_KEY=AIzaSyC5XgXfARYSjyNmmPpVvCfmWieyLju6VPM
+      - TELEGRAM_BOT_TOKEN=7961077033:AAEyPQhOT7IW5yROE0uSnUoewCdn0THoPvg
+      - MAIL_SERVER=stalwart-mail
+      - MAIL_USER=info@renace.tech
+      - MAIL_PASS=JustRenMail2027@
+    command: sh -c "npm install @google/generative-ai && node index.js"
+    networks:
+      - RenaceNet
+
+networks:
+  RenaceNet:
+    external: true
+  renace_renace_internal:
+    external: true
+
+volumes:
+  rncmail_data:
+  rncmail_etc:
