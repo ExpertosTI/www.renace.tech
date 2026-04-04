@@ -34,9 +34,9 @@ services:
       - ROUNDCUBEMAIL_SKIN=elastic
       - ROUNDCUBEMAIL_PRODUCT_NAME=RENACE Tech Mail
     volumes:
-      - ./roundcube/config.inc.php:/var/www/html/config/config.inc.php:ro
-      - ./branding/favicon.svg:/var/www/html/skins/elastic/images/renace_logo.svg:ro
-      - ./branding/favicon.svg:/var/www/html/favicon.ico:ro
+      - ./roundcube/config.inc.php:/var/www/html/config/config.inc.php
+      - ./branding/favicon.svg:/var/www/html/branding/renace_logo.svg:ro
+      - ./branding/favicon.svg:/var/www/html/branding/favicon.ico:ro
     networks:
       - RenaceNet
       - renace_renace_internal

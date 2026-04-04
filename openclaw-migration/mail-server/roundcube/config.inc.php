@@ -11,7 +11,7 @@ $config['support_url'] = 'https://renace.tech/support';
 $config['product_name'] = 'RENACE Tech Mail';
 $config['skin'] = 'elastic';
 $config['skin_logo'] = [
-    'elastic' => 'skins/elastic/images/renace_logo.svg',
+    'elastic' => 'branding/renace_logo.svg',
 ];
 $config['favicon'] = 'favicon.ico';
 $config['plugins'] = [
