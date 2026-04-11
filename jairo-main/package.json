@@ -1,0 +1,23 @@
+{
+  "name": "b2b-platform",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "check-types": "turbo run check-types"
+  },
+  "dependencies": {
+    "client-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "prettier": "^3.2.5",
+    "turbo": "^2.7.5",
+    "typescript": "5.4.5"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=18"
+  }
+}

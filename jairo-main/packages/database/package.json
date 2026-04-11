@@ -1,0 +1,22 @@
+{
+    "name": "@repo/database",
+    "version": "0.0.1",
+    "private": true,
+    "main": "./index.ts",
+    "types": "./index.ts",
+    "scripts": {
+        "generate": "drizzle-kit generate",
+        "migrate": "drizzle-kit migrate",
+        "push": "drizzle-kit push",
+        "studio": "drizzle-kit studio"
+    },
+    "dependencies": {
+        "drizzle-orm": "^0.45.1",
+        "pg": "^8.17.1"
+    },
+    "devDependencies": {
+        "@types/pg": "^8.11.6",
+        "drizzle-kit": "^0.31.8",
+        "typescript": "^5.9.2"
+    }
+}

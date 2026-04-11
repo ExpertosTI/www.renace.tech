@@ -1,0 +1,17 @@
+node_modules
+dist
+build
+.git
+
+.env
+.env.*
+.vscode
+Dockerfile
+docker-compose.yml
+docker-stack.yml
+deploy_production.sh
+*.log
+coverage
+npm-debug.log
+yarn-error.log
+pnpm-debug.log

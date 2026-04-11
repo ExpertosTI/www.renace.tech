@@ -1,0 +1,123 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: jairo
+      POSTGRES_PASSWORD: jairo_secure_pass_2026
+      POSTGRES_DB: jairo_db
+    volumes:
+      - jairo_db_data:/var/lib/postgresql/data
+    networks:
+      - jairo_internal
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  redis:
+    image: redis:alpine
+    networks:
+      - jairo_internal
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.6
+    environment:
+      MEILI_MASTER_KEY: jairo_meili_key_2026
+    volumes:
+      - jairo_meili_data:/meili_data
+    networks:
+      - jairo_internal
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  api:
+    image: ghcr.io/expertosti/jairo-api:latest
+    environment:
+      - DATABASE_URL=postgresql://jairo:jairo_secure_pass_2026@postgres:5432/jairo_db
+      - REDIS_URL=redis://redis:6379
+      - MEILISEARCH_HOST=http://meilisearch:7700
+      - MEILISEARCH_API_KEY=jairo_meili_key_2026
+      - NODE_ENV=production
+      - PORT=3001
+      # Super Admins
+      - SUPER_ADMIN_EMAIL_1=adavidfc@hotmail.com
+      - SUPER_ADMIN_EMAIL_2=expertostird@gmail.com
+      # SMTP Hostinger
+      - SMTP_HOST=smtp.hostinger.com
+      - SMTP_PORT=465
+      - SMTP_USER=info@renace.space
+      - SMTP_PASS=JustWork2027@
+      - SMTP_FROM=JairoApp <info@renace.space>
+      # JWT
+      - JWT_SECRET=jairo_jwt_super_secret_2026_rd
+      # Stripe
+      - STRIPE_SECRET_KEY=sk_test_... # REEMPLAZAR
+      - STRIPE_WEBHOOK_SECRET=whsec_... # REEMPLAZAR
+      - STRIPE_PRICE_ESSENTIAL=price_... # REEMPLAZAR
+      - STRIPE_PRICE_PRO=price_... # REEMPLAZAR
+      - STRIPE_PRICE_ENTERPRISE=price_... # REEMPLAZAR
+    networks:
+      - jairo_internal
+      - RenaceNet
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.jairo-api.rule=Host(`jairoapp.renace.tech`) && PathPrefix(`/api`)"
+        - "traefik.http.routers.jairo-api.entrypoints=websecure"
+        - "traefik.http.routers.jairo-api.tls=true"
+        - "traefik.http.routers.jairo-api.tls.certresolver=letsencryptresolver"
+        - "traefik.http.middlewares.api-strip.stripprefix.prefixes=/api"
+        - "traefik.http.middlewares.api-cors.headers.accesscontrolallowmethods=GET,POST,PUT,DELETE,OPTIONS"
+        - "traefik.http.middlewares.api-cors.headers.accesscontrolalloworiginlist=*"
+        - "traefik.http.middlewares.api-cors.headers.accesscontrolmaxage=100"
+        - "traefik.http.routers.jairo-api.middlewares=api-strip,api-cors"
+        - "traefik.http.services.jairo-api.loadbalancer.server.port=3001"
+        - "traefik.docker.network=RenaceNet"
+    depends_on:
+      - postgres
+      - redis
+      - meilisearch
+
+  web:
+    image: ghcr.io/expertosti/jairo-web:latest
+    environment:
+      - NEXT_PUBLIC_API_URL=https://jairoapp.renace.tech/api
+      - NODE_ENV=production
+    networks:
+      - jairo_internal
+      - RenaceNet
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.jairoapp.rule=Host(`jairoapp.renace.tech`)"
+        - "traefik.http.routers.jairoapp.entrypoints=websecure"
+        - "traefik.http.routers.jairoapp.tls=true"
+        - "traefik.http.routers.jairoapp.tls.certresolver=letsencryptresolver"
+        - "traefik.http.services.jairoapp.loadbalancer.server.port=3000"
+        - "traefik.docker.network=RenaceNet"
+    depends_on:
+      - api
+
+networks:
+  jairo_internal:
+    driver: overlay
+  RenaceNet:
+    external: true
+
+volumes:
+  jairo_db_data:
+  jairo_meili_data:

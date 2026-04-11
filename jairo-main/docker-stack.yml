@@ -1,0 +1,101 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:alpine
+    networks:
+      - jairo_internal
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.6
+    environment:
+      MEILI_MASTER_KEY: jairo_meili_key_2026
+    volumes:
+      - jairo_meili_data:/meili_data
+    networks:
+      - jairo_internal
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  api:
+    image: ghcr.io/expertosti/jairo-api:latest
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@insforge_postgres:5432/jairo_db
+      - REDIS_URL=redis://redis:6379
+      - MEILISEARCH_HOST=http://meilisearch:7700
+      - MEILISEARCH_API_KEY=${MEILI_MASTER_KEY}
+      - NODE_ENV=production
+      - PORT=3001
+      # Auth & SMTP (Injected via .env on server)
+      - JWT_SECRET=${JWT_SECRET}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM=${SMTP_FROM}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+    networks:
+      - jairo_internal
+      - RenaceNet
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.jairo-api.rule=Host(`jairoapp.renace.tech`) && PathPrefix(`/api`)"
+        - "traefik.http.routers.jairo-api.priority=100"
+        - "traefik.http.routers.jairo-api.entrypoints=websecure"
+        - "traefik.http.routers.jairo-api.tls=true"
+        - "traefik.http.routers.jairo-api.tls.certresolver=letsencryptresolver"
+        - "traefik.http.middlewares.api-strip.stripprefix.prefixes=/api"
+        - "traefik.http.middlewares.api-cors.headers.accesscontrolallowmethods=GET,POST,PUT,DELETE,OPTIONS"
+        - "traefik.http.middlewares.api-cors.headers.accesscontrolalloworiginlist=*"
+        - "traefik.http.routers.jairo-api.middlewares=api-strip,api-cors"
+        - "traefik.http.services.jairo-api.loadbalancer.server.port=3001"
+        - "traefik.docker.network=RenaceNet"
+    depends_on:
+      - redis
+      - meilisearch
+
+  web:
+    image: ghcr.io/expertosti/jairo-web:latest
+    environment:
+      - NEXT_PUBLIC_API_URL=https://jairoapp.renace.tech/api
+      - NODE_ENV=production
+    networks:
+      - jairo_internal
+      - RenaceNet
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.jairoapp.rule=Host(`jairoapp.renace.tech`)"
+        - "traefik.http.routers.jairoapp.priority=1"
+        - "traefik.http.routers.jairoapp.entrypoints=websecure"
+        - "traefik.http.routers.jairoapp.tls=true"
+        - "traefik.http.routers.jairoapp.tls.certresolver=letsencryptresolver"
+        - "traefik.http.services.jairoapp.loadbalancer.server.port=3000"
+        - "traefik.docker.network=RenaceNet"
+    depends_on:
+      - api
+
+
+networks:
+  jairo_internal:
+    driver: overlay
+  RenaceNet:
+    external: true
+
+volumes:
+  jairo_db_data_v8:
+  jairo_meili_data:
