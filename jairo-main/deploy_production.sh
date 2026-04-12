@@ -23,7 +23,8 @@ docker build --no-cache -t ghcr.io/expertosti/jairo-web:latest -f apps/web/Docke
 echo "🚀 [5/5] Deploying Stack..."
 if [ -f ".env" ]; then
     echo "🔑 Loading environment variables from .env..."
-    set -a; source .env; set +a
+    # Limpiamos y exportamos variables evitando errores de comentarios o espacios
+    export $(grep -v '^#' .env | xargs)
 fi
 docker stack deploy -c docker-stack.yml jairo --with-registry-auth
 

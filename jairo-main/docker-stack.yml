@@ -70,6 +70,7 @@ services:
     environment:
       - NEXT_PUBLIC_API_URL=https://jairoapp.renace.tech/api
       - NODE_ENV=production
+      - HOSTNAME=0.0.0.0
     networks:
       - jairo_internal
       - RenaceNet
