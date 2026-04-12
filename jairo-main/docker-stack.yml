@@ -80,12 +80,12 @@ services:
         condition: on-failure
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.jairoapp.rule=Host(`jairoapp.renace.tech`)"
-        - "traefik.http.routers.jairoapp.priority=1"
-        - "traefik.http.routers.jairoapp.entrypoints=websecure"
-        - "traefik.http.routers.jairoapp.tls=true"
-        - "traefik.http.routers.jairoapp.tls.certresolver=letsencryptresolver"
-        - "traefik.http.services.jairoapp.loadbalancer.server.port=3000"
+        - "traefik.http.routers.jairo-web.rule=Host(`jairoapp.renace.tech`)"
+        - "traefik.http.routers.jairo-web.priority=1"
+        - "traefik.http.routers.jairo-web.entrypoints=websecure"
+        - "traefik.http.routers.jairo-web.tls=true"
+        - "traefik.http.routers.jairo-web.tls.certresolver=letsencryptresolver"
+        - "traefik.http.services.jairo-web.loadbalancer.server.port=3000"
         - "traefik.docker.network=RenaceNet"
     depends_on:
       - api
