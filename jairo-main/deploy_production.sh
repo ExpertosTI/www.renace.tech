@@ -24,9 +24,14 @@ echo "🚀 [5/5] Deploying Stack..."
 if [ -f ".env" ]; then
     echo "🔑 Loading environment variables from .env..."
     # Limpiamos y exportamos variables evitando errores de comentarios o espacios
-    set -o allexport
-    source .env
-    set +o allexport
+    while IFS='=' read -r key value || [ -n "$key" ]; do
+        if [[ ! $key =~ ^# && -n $key ]]; then
+            # Limpiar posibles espacios y comillas
+            key=$(echo "$key" | xargs)
+            value=$(echo "$value" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+            export "$key"="$value"
+        fi
+    done < .env
 fi
 docker stack deploy -c docker-stack.yml jairo --with-registry-auth
 
