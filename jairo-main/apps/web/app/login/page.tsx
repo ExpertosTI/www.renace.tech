@@ -249,7 +249,7 @@ function LoginContent() {
                     {/* Acceso Directo Evento - VISIBILIDAD INMEDIATA */}
                     <div className="mt-8 pt-6 border-t border-gray-100">
                         <Link 
-                            href="/events/confirm"
+                            href="/asistencia/confirm"
                             className="flex items-center justify-between p-4 bg-secondary/5 border border-secondary/20 rounded-2xl hover:bg-secondary/10 transition-all group"
                         >
                             <div className="text-left">
