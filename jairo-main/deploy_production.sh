@@ -24,7 +24,9 @@ echo "🚀 [5/5] Deploying Stack..."
 if [ -f ".env" ]; then
     echo "🔑 Loading environment variables from .env..."
     # Limpiamos y exportamos variables evitando errores de comentarios o espacios
-    export $(grep -v '^#' .env | xargs)
+    set -o allexport
+    source .env
+    set +o allexport
 fi
 docker stack deploy -c docker-stack.yml jairo --with-registry-auth
 
