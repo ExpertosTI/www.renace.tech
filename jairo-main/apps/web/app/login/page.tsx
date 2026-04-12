@@ -245,6 +245,22 @@ function LoginContent() {
                             </Link>
                         </p>
                     </div>
+
+                    {/* Acceso Directo Evento - VISIBILIDAD INMEDIATA */}
+                    <div className="mt-8 pt-6 border-t border-gray-100">
+                        <Link 
+                            href="/events/confirm"
+                            className="flex items-center justify-between p-4 bg-secondary/5 border border-secondary/20 rounded-2xl hover:bg-secondary/10 transition-all group"
+                        >
+                            <div className="text-left">
+                                <p className="text-[10px] font-bold text-secondary uppercase tracking-widest mb-1">Círculo Empresarial</p>
+                                <p className="text-sm font-semibold text-gray-800">Confirmar Asistencia VIP</p>
+                            </div>
+                            <div className="w-10 h-10 bg-secondary/20 rounded-xl flex items-center justify-center group-hover:bg-secondary text-secondary group-hover:text-white transition-all">
+                                <ArrowRight size={20} />
+                            </div>
+                        </Link>
+                    </div>
                 </div>
 
                 {/* Footer */}
