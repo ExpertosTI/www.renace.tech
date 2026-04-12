@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ValidationPipe } from '@nestjs/common';
@@ -26,6 +27,7 @@ import { EventsModule } from './events/events.module';
 @Module({
   imports: [
     // Core & Shared
+    ConfigModule.forRoot({ isGlobal: true }),
     CoreModule,
 
     // Feature Modules

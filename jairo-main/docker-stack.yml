@@ -57,7 +57,7 @@ services:
         - "traefik.http.routers.jairo-api.tls.certresolver=letsencryptresolver"
         - "traefik.http.middlewares.api-strip.stripprefix.prefixes=/api"
         - "traefik.http.middlewares.api-cors.headers.accesscontrolallowmethods=GET,POST,PUT,DELETE,OPTIONS"
-        - "traefik.http.middlewares.api-cors.headers.accesscontrolalloworiginlist=*"
+        - "traefik.http.middlewares.api-cors.headers.accesscontrolalloworiginlist=https://jairoapp.renace.tech"
         - "traefik.http.routers.jairo-api.middlewares=api-strip,api-cors"
         - "traefik.http.services.jairo-api.loadbalancer.server.port=3001"
         - "traefik.docker.network=RenaceNet"

@@ -1,4 +1,5 @@
-import { Controller, Post, Body, Get, Request, HttpException, HttpStatus, Query, Res } from '@nestjs/common';
+import { Controller, Post, Body, Get, Request, Req, Res, UseGuards, HttpException, HttpStatus } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import type { Response } from 'express';
 
@@ -49,61 +50,33 @@ export class AuthController {
 
     // Google OAuth - redirect to Google
     @Get('google')
-    async googleAuth(@Res() res: Response) {
-        const clientId = process.env.GOOGLE_CLIENT_ID;
-        const redirectUri = encodeURIComponent('https://jairoapp.renace.tech/api/auth/google/callback');
-        const scope = encodeURIComponent('email profile');
-        const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&access_type=offline&prompt=consent`;
-        res.redirect(googleAuthUrl);
+    @UseGuards(AuthGuard('google'))
+    async googleAuth() {
+        // Guard handles the redirect
     }
 
     // Google OAuth callback
     @Get('google/callback')
-    async googleCallback(@Query('code') code: string, @Res() res: Response) {
+    @UseGuards(AuthGuard('google'))
+    async googleCallback(@Req() req: any, @Res() res: Response) {
         try {
-            if (!code) {
-                return res.redirect('https://jairoapp.renace.tech/login?error=no_code');
+            const user = req.user;
+            if (!user) {
+                return res.redirect('https://jairoapp.renace.tech/login?error=no_user');
             }
 
-            // Exchange code for tokens
-            const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
-                    code,
-                    client_id: process.env.GOOGLE_CLIENT_ID || '',
-                    client_secret: process.env.GOOGLE_CLIENT_SECRET || '',
-                    redirect_uri: 'https://jairoapp.renace.tech/api/auth/google/callback',
-                    grant_type: 'authorization_code'
-                })
+            // Validar/crear usuario en DB mediante el servicio
+            const dbUser = await this.authService.validateGoogleUser({
+                email: user.email,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                picture: user.picture
             });
 
-            const tokens = await tokenResponse.json();
+            // Generar JWT token
+            const { token } = await this.authService.loginGoogle(dbUser);
 
-            if (!tokens.access_token) {
-                console.error('Google Token Error:', tokens);
-                return res.redirect(`https://jairoapp.renace.tech/login?error=token_failed&details=${encodeURIComponent(JSON.stringify(tokens))}`);
-            }
-
-            // Get user info
-            const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-                headers: { Authorization: `Bearer ${tokens.access_token}` }
-            });
-
-            const userInfo = await userInfoResponse.json();
-
-            // Validate/create user
-            const user = await this.authService.validateGoogleUser({
-                email: userInfo.email,
-                firstName: userInfo.given_name || '',
-                lastName: userInfo.family_name || '',
-                picture: userInfo.picture || ''
-            });
-
-            // Generate JWT token
-            const { token } = await this.authService.loginGoogle(user);
-
-            // Redirect to frontend callback (works with popup)
+            // Redirigir al callback del frontend (funciona con popup)
             res.redirect(`https://jairoapp.renace.tech/auth/callback?token=${token}`);
         } catch (error: any) {
             console.error('Google OAuth error:', error);

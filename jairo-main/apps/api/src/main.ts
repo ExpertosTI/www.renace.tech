@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import helmet from '@fastify/helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -11,6 +12,18 @@ async function bootstrap() {
     })
   );
 
+  // Security Headers
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: [`'self'`],
+        styleSrc: [`'self'`, `'unsafe-inline'`],
+        imgSrc: [`'self'`, 'data:', 'https://*.googleusercontent.com'],
+        scriptSrc: [`'self'`, `'unsafe-inline'`, `'unsafe-eval'`],
+      },
+    },
+  });
+
   // Input Validation
   app.useGlobalPipes(new ValidationPipe({
     transform: true,
@@ -18,9 +31,9 @@ async function bootstrap() {
     forbidNonWhitelisted: true,
   }));
 
-  // CORS - Allow all since Traefik handles CORS via labels in docker-stack.yml
+  // CORS - Restricted to production domain
   app.enableCors({
-    origin: true,
+    origin: 'https://jairoapp.renace.tech',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
