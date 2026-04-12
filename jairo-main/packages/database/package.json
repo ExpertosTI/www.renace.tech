@@ -4,6 +4,10 @@
     "private": true,
     "main": "./index.ts",
     "types": "./index.ts",
+    "exports": {
+      ".": "./index.ts",
+      "./schema": "./schema.ts"
+    },
     "scripts": {
         "generate": "drizzle-kit generate",
         "migrate": "drizzle-kit migrate",

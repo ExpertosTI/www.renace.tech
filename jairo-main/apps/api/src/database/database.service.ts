@@ -1,12 +1,12 @@
 import { Injectable, OnModuleDestroy, OnModuleInit, Logger } from '@nestjs/common';
 import { Pool } from 'pg';
-import { drizzle } from 'drizzle-orm/node-postgres';
+import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '@repo/database/schema';
 
 @Injectable()
 export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     private pool: Pool;
-    private db: ReturnType<typeof drizzle>;
+    private db: NodePgDatabase<typeof schema>;
     private readonly logger = new Logger(DatabaseService.name);
 
     constructor() {
