@@ -2,7 +2,7 @@
 <html lang="es" dir="ltr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="description" content="Renace Tech — POS, Restaurantes, Inventario, Facturación e-CF y CRM para empresas dominicanas." />
   <title>Renace Tech · Ecosistema Empresarial 2026</title>
   <meta http-equiv="X-Content-Type-Options" content="nosniff" />
@@ -21,6 +21,8 @@
       --gold:#f59e0b;--blue:#3b82f6;--purple:#8b5cf6;--whatsapp:#25D366;
       --bg:#04060d;--sf:rgba(255,255,255,.04);--bd:rgba(255,255,255,.07);
       --text:#f1f5f9;--muted:#64748b;--sw:72px;--r:16px;
+      --sat:env(safe-area-inset-top,0px);
+      --sab:env(safe-area-inset-bottom,0px);
     }
     html,body{width:100%;height:100%;overflow:hidden;font-family:'Outfit',system-ui,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
 
@@ -42,7 +44,7 @@
     .sb-div{width:32px;height:1px;background:var(--bd);margin:5px 0;}
 
     /* ══ SCENES ══ */
-    .scene{position:fixed;left:var(--sw);top:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem 3rem;opacity:0;pointer-events:none;transition:opacity .5s cubic-bezier(.4,0,.2,1);z-index:10;}
+    .scene{position:fixed;left:var(--sw);top:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem 3rem;opacity:0;pointer-events:none;transition:opacity .5s cubic-bezier(.4,0,.2,1);z-index:10;overflow:hidden;}
     .scene.active{opacity:1;pointer-events:all;}
 
     /* ══ UTILS ══ */
@@ -285,27 +287,43 @@
       .nav-tip{display:none;}
       .nav-btn{width:40px;height:40px;border-radius:10px;margin:0;}
       .nav-btn img{width:22px;height:22px;}
-      .scene{left:0;padding:1rem 1rem 72px;overflow-y:auto;}
+      /* Scenes become scrollable vertically — top-aligned */
+      .scene{
+        left:0;
+        padding: max(2.5rem, calc(var(--sat) + 1.5rem)) 1rem max(5.5rem, calc(var(--sab) + 4.5rem));
+        overflow-y:auto;overflow-x:hidden;
+        justify-content:flex-start;
+        align-items:stretch;
+        -webkit-overflow-scrolling:touch;
+        scroll-behavior:smooth;
+      }
+      /* Center children that need centering on tablet */
+      #s0,#s3,#s8,#s9{
+        align-items:center;
+        justify-content:center;
+        padding-top: max(3rem, calc(var(--sat) + 2rem));
+      }
       #prog{left:0;}
 
       /* Dashboard tablet */
+      .dash-wrap{max-width:100%;}
       .metrics-row{grid-template-columns:repeat(3,1fr);}
       .dash-body{grid-template-columns:1fr;}
       .right-panel{flex-direction:row;flex-wrap:wrap;gap:.75rem;}
       .right-panel .panel-box{flex:1;min-width:240px;}
 
       /* Modules tablet */
-      .mod-grid{grid-template-columns:repeat(4,1fr);}
+      .mod-grid{grid-template-columns:repeat(4,1fr);max-width:100%;}
 
       /* Inventory tablet */
       .cat-list-inv{flex-direction:row;flex-wrap:wrap;width:100%;gap:.4rem;}
       .cat-list-inv .ci{flex:0 0 auto;}
       .prod-grid-inv{grid-template-columns:repeat(3,1fr);}
-      .inv-layout{flex-direction:column;}
+      .inv-layout{flex-direction:column;max-width:100%;}
 
       /* CRM tablet */
       .crm-layout{flex-direction:column-reverse;gap:1.5rem;}
-      .wapp-mock{width:100%;max-width:380px;}
+      .wapp-mock{width:100%;max-width:400px;}
 
       /* Case tablet */
       .case-layout{flex-direction:column;align-items:center;}
@@ -313,89 +331,151 @@
 
       /* POS mobile scene */
       #s3>div{flex-direction:column;align-items:center;gap:1.5rem;}
+      #s3>div>div:last-child{text-align:center;}
+      .cat-strip{justify-content:center;}
+
+      /* Floor map */
+      #s4{align-items:flex-start;}
+      #s4>*{width:100%;}
     }
 
     /* ══════════════════════════════
        RESPONSIVE — MOBILE (≤640px)
     ══════════════════════════════ */
     @media(max-width:640px){
-      /* Typography */
-      .h1{font-size:clamp(2rem,9vw,3.5rem);}
-      .h2{font-size:clamp(1.4rem,6vw,2.2rem);}
-      .cta-big{font-size:clamp(2rem,11vw,4rem);}
+      .h1{font-size:clamp(1.9rem,8vw,3rem);text-align:center;}
+      .h2{font-size:clamp(1.3rem,6vw,2rem);text-align:center;}
+      .cta-big{font-size:clamp(2rem,11vw,3.5rem);}
 
-      /* Hero */
-      .hero-grid{grid-template-columns:repeat(3,1fr);margin-top:1.5rem;}
-      #s0 .btn-primary,#s0 .btn-ghost{padding:.75rem 1.25rem;font-size:.9rem;}
+      /* Hero — full width CTA buttons */
+      .badge{font-size:.65rem;}
+      #s0 p{font-size:.88rem;}
+      #s0>div>div:nth-child(3){flex-direction:column;width:100%;max-width:340px;}
+      #s0 .btn-primary,#s0 .btn-ghost{width:100%;justify-content:center;padding:.85rem 1.25rem;font-size:.92rem;}
+      .hero-grid{grid-template-columns:repeat(3,1fr);gap:.5rem;margin-top:1.25rem;}
+      .hero-mod{padding:.6rem .4rem;}
+      .hero-mod img{width:26px;height:26px;}
 
-      /* Dashboard — scrollable horizontal metrics */
+      /* Dashboard — horizontal snap scrollable metrics */
       .metrics-row{
         display:flex;overflow-x:auto;scroll-snap-type:x mandatory;
-        gap:.5rem;padding-bottom:.5rem;-webkit-overflow-scrolling:touch;
+        gap:.5rem;padding-bottom:.75rem;-webkit-overflow-scrolling:touch;
+        margin-bottom:.5rem;-ms-overflow-style:none;
       }
-      .metrics-row::-webkit-scrollbar{height:3px;}
-      .metrics-row::-webkit-scrollbar-thumb{background:var(--brand);border-radius:2px;}
-      .met-card{min-width:130px;scroll-snap-align:start;flex-shrink:0;}
-      .met-val.big{font-size:1.1rem;}
-      .dash-body{grid-template-columns:1fr;}
-      .cat-grid-d{grid-template-columns:1fr 1fr;}
-      .right-panel{flex-direction:column;}
-      .tp-row{gap:.5rem;}
-      .tp-img{width:28px;height:28px;}
-      .tp-name{font-size:.6rem;}
+      .metrics-row::-webkit-scrollbar{display:none;}
+      /* 2 cards visible + peek of 3rd (discoverability) */
+      .met-card{min-width:44vw;max-width:44vw;scroll-snap-align:start;flex-shrink:0;}
+      .met-card.primary{min-width:54vw;max-width:54vw;}
+      .met-val.big{font-size:1rem;}
+      .met-lbl{font-size:.55rem;}
+      .dash-body{grid-template-columns:1fr;gap:.5rem;}
+      .cat-grid-d{grid-template-columns:1fr 1fr;gap:.4rem;}
+      .cat-d{padding:.5rem .75rem;}
+      .cd-val{font-size:.78rem;}
+      .right-panel{gap:.5rem;}
+      .tp-row{gap:.5rem;padding:.5rem .75rem;}
+      .tp-img{width:26px;height:26px;border-radius:6px;}
+      .tp-name{font-size:.58rem;}
+      .tp-amt{font-size:.62rem;}
+      .panel-hdr{font-size:.58rem;}
 
       /* Case / success */
-      .zones-grid{grid-template-columns:repeat(2,1fr);}
-      .case-right{grid-template-columns:repeat(2,1fr);}
+      .case-layout{gap:1.25rem;}
+      .zones-grid{grid-template-columns:repeat(2,1fr);gap:.4rem;}
+      .zone-pill{font-size:.65rem;padding:.5rem;}
+      .case-right{grid-template-columns:repeat(2,1fr);gap:.5rem;}
+      .prod-mini img{height:75px;}
 
-      /* Table map — 2×6 grid */
+      /* Table map — 2 columns, full width */
+      .zone-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;gap:.4rem;}
+      .zone-tabs::-webkit-scrollbar{display:none;}
+      .z-tab{font-size:.68rem;padding:.4rem .85rem;white-space:nowrap;}
       .floor-grid{
         grid-template-columns:repeat(2,1fr);
         grid-template-rows:unset;
-        gap:.6rem;
-        width:100%;
+        gap:.5rem;width:100%;
       }
-      .table-tile{height:80px;}
-      .zone-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;}
-      .zone-tabs::-webkit-scrollbar{display:none;}
+      .table-tile{height:76px;border-radius:10px;}
+      .t-name{font-size:.72rem;}
+      .t-info{font-size:.58rem;}
 
       /* Inventory */
-      .cat-list-inv{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;padding-bottom:.25rem;}
-      .prod-grid-inv{grid-template-columns:repeat(2,1fr);}
-      .prod-img{height:90px;}
+      .cat-list-inv{
+        overflow-x:auto;-webkit-overflow-scrolling:touch;
+        flex-wrap:nowrap;padding-bottom:.25rem;gap:.35rem;
+      }
+      .cat-list-inv::-webkit-scrollbar{display:none;}
+      .ci{font-size:.65rem;padding:.4rem .7rem;white-space:nowrap;}
+      .prod-grid-inv{grid-template-columns:repeat(2,1fr);gap:.5rem;}
+      .prod-img{height:85px;}
+      .p-pname{font-size:.6rem;}
+      .p-pprice{font-size:.65rem;}
 
-      /* POS phone — shrink for small screens */
-      .phone-wrap{width:230px;}
-      .phone-inner{height:480px;}
+      /* POS phone — compact for mobile */
+      .phone-wrap{width:min(220px,55vw);flex-shrink:0;}
+      .phone-inner{height:430px;}
+      .pos-total-d{font-size:1.4rem;padding:12px;}
+      #s3>div>div:last-child{max-width:100%;padding:0 .5rem;}
+      #s3>div>div:last-child h2{text-align:center;}
+      #s3>div>div:last-child p{font-size:.82rem;text-align:center;}
 
       /* Modules — 3 per row */
-      .mod-grid{grid-template-columns:repeat(3,1fr);gap:.6rem;}
-      .mod-box{padding:.85rem .5rem;}
-      .mod-box img{width:32px;height:32px;}
+      .mod-grid{grid-template-columns:repeat(3,1fr);gap:.5rem;}
+      .mod-box{padding:.75rem .4rem;border-radius:12px;}
+      .mod-box img{width:30px;height:30px;margin-bottom:.4rem;}
+      .m-name{font-size:.65rem;}
+      .m-desc{display:none;}
 
-      /* Leaderboard */
-      #s8>div{flex-direction:column;align-items:center;gap:1.5rem;}
+      /* Leaderboard — stack */
+      #s8>div{
+        flex-direction:column;align-items:center;
+        gap:1.25rem;width:100%;
+      }
+      #s8>div>div:first-child{
+        display:flex;flex-direction:row;align-items:flex-end;
+        gap:.5rem;justify-content:center;
+      }
+      #s8>div>div:first-child>div>div:last-child{
+        height:60px !important;
+      }
+      .lb-wrap{max-width:100%;}
+      .lb-row{padding:.7rem 1rem;}
 
-      /* Contact cards */
-      .contact-cards{gap:.65rem;}
-      .cc{padding:.85rem 1.1rem;font-size:.85rem;}
+      /* Contact cards — 2x2 */
+      .contact-cards{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;width:100%;max-width:440px;}
+      .cc{padding:.9rem 1rem;border-radius:14px;gap:.5rem;}
+      .c-val{font-size:.8rem;}
+      .c-label{font-size:.6rem;}
 
       /* CRM */
+      .crm-layout{gap:1.25rem;}
       .crm-layout>div:first-child{width:100%;}
-      .feat-list{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;}
-      .feat-row{flex-direction:column;gap:.4rem;}
-      .feat-icon{width:30px;height:30px;font-size:.8rem;}
+      .wapp-mock{width:100%;}
+      .feat-list{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:1rem;}
+      .feat-row{flex-direction:column;gap:.3rem;}
+      .feat-icon{width:28px;height:28px;font-size:.85rem;}
+      .f-title{font-size:.78rem;}
+      .f-desc{font-size:.68rem;}
+
+      /* Hero scene centered */
+      #s0{text-align:center;}
+      #s0>div{display:flex;flex-direction:column;align-items:center;}
     }
 
     /* ══════════════════════════════
        DEMO MODAL — RESPONSIVE
     ══════════════════════════════ */
-
+    /* Drag handle for bottom-sheet */
+    .demo-drag-handle{
+      width:40px;height:4px;background:rgba(255,255,255,.2);
+      border-radius:2px;margin:.75rem auto 0;display:none;
+    }
     /* Bottom-sheet on mobile */
     @media(max-width:680px){
+      .demo-drag-handle{display:block;}
       .demo-overlay{align-items:flex-end;}
       .demo-modal{
-        width:100vw;max-height:92vh;
+        width:100vw;max-height:94vh;
         border-radius:20px 20px 0 0;
         transform:translateY(100%);
         transition:transform .4s cubic-bezier(.32,0,.67,0);
@@ -404,19 +484,27 @@
         transform:translateY(0);
         transition:transform .4s cubic-bezier(.34,1.2,.64,1);
       }
-      .demo-prod-grid{grid-template-columns:repeat(2,1fr);gap:.6rem;}
-      .dpc-img{height:75px;}
-      .demo-hdr{padding:1rem 1rem;}
-      .demo-body{padding:1rem;}
-      .demo-ftr{padding:.75rem 1rem;flex-wrap:wrap;gap:.5rem;}
-      .demo-ftr button{flex:1;text-align:center;padding:.65rem .75rem;font-size:.8rem;}
-      .pay-methods-demo{max-width:100%;}
-      .pmd{padding:.85rem 1rem;}
-      .ticket-paper{max-width:100%;}
-
+      .demo-prod-grid{grid-template-columns:repeat(2,1fr);gap:.5rem;}
+      .dpc-img{height:70px;}
+      .dpc-name{font-size:.6rem;}
+      .dpc-price{font-size:.65rem;}
+      .demo-hdr{padding:.85rem 1rem;}
+      .demo-hdr-title{font-size:.9rem;}
+      .demo-body{padding:.85rem;}
+      .demo-ftr{padding:.65rem 1rem;gap:.5rem;}
+      .demo-ftr button{flex:1;text-align:center;padding:.6rem .6rem;font-size:.8rem;}
+      .pay-methods-demo{max-width:100%;gap:.5rem;}
+      .pmd{padding:.75rem .85rem;gap:.75rem;border-radius:12px;}
+      .pmd .pm-icon{font-size:1.3rem;}
+      .pmd .pm-label{font-size:.85rem;}
+      .ticket-paper{max-width:100%;font-size:.7rem;}
+      .ticket-body{padding:.6rem .85rem;}
+      .ticket-header{padding:.85rem;}
       /* Steps compact on mobile */
-      .demo-steps{padding:.65rem 1rem;gap:.5rem;}
+      .demo-steps{padding:.5rem .85rem;gap:.35rem;}
       .demo-step span:last-child{display:none;}
+      .demo-step .ds-n{width:20px;height:20px;font-size:.6rem;}
+      .demo-step-sep{margin-top:9px;}
     }
 
     /* Ticket print animation — tooth-feed style */
@@ -428,12 +516,12 @@
       0%,100%{background:var(--brand);}50%{background:#e07070;}
     }
     .ticket-printing-bar{
-      height:4px;width:100%;background:var(--brand);
-      border-radius:2px;margin-bottom:1rem;
-      animation:printerBlink .4s steps(1) 3;
+      height:3px;width:100%;background:var(--brand);
+      border-radius:2px;margin-bottom:.85rem;
+      animation:printerBlink .35s steps(1) 4;
     }
     .ticket-paper-animated{
-      animation:ticketFeed .8s cubic-bezier(.4,0,.2,1) .2s both;
+      animation:ticketFeed .7s cubic-bezier(.4,0,.2,1) .15s both;
     }
 
     /* Confetti particles */
@@ -442,17 +530,17 @@
       100%{transform:translateY(200px) rotate(720deg);opacity:0;}
     }
     .confetti-particle{
-      position:absolute;width:8px;height:8px;border-radius:2px;
-      animation:confettiFall .9s ease forwards;
+      position:absolute;width:7px;height:7px;border-radius:2px;
+      animation:confettiFall .85s ease forwards;
       pointer-events:none;
     }
-    .ticket-actions{display:flex;gap:.75rem;justify-content:center;margin-top:1rem;}
+    .ticket-actions{display:flex;gap:.75rem;justify-content:center;margin-top:.85rem;}
     .ticket-actions button{
       padding:.6rem 1.25rem;border-radius:100px;font-size:.8rem;font-weight:800;
       cursor:pointer;border:none;transition:all .2s;
     }
-    .ta-share{background:var(--whatsapp);color:#fff;box-shadow:0 6px 18px rgba(37,211,102,.3);}
-    .ta-restart{background:var(--sf);color:var(--text);border:1px solid var(--bd) !important;}
+    .ta-restart{background:rgba(163,90,90,.12);color:var(--brand);border:1px solid var(--brand) !important;}
+    .ta-restart:hover{background:rgba(163,90,90,.2);}
   </style>
 </head>
 <body>
@@ -759,6 +847,7 @@
 ══════════════════════════ -->
 <div class="demo-overlay" id="demoOverlay" role="dialog" aria-modal="true" aria-label="Demo interactivo Renace POS">
   <div class="demo-modal">
+    <div class="demo-drag-handle"></div>
 
     <!-- Header -->
     <div class="demo-hdr">
@@ -832,6 +921,8 @@
     scenes[cur].classList.remove('active');navBtns[cur].classList.remove('active');
     cur=((idx%TOTAL)+TOTAL)%TOTAL;
     scenes[cur].classList.add('active');navBtns[cur].classList.add('active');
+    /* Reset scroll position so content always starts from top */
+    scenes[cur].scrollTop=0;
     startProg();schedNext();
     if(cur===1)animCounters();if(cur===8)renderLB();
   }
@@ -1015,7 +1106,7 @@
       itemsHTML+=`<div class="tk-row"><span>1x ${c.name}</span><span>${fmt(c.price)}</span></div>`;
     });
 
-    const waMsg=encodeURIComponent(`🧾 *RENACE POS — DEMO TICKET*\n\nTicket #${ticket}\nFecha: ${dateStr} ${timeStr}\nTotal: ${fmt(total)}\nMétodo: ${pm.label}\n\n¡Conoce el sistema que usamos! ➡️ https://renace.tech/crm`);
+    const waMsg='';
 
     demoBody.innerHTML=`
       <div style="position:relative;text-align:center;margin-bottom:1rem;" id="ticketSuccessArea">
@@ -1054,7 +1145,6 @@
         </div>
       </div>
       <div class="ticket-actions">
-        <button class="ta-share" id="taShare">📲 Compartir Demo</button>
         <button class="ta-restart" id="taRestart">🔄 Nueva Orden</button>
       </div>
     `;
@@ -1070,9 +1160,6 @@
     }
 
     /* Action buttons */
-    document.getElementById('taShare').addEventListener('click',()=>{
-      window.open(`https://wa.me/?text=${waMsg}`,'_blank','noopener');
-    });
     document.getElementById('taRestart').addEventListener('click',()=>{
       demoState.step=0;demoState.cart=[];demoState.payMethod=null;
       renderStep();
