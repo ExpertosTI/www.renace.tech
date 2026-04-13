@@ -339,129 +339,261 @@
       #s4>*{width:100%;}
     }
 
-    /* ══════════════════════════════
-       RESPONSIVE — MOBILE (≤640px)
-    ══════════════════════════════ */
+    /* ══════════════════════════════════════════
+       MOBILE FIRST — CADA ESCENA (≤640px)
+    ══════════════════════════════════════════ */
     @media(max-width:640px){
-      .h1{font-size:clamp(1.9rem,8vw,3rem);text-align:center;}
-      .h2{font-size:clamp(1.3rem,6vw,2rem);text-align:center;}
-      .cta-big{font-size:clamp(2rem,11vw,3.5rem);}
 
-      /* Hero — full width CTA buttons */
-      .badge{font-size:.65rem;}
-      #s0 p{font-size:.88rem;}
-      #s0>div>div:nth-child(3){flex-direction:column;width:100%;max-width:340px;}
-      #s0 .btn-primary,#s0 .btn-ghost{width:100%;justify-content:center;padding:.85rem 1.25rem;font-size:.92rem;}
-      .hero-grid{grid-template-columns:repeat(3,1fr);gap:.5rem;margin-top:1.25rem;}
-      .hero-mod{padding:.6rem .4rem;}
-      .hero-mod img{width:26px;height:26px;}
+      /* ── Global type ── */
+      .h1{font-size:clamp(1.75rem,7.5vw,2.8rem);text-align:center;line-height:1.15;}
+      .h2{font-size:clamp(1.2rem,5.5vw,1.8rem);text-align:center;}
+      .cta-big{font-size:clamp(1.9rem,10vw,3.2rem);}
+      .badge{font-size:.62rem;padding:.3rem .8rem;}
 
-      /* Dashboard — 2-col grid: ALL 6 metrics visible on mobile */
+      /* ════ SCENE 0 — HERO ════ */
+      #s0{text-align:center;}
+      #s0>div{display:flex;flex-direction:column;align-items:center;gap:.65rem;}
+      #s0 p{font-size:.85rem;line-height:1.65;max-width:90vw;}
+      /* Botones apilados full-width */
+      #s0>div>div:has(.btn-primary){
+        flex-direction:column;width:100%;max-width:320px;gap:.6rem;
+      }
+      #s0 .btn-primary,#s0 .btn-ghost{
+        width:100%;justify-content:center;
+        padding:.85rem 1rem;font-size:.9rem;
+      }
+      /* Módulos quicklinks — 3 cols compactos */
+      .hero-grid{
+        grid-template-columns:repeat(3,1fr);
+        gap:.45rem;margin-top:1rem;width:100%;
+      }
+      .hero-mod{padding:.55rem .3rem;border-radius:10px;}
+      .hero-mod img{width:24px;height:24px;margin-bottom:.2rem;}
+      .hero-mod span{font-size:.58rem;}
+
+      /* ════ SCENE 1 — DASHBOARD ════ */
+      /* Todos los KPIs visibles: Ventas ocupa fila completa */
       .metrics-row{
         display:grid;
         grid-template-columns:1fr 1fr;
-        gap:.5rem;
-        margin-bottom:.6rem;
+        gap:.45rem;margin-bottom:.6rem;
         overflow:visible;
       }
-      .met-card{min-width:unset;max-width:unset;flex-shrink:unset;}
+      .met-card{min-width:unset;max-width:unset;flex-shrink:unset;padding:.75rem .85rem;}
       .met-card.primary{grid-column:span 1;}
-      /* First primary card (Ventas Totales) gets full width for visual hierarchy */
       .metrics-row .met-card.primary:first-child{grid-column:span 2;}
-      .met-val.big{font-size:1rem;}
-      .met-lbl{font-size:.55rem;}
+      .met-val{font-size:1.1rem;}
+      .met-val.big{font-size:1.25rem;}
+      .met-lbl{font-size:.52rem;}
+      .met-trend{font-size:.56rem;}
+      /* Categorías 2×4 */
       .dash-body{grid-template-columns:1fr;gap:.5rem;}
       .cat-grid-d{grid-template-columns:1fr 1fr;gap:.4rem;}
-      .cat-d{padding:.5rem .75rem;}
-      .cd-val{font-size:.78rem;}
-      .right-panel{gap:.5rem;}
-      .tp-row{gap:.5rem;padding:.5rem .75rem;}
-      .tp-img{width:26px;height:26px;border-radius:6px;}
-      .tp-name{font-size:.58rem;}
-      .tp-amt{font-size:.62rem;}
-      .panel-hdr{font-size:.58rem;}
+      .cat-d{padding:.5rem .7rem;}
+      .cd-name{font-size:.6rem;}
+      .cd-units{font-size:.55rem;}
+      .cd-val{font-size:.8rem;}
+      .cd-delta{font-size:.55rem;}
+      /* Panel derecho apilado */
+      .right-panel{flex-direction:column;gap:.5rem;}
+      .right-panel .panel-box{min-width:unset;}
+      .panel-hdr{font-size:.6rem;padding:.5rem .75rem;}
+      .pay-row{padding:.4rem .75rem;}
+      .pay-m,.pay-a{font-size:.78rem;}
+      .tp-row{gap:.5rem;padding:.45rem .75rem;}
+      .tp-img{width:28px;height:28px;border-radius:6px;flex-shrink:0;}
+      .tp-name{font-size:.6rem;line-height:1.2;}
+      .tp-units{font-size:.5rem;}
+      .tp-amt{font-size:.65rem;white-space:nowrap;}
 
-      /* Case / success */
-      .case-layout{gap:1.25rem;}
-      .zones-grid{grid-template-columns:repeat(2,1fr);gap:.4rem;}
-      .zone-pill{font-size:.65rem;padding:.5rem;}
-      .case-right{grid-template-columns:repeat(2,1fr);gap:.5rem;}
-      .prod-mini img{height:75px;}
+      /* ════ SCENE 2 — CASO EXITOSO ════ */
+      #s2{align-items:stretch;}
+      #s2 h2.h2{margin-bottom:1rem;}
+      .case-layout{flex-direction:column;gap:1rem;align-items:stretch;}
+      #s2 .case-layout>div:first-child{min-width:unset;}
+      #s2 .case-layout>div:first-child p{font-size:.82rem;margin-bottom:.9rem;}
+      .zones-grid{grid-template-columns:repeat(3,1fr);gap:.35rem;}
+      .zone-pill{font-size:.65rem;padding:.5rem .4rem;text-align:center;}
+      /* Stats Ventas/Órdenes en fila */
+      #s2 .case-layout>div:first-child>div:last-child{
+        flex-direction:row;gap:.6rem;margin-top:.9rem;
+      }
+      #s2 .case-layout>div:first-child>div:last-child .glass{
+        flex:1;padding:.6rem .75rem;
+      }
+      #s2 .case-layout>div:first-child>div:last-child .glass div:first-child{
+        font-size:1.15rem;
+      }
+      /* Grid de productos 3 cols compacto */
+      .case-right{
+        display:grid;
+        grid-template-columns:repeat(3,1fr);
+        gap:.4rem;
+      }
+      .prod-mini img{height:70px;object-fit:cover;border-radius:8px 8px 0 0;}
+      .pm-body{padding:.35rem .4rem;}
+      .pm-name{font-size:.58rem;}
+      .pm-price{font-size:.62rem;}
 
-      /* Table map — 2 columns, full width */
-      .zone-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;gap:.4rem;}
+      /* ════ SCENE 3 — POS MÓVIL ════ */
+      #s3>div{gap:1.25rem;}
+      .phone-wrap{width:min(200px,52vw);flex-shrink:0;}
+      .phone-inner{height:400px;}
+      .pos-total-d{font-size:1.3rem;padding:10px 12px;}
+      .pos-topbar{font-size:.58rem;padding:6px 10px;}
+      .pos-prod-row{font-size:.62rem;padding:6px 10px;}
+      .pos-methods-w{padding:8px;}
+      .pos-mth{padding:7px 10px;font-size:.62rem;}
+      .pos-valid{font-size:.72rem;padding:10px;}
+      /* Texto de la escena */
+      #s3>div>div:last-child{max-width:100%;text-align:center;}
+      #s3>div>div:last-child h2{text-align:center;font-size:1.35rem;}
+      #s3>div>div:last-child p{font-size:.82rem;margin-top:.85rem;}
+      .cat-strip{justify-content:center;flex-wrap:wrap;gap:.35rem;margin-top:1rem;}
+      .cat-chip{font-size:.62rem;padding:.3rem .6rem;}
+      #s3 .btn-primary{margin-top:1rem;width:100%;justify-content:center;}
+
+      /* ════ SCENE 4 — MAPA MESAS ════ */
+      #s4{align-items:stretch;}
+      #s4 h2.h2{margin-bottom:.6rem;}
+      .zone-tabs{
+        overflow-x:auto;-webkit-overflow-scrolling:touch;
+        flex-wrap:nowrap;gap:.35rem;padding-bottom:.4rem;margin-bottom:.5rem;
+      }
       .zone-tabs::-webkit-scrollbar{display:none;}
-      .z-tab{font-size:.68rem;padding:.4rem .85rem;white-space:nowrap;}
+      .z-tab{font-size:.66rem;padding:.38rem .8rem;white-space:nowrap;flex-shrink:0;}
       .floor-grid{
+        display:grid;
         grid-template-columns:repeat(2,1fr);
         grid-template-rows:unset;
-        gap:.5rem;width:100%;
+        gap:.45rem;width:100%;
       }
-      .table-tile{height:76px;border-radius:10px;}
+      .table-tile{height:72px;border-radius:10px;padding:.5rem;}
       .t-name{font-size:.72rem;}
-      .t-info{font-size:.58rem;}
+      .t-info{font-size:.56rem;margin-top:2px;}
+      /* Legend horizontal centrada */
+      #s4>div:last-child{justify-content:center;gap:1rem;font-size:.7rem;margin-top:.75rem;}
 
-      /* Inventory */
+      /* ════ SCENE 5 — INVENTARIO ════ */
+      #s5{align-items:stretch;}
+      #s5 h2.h2{margin-bottom:.75rem;}
+      .inv-layout{flex-direction:column;gap:.65rem;max-width:100%;}
       .cat-list-inv{
-        overflow-x:auto;-webkit-overflow-scrolling:touch;
-        flex-wrap:nowrap;padding-bottom:.25rem;gap:.35rem;
+        display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;
+        flex-wrap:nowrap;gap:.35rem;padding-bottom:.25rem;
       }
       .cat-list-inv::-webkit-scrollbar{display:none;}
-      .ci{font-size:.65rem;padding:.4rem .7rem;white-space:nowrap;}
+      .ci{font-size:.66rem;padding:.4rem .75rem;white-space:nowrap;flex-shrink:0;}
       .prod-grid-inv{grid-template-columns:repeat(2,1fr);gap:.5rem;}
-      .prod-img{height:85px;}
-      .p-pname{font-size:.6rem;}
-      .p-pprice{font-size:.65rem;}
+      .prod-card{border-radius:10px;}
+      .prod-img{height:90px;border-radius:8px 8px 0 0;}
+      .prod-body{padding:.4rem .5rem;}
+      .p-pname{font-size:.6rem;line-height:1.3;}
+      .p-pprice{font-size:.65rem;margin-top:2px;}
+      .top-b{font-size:.5rem;padding:2px 5px;}
+      .qty-b{font-size:.58rem;padding:2px 6px;}
 
-      /* POS phone — compact for mobile */
-      .phone-wrap{width:min(220px,55vw);flex-shrink:0;}
-      .phone-inner{height:430px;}
-      .pos-total-d{font-size:1.4rem;padding:12px;}
-      #s3>div>div:last-child{max-width:100%;padding:0 .5rem;}
-      #s3>div>div:last-child h2{text-align:center;}
-      #s3>div>div:last-child p{font-size:.82rem;text-align:center;}
+      /* ════ SCENE 6 — CRM + WHATSAPP ════ */
+      #s6{align-items:stretch;}
+      .crm-layout{
+        flex-direction:column;
+        gap:1rem;align-items:stretch;
+      }
+      .crm-layout>div:first-child{
+        max-width:100%;width:100%;
+        order:1;
+      }
+      #s6 h2.h2{margin-bottom:.6rem;text-align:center;}
+      #s6 p{font-size:.82rem;}
+      /* Features en 1 columna con ícono a la izquierda */
+      .feat-list{
+        display:flex;flex-direction:column;
+        gap:.6rem;margin-top:.75rem;
+      }
+      .feat-row{
+        flex-direction:row;align-items:flex-start;
+        gap:.75rem;padding:.6rem .75rem;
+        background:rgba(255,255,255,.03);
+        border:1px solid var(--bd);border-radius:10px;
+      }
+      .feat-icon{
+        width:32px;height:32px;font-size:.95rem;
+        flex-shrink:0;border-radius:8px;
+      }
+      .f-title{font-size:.8rem;font-weight:700;line-height:1.3;}
+      .f-desc{font-size:.7rem;color:var(--muted);margin-top:2px;line-height:1.4;}
+      /* WhatsApp mock full width */
+      .wapp-mock{
+        width:100%;max-width:100%;
+        order:2;
+        border-radius:16px;
+      }
+      .wm-hdr{padding:.75rem 1rem;}
+      .wm-msgs{max-height:160px;padding:.75rem;}
+      .wm-msg{font-size:.72rem;padding:.5rem .7rem;}
 
-      /* Modules — 3 per row */
-      .mod-grid{grid-template-columns:repeat(3,1fr);gap:.5rem;}
-      .mod-box{padding:.75rem .4rem;border-radius:12px;}
-      .mod-box img{width:30px;height:30px;margin-bottom:.4rem;}
-      .m-name{font-size:.65rem;}
+      /* ════ SCENE 7 — ECOSISTEMA ════ */
+      #s7{align-items:stretch;}
+      #s7 h2.h2{margin-bottom:1.25rem;}
+      .mod-grid{
+        display:grid;
+        grid-template-columns:repeat(3,1fr);
+        gap:.5rem;width:100%;
+      }
+      .mod-box{
+        padding:.8rem .35rem;border-radius:12px;
+        display:flex;flex-direction:column;align-items:center;
+      }
+      .mod-box img{width:32px;height:32px;margin-bottom:.4rem;}
+      .m-name{font-size:.62rem;text-align:center;line-height:1.3;font-weight:700;}
       .m-desc{display:none;}
 
-      /* Leaderboard — stack */
+      /* ════ SCENE 8 — RANKING ════ */
+      #s8{align-items:stretch;}
+      #s8 h2.h2{margin-bottom:1.25rem;}
+      /* Contenedor principal stacked */
       #s8>div{
-        flex-direction:column;align-items:center;
+        flex-direction:column;
+        align-items:center;
         gap:1.25rem;width:100%;
       }
+      /* Podio compacto horizontal */
       #s8>div>div:first-child{
-        display:flex;flex-direction:row;align-items:flex-end;
-        gap:.5rem;justify-content:center;
+        display:flex;flex-direction:row;
+        align-items:flex-end;gap:.75rem;
+        justify-content:center;
       }
-      #s8>div>div:first-child>div>div:last-child{
-        height:60px !important;
-      }
-      .lb-wrap{max-width:100%;}
-      .lb-row{padding:.7rem 1rem;}
+      #s8>div>div:first-child>div{min-width:70px;}
+      #s8>div>div:first-child>div div:first-child{font-size:1.5rem;}
+      #s8>div>div:first-child>div div:nth-child(2){font-size:.7rem;margin:4px 0;}
+      #s8>div>div:first-child>div div:nth-child(3){font-size:.6rem;}
+      /* Acortar barras del podio en mobile */
+      #s8>div>div:first-child>div div[style*="height:175px"]{height:90px !important;width:65px !important;}
+      #s8>div>div:first-child>div div[style*="height:100px"]{height:60px !important;width:65px !important;}
+      #s8>div>div:first-child>div div[style*="height:75px"]{height:45px !important;width:65px !important;}
+      /* Lista completa */
+      .lb-wrap{width:100%;max-width:100%;}
+      .lb-row{padding:.65rem 1rem;}
+      .lb-rank{font-size:.85rem;width:24px;}
+      .lb-name{font-size:.82rem;}
+      .lb-amt{font-size:.75rem;}
 
-      /* Contact cards — 2x2 */
-      .contact-cards{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;width:100%;max-width:440px;}
-      .cc{padding:.9rem 1rem;border-radius:14px;gap:.5rem;}
+      /* ════ SCENE 9 — CONTACTO / CTA ════ */
+      #s9>div{max-width:100%;padding:0 .25rem;}
+      #s9 p:first-child{font-size:.62rem;letter-spacing:1px;margin-bottom:1rem;}
+      #s9 p:last-of-type{font-size:.82rem;margin-top:.75rem;}
+      /* Tarjetas 2×2 */
+      .contact-cards{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:.55rem;
+        width:100%;max-width:440px;
+        margin-top:1.25rem;
+      }
+      .cc{padding:.85rem .9rem;border-radius:14px;gap:.5rem;}
+      .cc span:first-child{font-size:1.25rem;}
+      .c-label{font-size:.58rem;}
       .c-val{font-size:.8rem;}
-      .c-label{font-size:.6rem;}
-
-      /* CRM */
-      .crm-layout{gap:1.25rem;}
-      .crm-layout>div:first-child{width:100%;}
-      .wapp-mock{width:100%;}
-      .feat-list{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:1rem;}
-      .feat-row{flex-direction:column;gap:.3rem;}
-      .feat-icon{width:28px;height:28px;font-size:.85rem;}
-      .f-title{font-size:.78rem;}
-      .f-desc{font-size:.68rem;}
-
-      /* Hero scene centered */
-      #s0{text-align:center;}
-      #s0>div{display:flex;flex-direction:column;align-items:center;}
     }
 
     /* ══════════════════════════════
