@@ -11,6 +11,7 @@ export class SeedService implements OnModuleInit {
     async onModuleInit() {
         await this.initDatabase();
         await this.createSuperAdmins();
+        await this.seedEventos();
     }
 
     async initDatabase() {
@@ -161,14 +162,31 @@ export class SeedService implements OnModuleInit {
                 );
             `);
 
-            // Tabla de actividades (feed)
+            // Tabla de eventos
             await this.db.query(`
-                CREATE TABLE IF NOT EXISTS activities (
+                CREATE TABLE IF NOT EXISTS events (
                     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                    type VARCHAR(50) NOT NULL,
-                    company_id UUID REFERENCES companies(id) ON DELETE CASCADE,
-                    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-                    description TEXT NOT NULL,
+                    name VARCHAR(300) NOT NULL,
+                    description TEXT,
+                    location VARCHAR(300),
+                    event_date TIMESTAMP NOT NULL,
+                    status VARCHAR(50) DEFAULT 'upcoming',
+                    created_at TIMESTAMP DEFAULT NOW()
+                );
+            `);
+
+            // Tabla de asistencia a eventos
+            await this.db.query(`
+                CREATE TABLE IF NOT EXISTS event_attendance (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    event_id UUID REFERENCES events(id) ON DELETE CASCADE NOT NULL,
+                    company_id UUID REFERENCES companies(id) ON DELETE SET NULL,
+                    guest_name VARCHAR(300) NOT NULL,
+                    email VARCHAR(300) NOT NULL,
+                    whatsapp VARCHAR(50) NOT NULL,
+                    company_name VARCHAR(300),
+                    confirmed BOOLEAN DEFAULT FALSE,
+                    validated_at TIMESTAMP,
                     metadata JSONB,
                     created_at TIMESTAMP DEFAULT NOW()
                 );
@@ -270,6 +288,40 @@ export class SeedService implements OnModuleInit {
             }
         } catch (error) {
             this.logger.error('❌ Error creando super admins:', error);
+        }
+    }
+
+    async seedEventos() {
+        const eventos = [
+            {
+                name: 'Círculo Empresarial - Networking Pro',
+                description: 'Evento exclusivo para líderes empresariales y tomadores de decisiones. Una noche de networking de alto impacto para potenciar alianzas estratégicas.',
+                location: 'Hotel Real InterContinental, Santo Domingo',
+                eventDate: new Date('2026-05-15T19:00:00Z'),
+                status: 'upcoming'
+            }
+        ];
+
+        try {
+            for (const event of eventos) {
+                const existing = await this.db.query(
+                    'SELECT id FROM events WHERE name = $1',
+                    [event.name]
+                );
+
+                if (existing.rows.length === 0) {
+                    await this.db.query(
+                        `INSERT INTO events (name, description, location, event_date, status) VALUES ($1, $2, $3, $4, $5)`,
+                        [event.name, event.description, event.location, event.eventDate, event.status]
+                    );
+
+                    this.logger.log(`✅ Evento creado: ${event.name}`);
+                } else {
+                    this.logger.log(`ℹ️ Evento ya existe: ${event.name}`);
+                }
+            }
+        } catch (error) {
+            this.logger.error('❌ Error creando eventos:', error);
         }
     }
 }

@@ -13,15 +13,59 @@ export default function EventConfirmationPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  const [eventId, setEventId] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    // Fetch the latest event to get the ID
+    const fetchEvent = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const res = await fetch(`${apiUrl}/events`);
+        if (res.ok) {
+          const events = await res.json();
+          // Find the Círculo Empresarial event or just take the first one
+          const targetEvent = events.find((e: any) => e.name.includes('Círculo')) || events[0];
+          if (targetEvent) setEventId(targetEvent.id);
+        }
+      } catch (error) {
+        console.error('Error fetching event:', error);
+      }
+    };
+    fetchEvent();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
-    // Simulate API call to register attendance
-    setTimeout(() => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const res = await fetch(`${apiUrl}/events/attendance`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          eventId: eventId, // Can be null if not loaded, backend will handle or error
+          guestName: formData.name,
+          email: formData.email,
+          whatsapp: formData.whatsapp,
+          companyName: formData.company
+        }),
+      });
+
+      if (res.ok) {
+        setSuccess(true);
+      } else {
+        const errorData = await res.json();
+        alert(`Error: ${errorData.message || 'No se pudo registrar la asistencia'}`);
+      }
+    } catch (error) {
+      console.error('Error submitting attendance:', error);
+      alert('Error de conexión con el servidor. Por favor intente más tarde.');
+    } finally {
       setLoading(false);
-      setSuccess(true);
-    }, 1500);
+    }
   };
 
   return (
