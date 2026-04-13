@@ -271,14 +271,188 @@
     .df-next:hover{transform:translateY(-2px);box-shadow:0 12px 28px var(--brand-glow);}
     .df-next:disabled{opacity:.4;cursor:not-allowed;transform:none;}
 
+    /* ══════════════════════════════
+       RESPONSIVE — TABLET (≤900px)
+    ══════════════════════════════ */
     @media(max-width:900px){
       :root{--sw:0px;}
-      .sidebar{width:100%;height:52px;top:auto;bottom:0;flex-direction:row;border-top:1px solid var(--bd);border-right:none;padding:0 .5rem;justify-content:space-around;}
+      .sidebar{
+        width:100%;height:60px;top:auto;bottom:0;
+        flex-direction:row;border-top:1px solid var(--bd);border-right:none;
+        padding:0 .25rem;justify-content:space-around;overflow-x:auto;gap:0;
+      }
       .sb-logo,.sb-div{display:none;}
       .nav-tip{display:none;}
-      .scene{left:0;padding:1rem 1rem 64px;}
+      .nav-btn{width:40px;height:40px;border-radius:10px;margin:0;}
+      .nav-btn img{width:22px;height:22px;}
+      .scene{left:0;padding:1rem 1rem 72px;overflow-y:auto;}
       #prog{left:0;}
+
+      /* Dashboard tablet */
+      .metrics-row{grid-template-columns:repeat(3,1fr);}
+      .dash-body{grid-template-columns:1fr;}
+      .right-panel{flex-direction:row;flex-wrap:wrap;gap:.75rem;}
+      .right-panel .panel-box{flex:1;min-width:240px;}
+
+      /* Modules tablet */
+      .mod-grid{grid-template-columns:repeat(4,1fr);}
+
+      /* Inventory tablet */
+      .cat-list-inv{flex-direction:row;flex-wrap:wrap;width:100%;gap:.4rem;}
+      .cat-list-inv .ci{flex:0 0 auto;}
+      .prod-grid-inv{grid-template-columns:repeat(3,1fr);}
+      .inv-layout{flex-direction:column;}
+
+      /* CRM tablet */
+      .crm-layout{flex-direction:column-reverse;gap:1.5rem;}
+      .wapp-mock{width:100%;max-width:380px;}
+
+      /* Case tablet */
+      .case-layout{flex-direction:column;align-items:center;}
+      .case-right{max-width:100%;}
+
+      /* POS mobile scene */
+      #s3>div{flex-direction:column;align-items:center;gap:1.5rem;}
     }
+
+    /* ══════════════════════════════
+       RESPONSIVE — MOBILE (≤640px)
+    ══════════════════════════════ */
+    @media(max-width:640px){
+      /* Typography */
+      .h1{font-size:clamp(2rem,9vw,3.5rem);}
+      .h2{font-size:clamp(1.4rem,6vw,2.2rem);}
+      .cta-big{font-size:clamp(2rem,11vw,4rem);}
+
+      /* Hero */
+      .hero-grid{grid-template-columns:repeat(3,1fr);margin-top:1.5rem;}
+      #s0 .btn-primary,#s0 .btn-ghost{padding:.75rem 1.25rem;font-size:.9rem;}
+
+      /* Dashboard — scrollable horizontal metrics */
+      .metrics-row{
+        display:flex;overflow-x:auto;scroll-snap-type:x mandatory;
+        gap:.5rem;padding-bottom:.5rem;-webkit-overflow-scrolling:touch;
+      }
+      .metrics-row::-webkit-scrollbar{height:3px;}
+      .metrics-row::-webkit-scrollbar-thumb{background:var(--brand);border-radius:2px;}
+      .met-card{min-width:130px;scroll-snap-align:start;flex-shrink:0;}
+      .met-val.big{font-size:1.1rem;}
+      .dash-body{grid-template-columns:1fr;}
+      .cat-grid-d{grid-template-columns:1fr 1fr;}
+      .right-panel{flex-direction:column;}
+      .tp-row{gap:.5rem;}
+      .tp-img{width:28px;height:28px;}
+      .tp-name{font-size:.6rem;}
+
+      /* Case / success */
+      .zones-grid{grid-template-columns:repeat(2,1fr);}
+      .case-right{grid-template-columns:repeat(2,1fr);}
+
+      /* Table map — 2×6 grid */
+      .floor-grid{
+        grid-template-columns:repeat(2,1fr);
+        grid-template-rows:unset;
+        gap:.6rem;
+        width:100%;
+      }
+      .table-tile{height:80px;}
+      .zone-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;}
+      .zone-tabs::-webkit-scrollbar{display:none;}
+
+      /* Inventory */
+      .cat-list-inv{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;padding-bottom:.25rem;}
+      .prod-grid-inv{grid-template-columns:repeat(2,1fr);}
+      .prod-img{height:90px;}
+
+      /* POS phone — shrink for small screens */
+      .phone-wrap{width:230px;}
+      .phone-inner{height:480px;}
+
+      /* Modules — 3 per row */
+      .mod-grid{grid-template-columns:repeat(3,1fr);gap:.6rem;}
+      .mod-box{padding:.85rem .5rem;}
+      .mod-box img{width:32px;height:32px;}
+
+      /* Leaderboard */
+      #s8>div{flex-direction:column;align-items:center;gap:1.5rem;}
+
+      /* Contact cards */
+      .contact-cards{gap:.65rem;}
+      .cc{padding:.85rem 1.1rem;font-size:.85rem;}
+
+      /* CRM */
+      .crm-layout>div:first-child{width:100%;}
+      .feat-list{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;}
+      .feat-row{flex-direction:column;gap:.4rem;}
+      .feat-icon{width:30px;height:30px;font-size:.8rem;}
+    }
+
+    /* ══════════════════════════════
+       DEMO MODAL — RESPONSIVE
+    ══════════════════════════════ */
+
+    /* Bottom-sheet on mobile */
+    @media(max-width:680px){
+      .demo-overlay{align-items:flex-end;}
+      .demo-modal{
+        width:100vw;max-height:92vh;
+        border-radius:20px 20px 0 0;
+        transform:translateY(100%);
+        transition:transform .4s cubic-bezier(.32,0,.67,0);
+      }
+      .demo-overlay.open .demo-modal{
+        transform:translateY(0);
+        transition:transform .4s cubic-bezier(.34,1.2,.64,1);
+      }
+      .demo-prod-grid{grid-template-columns:repeat(2,1fr);gap:.6rem;}
+      .dpc-img{height:75px;}
+      .demo-hdr{padding:1rem 1rem;}
+      .demo-body{padding:1rem;}
+      .demo-ftr{padding:.75rem 1rem;flex-wrap:wrap;gap:.5rem;}
+      .demo-ftr button{flex:1;text-align:center;padding:.65rem .75rem;font-size:.8rem;}
+      .pay-methods-demo{max-width:100%;}
+      .pmd{padding:.85rem 1rem;}
+      .ticket-paper{max-width:100%;}
+
+      /* Steps compact on mobile */
+      .demo-steps{padding:.65rem 1rem;gap:.5rem;}
+      .demo-step span:last-child{display:none;}
+    }
+
+    /* Ticket print animation — tooth-feed style */
+    @keyframes ticketFeed{
+      0%{clip-path:inset(0 0 100% 0);opacity:0;}
+      100%{clip-path:inset(0 0 0% 0);opacity:1;}
+    }
+    @keyframes printerBlink{
+      0%,100%{background:var(--brand);}50%{background:#e07070;}
+    }
+    .ticket-printing-bar{
+      height:4px;width:100%;background:var(--brand);
+      border-radius:2px;margin-bottom:1rem;
+      animation:printerBlink .4s steps(1) 3;
+    }
+    .ticket-paper-animated{
+      animation:ticketFeed .8s cubic-bezier(.4,0,.2,1) .2s both;
+    }
+
+    /* Confetti particles */
+    @keyframes confettiFall{
+      0%{transform:translateY(-40px) rotate(0deg);opacity:1;}
+      100%{transform:translateY(200px) rotate(720deg);opacity:0;}
+    }
+    .confetti-particle{
+      position:absolute;width:8px;height:8px;border-radius:2px;
+      animation:confettiFall .9s ease forwards;
+      pointer-events:none;
+    }
+    .ticket-actions{display:flex;gap:.75rem;justify-content:center;margin-top:1rem;}
+    .ticket-actions button{
+      padding:.6rem 1.25rem;border-radius:100px;font-size:.8rem;font-weight:800;
+      cursor:pointer;border:none;transition:all .2s;
+    }
+    .ta-share{background:var(--whatsapp);color:#fff;box-shadow:0 6px 18px rgba(37,211,102,.3);}
+    .ta-restart{background:var(--sf);color:var(--text);border:1px solid var(--bd) !important;}
   </style>
 </head>
 <body>
@@ -821,13 +995,13 @@
     });
   }
 
-  /* STEP 2 — Animated Ticket */
+  /* STEP 2 — Premium Animated Ticket */
   function renderStep2(){
     demoSubtitle.textContent='¡Pago procesado exitosamente!';
     demoNext.textContent='Cerrar Demo';
     demoNext.disabled=false;
     demoBack.style.display='none';
-    demoHint.textContent='Comparte este demo con tus clientes 🚀';
+    demoHint.textContent='';
 
     const total=demoState.cart.reduce((s,c)=>s+c.price,0);
     const pm=PAYMENTS.find(p=>p.id===demoState.payMethod);
@@ -841,40 +1015,68 @@
       itemsHTML+=`<div class="tk-row"><span>1x ${c.name}</span><span>${fmt(c.price)}</span></div>`;
     });
 
+    const waMsg=encodeURIComponent(`🧾 *RENACE POS — DEMO TICKET*\n\nTicket #${ticket}\nFecha: ${dateStr} ${timeStr}\nTotal: ${fmt(total)}\nMétodo: ${pm.label}\n\n¡Conoce el sistema que usamos! ➡️ https://renace.tech/crm`);
+
     demoBody.innerHTML=`
-      <div style="text-align:center;margin-bottom:1rem;">
+      <div style="position:relative;text-align:center;margin-bottom:1rem;" id="ticketSuccessArea">
         <div class="success-check">✓</div>
-        <div style="font-weight:900;font-size:1.1rem;color:var(--green);">¡Pago Exitoso!</div>
+        <div style="font-weight:900;font-size:1.15rem;color:var(--green);">¡Pago Exitoso!</div>
         <div style="font-size:.8rem;color:var(--muted);margin-top:.25rem;">Procesado con ${pm.icon} ${pm.label}</div>
       </div>
-      <div class="ticket-paper">
+      <div class="ticket-printing-bar"></div>
+      <div class="ticket-paper ticket-paper-animated">
         <div class="ticket-header">
-          <div class="ticket-logo"><img src="images/icon-512.png" alt="Renace"></div>
-          <div style="font-weight:900;font-size:1rem;letter-spacing:1px;">RENACE POS</div>
-          <div style="font-size:.7rem;opacity:.8;">renace.tech · info@renace.tech</div>
-          <div style="font-size:.65rem;opacity:.6;margin-top:.25rem;">809-915-2622 · 849-457-7463</div>
+          <div style="display:inline-flex;width:40px;height:40px;background:#fff;border-radius:8px;align-items:center;justify-content:center;margin-bottom:.5rem;">
+            <img src="images/icon-512.png" alt="Renace" style="width:100%;height:100%;object-fit:contain;">
+          </div>
+          <div style="font-weight:900;font-size:1rem;letter-spacing:2px;">RENACE POS</div>
+          <div style="font-size:.68rem;opacity:.8;margin-top:2px;">renace.tech · info@renace.tech</div>
+          <div style="font-size:.62rem;opacity:.55;margin-top:2px;">Tel: 809-915-2622</div>
         </div>
         <div class="ticket-body">
-          <div class="tk-row"><span>Ticket #</span><span>${ticket}</span></div>
-          <div class="tk-row"><span>Fecha</span><span>${dateStr}</span></div>
-          <div class="tk-row"><span>Hora</span><span>${timeStr}</span></div>
-          <div class="tk-row"><span>Cajero</span><span>Carlos A.</span></div>
-          <div class="tk-row"><span>Mesa</span><span>Mesa 3 — VIP</span></div>
+          <div class="tk-row" style="font-size:.7rem;color:#555;"><span>Ticket #</span><span><strong>${ticket}</strong></span></div>
+          <div class="tk-row" style="font-size:.7rem;color:#555;"><span>Fecha</span><span>${dateStr}  ${timeStr}</span></div>
+          <div class="tk-row" style="font-size:.7rem;color:#555;"><span>Cajero</span><span>Carlos A.</span></div>
+          <div class="tk-row" style="font-size:.7rem;color:#555;"><span>Mesa</span><span>Mesa 3 — VIP</span></div>
           <hr class="ticket-divider">
+          <div style="font-size:.68rem;font-weight:700;color:#222;text-transform:uppercase;margin-bottom:.35rem;letter-spacing:.5px;">Productos</div>
           ${itemsHTML}
           <hr class="ticket-divider">
           <div class="tk-total"><span>TOTAL</span><span>${fmt(total)}</span></div>
-          <div class="tk-row" style="margin-top:.5rem;"><span>Método</span><span>${pm.icon} ${pm.label}</span></div>
-          <div class="tk-row"><span>Estado</span><span style="color:green;font-weight:700;">✓ PAGADO</span></div>
+          <div class="tk-row" style="margin-top:.6rem;font-size:.7rem;color:#555;"><span>Método</span><span>${pm.icon} ${pm.label}</span></div>
+          <div class="tk-row" style="font-size:.7rem;"><span>Estado</span><span style="color:#16a34a;font-weight:900;">✓ PAGADO</span></div>
           <hr class="ticket-divider">
         </div>
         <div class="ticket-footer">
-          ¡Gracias por su preferencia!<br/>
-          Vuelva pronto 🙏<br/>
-          <strong>renace.tech</strong>
+          ★ ¡Gracias por su preferencia! ★<br/>
+          Presentando Renace POS 2026<br/>
+          <strong>renace.tech/crm</strong>
         </div>
       </div>
+      <div class="ticket-actions">
+        <button class="ta-share" id="taShare">📲 Compartir Demo</button>
+        <button class="ta-restart" id="taRestart">🔄 Nueva Orden</button>
+      </div>
     `;
+
+    /* Confetti burst */
+    const area=document.getElementById('ticketSuccessArea');
+    const colors=['#a35a5a','#22c55e','#f59e0b','#3b82f6','#8b5cf6'];
+    for(let i=0;i<18;i++){
+      const p=document.createElement('div');
+      p.className='confetti-particle';
+      p.style.cssText=`left:${20+Math.random()*60}%;top:0;background:${colors[i%colors.length]};animation-delay:${Math.random()*.4}s;animation-duration:${.7+Math.random()*.5}s;transform:rotate(${Math.random()*360}deg);`;
+      area.appendChild(p);
+    }
+
+    /* Action buttons */
+    document.getElementById('taShare').addEventListener('click',()=>{
+      window.open(`https://wa.me/?text=${waMsg}`,'_blank','noopener');
+    });
+    document.getElementById('taRestart').addEventListener('click',()=>{
+      demoState.step=0;demoState.cart=[];demoState.payMethod=null;
+      renderStep();
+    });
   }
 
   /* Demo nav buttons */
