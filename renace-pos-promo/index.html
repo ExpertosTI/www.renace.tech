@@ -191,6 +191,22 @@
     .lb-bar-t{width:100%;height:4px;background:var(--bd);border-radius:4px;margin-top:.5rem;}
     .lb-bar-f{height:100%;border-radius:4px;background:linear-gradient(to right,var(--brand),var(--green));transition:width .8s ease;}
 
+    /* Podium Styles */
+    .podio-container { display: flex; align-items: flex-end; gap: 1.5rem; margin-bottom: 2.5rem; width: 100%; justify-content: center; }
+    .podio-item { flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; max-width: 120px; }
+    .podio-medal { font-size: 2.5rem; margin-bottom: 0.5rem; transition: transform 0.3s; }
+    .podio-item:hover .podio-medal { transform: scale(1.2) translateY(-10px); }
+    .podio-name { font-weight: 800; font-size: 0.85rem; margin-bottom: 0.2rem; }
+    .podio-val { font-size: 0.75rem; color: var(--muted); font-weight: 700; margin-bottom: 1rem; }
+    .podio-val.gold { color: var(--gold); }
+    .podio-bar { width: 100%; border-radius: 12px 12px 4px 4px; position: relative; overflow: hidden; }
+    .podio-bar::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(255,255,255,0.1), transparent); }
+    
+    .podio-item.p1 .podio-bar { height: 180px; background: linear-gradient(to top, #a16207, #f59e0b); box-shadow: 0 10px 30px rgba(245, 158, 11, 0.4); }
+    .podio-item.p1 .podio-medal { font-size: 3.5rem; }
+    .podio-item.p2 .podio-bar { height: 120px; background: linear-gradient(to top, #334155, #64748b); box-shadow: 0 10px 25px rgba(100, 116, 139, 0.3); }
+    .podio-item.p3 .podio-bar { height: 85px; background: linear-gradient(to top, #78350f, #c2410c); box-shadow: 0 10px 20px rgba(120, 53, 15, 0.3); }
+
     /* ══ SCENE 9 — CTA ══ */
     .cta-big{font-size:clamp(2.5rem,7vw,6rem);font-weight:900;line-height:.9;text-align:center;}
     .contact-cards{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;margin-top:2.5rem;}
@@ -558,20 +574,16 @@
         gap:1.25rem;width:100%;
       }
       /* Podio compacto horizontal */
-      #s8>div>div:first-child{
-        display:flex;flex-direction:row;
-        align-items:flex-end;gap:.75rem;
-        justify-content:center;
-      }
-      #s8>div>div:first-child>div{min-width:70px;}
-      #s8>div>div:first-child>div div:first-child{font-size:1.5rem;}
-      #s8>div>div:first-child>div div:nth-child(2){font-size:.7rem;margin:4px 0;}
-      #s8>div>div:first-child>div div:nth-child(3){font-size:.6rem;}
-      /* Acortar barras del podio en mobile */
-      #s8>div>div:first-child>div div[style*="height:175px"]{height:90px !important;width:65px !important;}
-      #s8>div>div:first-child>div div[style*="height:100px"]{height:60px !important;width:65px !important;}
-      #s8>div>div:first-child>div div[style*="height:75px"]{height:45px !important;width:65px !important;}
-      /* Lista completa */
+      .podio-container { gap: 0.75rem; align-items: flex-end; }
+      .podio-item { max-width: 90px; }
+      .podio-medal { font-size: 1.8rem; }
+      .podio-item.p1 .podio-medal { font-size: 2.4rem; }
+      .podio-name { font-size: 0.7rem; }
+      .podio-val { font-size: 0.6rem; }
+      .podio-item.p1 .podio-bar { height: 100px; }
+      .podio-item.p2 .podio-bar { height: 70px; }
+      .podio-item.p3 .podio-bar { height: 50px; }
+      
       .lb-wrap{width:100%;max-width:100%;}
       .lb-row{padding:.65rem 1rem;}
       .lb-rank{font-size:.85rem;width:24px;}
@@ -761,7 +773,7 @@
           <div class="tp-row"><img class="tp-img" src="https://images.unsplash.com/photo-1571613316887-6f8d5cbf7ef7?w=80&q=70" alt="Presidente" loading="lazy"><div class="tp-info"><div class="tp-name">PRESIDENTE MEDIANA 16OZ/16</div><div class="tp-units">70 unidades</div></div><span class="tp-amt">DOP 12,250</span></div>
           <div class="tp-row"><img class="tp-img" src="https://images.unsplash.com/photo-1559628129-67cf63b72248?w=80&q=70" alt="One" loading="lazy"><div class="tp-info"><div class="tp-name">ONE PEQUEÑA 12OZ</div><div class="tp-units">40 unidades</div></div><span class="tp-amt">DOP 4,400</span></div>
           <div class="tp-row"><img class="tp-img" src="https://images.unsplash.com/photo-1600788886242-5c96aabe3757?w=80&q=70" alt="Corona" loading="lazy"><div class="tp-info"><div class="tp-name">CORONA</div><div class="tp-units">14 unidades</div></div><span class="tp-amt">DOP 2,100</span></div>
-          <div class="tp-row"><img class="tp-img" src="https://images.unsplash.com/photo-1551527739-6af44d4c765b?w=80&q=70" alt="Fireball" loading="lazy"><div class="tp-info"><div class="tp-name">FIREBALL 50ML</div><div class="tp-units">1 unidad</div></div><span class="tp-amt">DOP 125</span></div>
+          <div class="tp-row"><img class="tp-img" src="https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80" alt="Fireball" loading="lazy"><div class="tp-info"><div class="tp-name">FIREBALL 50ML</div><div class="tp-units">1 unidad</div></div><span class="tp-amt">DOP 125</span></div>
         </div>
       </div>
     </div>
@@ -888,7 +900,7 @@
       <div class="prod-card"><div class="qty-b">22</div><img class="prod-img" src="https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=200&q=70" alt="" loading="lazy"><div class="prod-body"><div class="p-pname">BLACK LABEL</div><div class="p-pprice">DOP 2,850</div></div></div>
       <div class="prod-card"><div class="qty-b">413</div><img class="prod-img" src="https://images.unsplash.com/photo-1608270586620-248524c67de9?w=200&q=70" alt="" loading="lazy"><div class="prod-body"><div class="p-pname">PRESIDENTE 12OZ</div><div class="p-pprice">DOP 125</div></div></div>
       <div class="prod-card"><div class="qty-b">34</div><img class="prod-img" src="https://images.unsplash.com/photo-1600788886242-5c96aabe3757?w=200&q=70" alt="" loading="lazy"><div class="prod-body"><div class="p-pname">CORONA</div><div class="p-pprice">DOP 185</div></div></div>
-      <div class="prod-card"><div class="qty-b">20</div><img class="prod-img" src="https://images.unsplash.com/photo-1551527739-6af44d4c765b?w=200&q=70" alt="" loading="lazy"><div class="prod-body"><div class="p-pname">FIREBALL 50ML</div><div class="p-pprice">DOP 125</div></div></div>
+      <div class="prod-card"><div class="qty-b">20</div><img class="prod-img" src="https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400&q=80" alt="" loading="lazy"><div class="prod-body"><div class="p-pname">FIREBALL 50ML</div><div class="p-pprice">DOP 125</div></div></div>
       <div class="prod-card"><div class="qty-b">51</div><img class="prod-img" src="https://images.unsplash.com/photo-1553361371-9b22f78e8b1d?w=200&q=70" alt="" loading="lazy"><div class="prod-body"><div class="p-pname">COORS LIGHT LATA</div><div class="p-pprice">DOP 160</div></div></div>
     </div>
   </div>
@@ -950,10 +962,25 @@
 <section class="scene" id="s8">
   <h2 class="h2" style="text-align:center;margin-bottom:2rem;">Ranking de <span style="color:var(--gold);">Vendedores</span></h2>
   <div style="display:flex;gap:3rem;align-items:flex-start;justify-content:center;flex-wrap:wrap;width:100%;max-width:900px;">
-    <div style="display:flex;align-items:flex-end;gap:1rem;">
-      <div style="text-align:center;"><div style="font-size:2rem;">🥈</div><div style="font-weight:700;font-size:.85rem;margin:6px 0;">Miguel R.</div><div style="font-size:.7rem;color:var(--muted);">DOP 1,746,399</div><div style="height:100px;width:80px;background:linear-gradient(to top,#475569,#64748b);border-radius:10px 10px 0 0;margin-top:10px;"></div></div>
-      <div style="text-align:center;"><div style="font-size:3rem;">🥇</div><div style="font-weight:900;font-size:.85rem;margin:6px 0;color:var(--gold);">Carlos A.</div><div style="font-size:.7rem;color:var(--gold);">DOP 2,776,934</div><div style="height:175px;width:80px;background:linear-gradient(to top,#a16207,#f59e0b);border-radius:10px 10px 0 0;margin-top:10px;"></div></div>
-      <div style="text-align:center;"><div style="font-size:1.5rem;">🥉</div><div style="font-weight:700;font-size:.85rem;margin:6px 0;">Ana M.</div><div style="font-size:.7rem;color:var(--muted);">DOP 1,439,749</div><div style="height:75px;width:80px;background:linear-gradient(to top,#78350f,#c2410c);border-radius:10px 10px 0 0;margin-top:10px;"></div></div>
+    <div class="podio-container">
+      <div class="podio-item p2">
+        <div class="podio-medal">🥈</div>
+        <div class="podio-name">Miguel R.</div>
+        <div class="podio-val">DOP 1,746,399</div>
+        <div class="podio-bar"></div>
+      </div>
+      <div class="podio-item p1">
+        <div class="podio-medal">🥇</div>
+        <div class="podio-name">Carlos A.</div>
+        <div class="podio-val gold">DOP 2,776,934</div>
+        <div class="podio-bar"></div>
+      </div>
+      <div class="podio-item p3">
+        <div class="podio-medal">🥉</div>
+        <div class="podio-name">Ana M.</div>
+        <div class="podio-val">DOP 1,439,749</div>
+        <div class="podio-bar"></div>
+      </div>
     </div>
     <div class="lb-wrap" id="lbList"></div>
   </div>
