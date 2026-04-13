@@ -74,8 +74,8 @@
     .met-card{padding:1rem 1.25rem;border-radius:14px;border:1px solid var(--bd);background:var(--sf);}
     .met-card.primary{border-color:rgba(163,90,90,.3);background:rgba(163,90,90,.07);}
     .met-lbl{font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:.3rem;}
-    .met-val{font-size:1.25rem;font-weight:900;}
-    .met-val.big{font-size:1.5rem;}
+    .met-val{font-size:1.25rem;font-weight:900;font-variant-numeric:tabular-nums;min-height:1.6em;display:block;}
+    .met-val.big{font-size:1.5rem;min-height:1.8em;}
     .met-trend{font-size:.62rem;margin-top:.2rem;}
     .met-trend.dn{color:#f87171;}
     .dash-body{display:grid;grid-template-columns:1fr 320px;gap:.75rem;}
@@ -356,16 +356,18 @@
       .hero-mod{padding:.6rem .4rem;}
       .hero-mod img{width:26px;height:26px;}
 
-      /* Dashboard — horizontal snap scrollable metrics */
+      /* Dashboard — 2-col grid: ALL 6 metrics visible on mobile */
       .metrics-row{
-        display:flex;overflow-x:auto;scroll-snap-type:x mandatory;
-        gap:.5rem;padding-bottom:.75rem;-webkit-overflow-scrolling:touch;
-        margin-bottom:.5rem;-ms-overflow-style:none;
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:.5rem;
+        margin-bottom:.6rem;
+        overflow:visible;
       }
-      .metrics-row::-webkit-scrollbar{display:none;}
-      /* 2 cards visible + peek of 3rd (discoverability) */
-      .met-card{min-width:44vw;max-width:44vw;scroll-snap-align:start;flex-shrink:0;}
-      .met-card.primary{min-width:54vw;max-width:54vw;}
+      .met-card{min-width:unset;max-width:unset;flex-shrink:unset;}
+      .met-card.primary{grid-column:span 1;}
+      /* First primary card (Ventas Totales) gets full width for visual hierarchy */
+      .metrics-row .met-card.primary:first-child{grid-column:span 2;}
       .met-val.big{font-size:1rem;}
       .met-lbl{font-size:.55rem;}
       .dash-body{grid-template-columns:1fr;gap:.5rem;}
@@ -934,11 +936,23 @@
   }
   function schedNext(){clearTimeout(stimer);if(cur<TOTAL-1)stimer=setTimeout(()=>goTo(cur+1),DUR[cur]*1000);}
   function animCounters(){
-    const t0=performance.now(),d=1300,ts=ls,to=lo,tp=lp;
-    function s(n){const p=Math.min((n-t0)/d,1),e=1-Math.pow(1-p,3);
-      if(mSales)mSales.textContent=fmt(ts*e);if(mOrd)mOrd.textContent=Math.floor(to*e);if(mProf)mProf.textContent=fmt(tp*e);
-      if(p<1)requestAnimationFrame(s);}
-    requestAnimationFrame(s);
+    /* Pre-size: write final values first so cards lock at their final dimensions */
+    if(mSales)mSales.textContent=fmt(ls);
+    if(mOrd)mOrd.textContent=lo;
+    if(mProf)mProf.textContent=fmt(lp);
+    /* Lock every met-card's height so it cannot change during animation */
+    document.querySelectorAll('.met-card').forEach(c=>{
+      c.style.minHeight=c.offsetHeight+'px';
+    });
+    /* Now animate numbers from 0 — cards are already sized to final state */
+    const t0=performance.now(),d=1400,ts=ls,to_=lo,tp=lp;
+    function step(n){const p=Math.min((n-t0)/d,1),e=1-Math.pow(1-p,3);
+      if(mSales)mSales.textContent=fmt(ts*e);
+      if(mOrd)mOrd.textContent=Math.floor(to_*e);
+      if(mProf)mProf.textContent=fmt(tp*e);
+      if(p<1)requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
   }
   function updateFeed(){
     const ALLP=[{name:'PRESIDENTE',price:125},{name:'CORONA',price:185},{name:'FIREBALL',price:125},{name:'DON JULIO',price:7500},{name:'BLACK LABEL',price:2850},{name:'CICLÓN',price:50},{name:'BRAHMA 12OZ',price:115},{name:'CHIVAS 18',price:4200}];
