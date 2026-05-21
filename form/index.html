@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RENACE.TECH | Protocolo Naming v1.10</title>
+
+    <!-- Tailwind CSS + Google Fonts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Configuración de Diseño -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    },
+                    colors: {
+                        tech: {
+                            bg: '#0B0F19',
+                            card: '#151B2B',
+                            accent: '#3B82F6',
+                            neon: '#06B6D4',
+                            success: '#10B981'
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Estilos Cyberpunk/Tech */
+        body {
+            background-color: #0B0F19;
+            color: #E2E8F0;
+            overflow-x: hidden;
+        }
+
+        /* Fondo de malla */
+        .grid-bg {
+            background-image:
+                linear-gradient(rgba(6, 182, 212, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(6, 182, 212, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: -1;
+        }
+
+        /* Tarjetas de Vidrio Oscuro */
+        .cyber-card {
+            background: rgba(21, 27, 43, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(59, 130, 246, 0.1);
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        .cyber-card:hover,
+        .cyber-card:focus-within {
+            border-color: rgba(6, 182, 212, 0.5);
+            box-shadow: 0 0 25px rgba(6, 182, 212, 0.15);
+            transform: translateY(-2px);
+        }
+
+        /* Sliders Personalizados */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type=range]:focus {
+            outline: 2px solid #06B6D4;
+            outline-offset: 4px;
+            border-radius: 4px;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #06B6D4;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px #06B6D4;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #334155;
+            border-radius: 2px;
+        }
+
+        /* Inputs */
+        .tech-input {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid #334155;
+            color: white;
+            transition: 0.3s;
+        }
+
+        .tech-input:focus {
+            border-color: #06B6D4;
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.2);
+            outline: none;
+        }
+
+        /* Consola */
+        .terminal {
+            font-family: 'JetBrains Mono', monospace;
+            background: #000;
+            border: 1px solid #333;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+        }
+
+        .blink {
+            animation: blinker 1s linear infinite;
+        }
+
+        @keyframes blinker {
+            50% {
+                opacity: 0;
+            }
+        }
+
+        /* Clases de utilidad para accesibilidad */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen py-10 px-4">
+
+    <div class="grid-bg" aria-hidden="true"></div>
+
+    <!-- Header -->
+    <header class="max-w-6xl mx-auto mb-12 flex justify-between items-center border-b border-gray-800 pb-6">
+        <div>
+            <div class="flex items-center gap-2 text-tech-neon mb-1" aria-hidden="true">
+                <i class="fa-solid fa-microchip animate-pulse"></i>
+                <span class="font-mono text-xs tracking-widest">RENACE.TECH // SYSTEM KERNEL</span>
+            </div>
+            <h1 class="text-4xl font-extrabold tracking-tight text-white">
+                PROJECT <span
+                    class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">REBRAND</span>
+            </h1>
+        </div>
+        <div class="hidden md:block text-right">
+            <div class="text-gray-500 text-xs font-mono">Build v1.10.45</div>
+            <div class="text-tech-success text-xs font-mono"><i class="fa-solid fa-circle text-[8px]"
+                    aria-hidden="true"></i> SERVER CONNECTED</div>
+        </div>
+    </header>
+
+    <form id="systemForm" class="max-w-6xl mx-auto space-y-8">
+
+        <!-- Identificación -->
+        <section class="cyber-card rounded-xl p-6 relative overflow-hidden" aria-labelledby="section-id">
+            <div class="absolute top-0 right-0 p-4 opacity-10 text-6xl text-white" aria-hidden="true"><i
+                    class="fa-solid fa-fingerprint"></i></div>
+            <h3 id="section-id" class="text-xl font-bold text-white mb-6 border-l-4 border-tech-neon pl-3">
+                IDENTIFICACIÓN DE USUARIO</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+                <div>
+                    <label for="evaluator_name" class="text-xs font-mono text-gray-400 mb-1 block">USER.ID
+                        (NOMBRE)</label>
+                    <input type="text" id="evaluator_name" name="evaluator_name" placeholder="Ingrese nombre..."
+                        required class="tech-input w-full p-3 rounded-lg" aria-required="true">
+                </div>
+                <div>
+                    <label for="evaluator_role" class="text-xs font-mono text-gray-400 mb-1 block">ACCESS.LEVEL
+                        (ROL)</label>
+                    <select id="evaluator_role" name="evaluator_role" class="tech-input w-full p-3 rounded-lg"
+                        aria-required="true">
+                        <option value="Admin">Socio / Admin</option>
+                        <option value="Developer">Desarrollador</option>
+                        <option value="Investor">Inversionista</option>
+                        <option value="User">Usuario Final</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <!-- Matriz de Evaluación -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6" role="group" aria-label="Opciones de Naming">
+
+            <!-- Opción 1: RenKredit -->
+            <article class="cyber-card rounded-xl p-6 hover:border-blue-500 group">
+                <div class="flex justify-between items-start mb-4">
+                    <h2 class="text-2xl font-bold text-white group-hover:text-blue-400 transition">RenKredit</h2>
+                    <span
+                        class="bg-blue-900/30 text-blue-400 text-xs font-mono px-2 py-1 rounded border border-blue-500/30">CORPORATE</span>
+                </div>
+                <p class="text-gray-400 text-sm mb-6 h-10">Solidez institucional. Fusión de Renace + Kredit. Estética
+                    bancaria europea.</p>
+                <div class="space-y-4 font-mono text-xs">
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label for="renkredit_trust" class="cursor-pointer">CONFIANZA_LEVEL</label>
+                            <span id="v_renkredit_trust" class="text-blue-400" aria-hidden="true">3</span>
+                        </div>
+                        <input type="range" id="renkredit_trust" name="renkredit_trust" min="1" max="5" value="3"
+                            oninput="upd(this)" aria-valuemin="1" aria-valuemax="5" aria-valuenow="3">
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label for="renkredit_mod" class="cursor-pointer">MODERNIDAD_INDEX</label>
+                            <span id="v_renkredit_mod" class="text-blue-400" aria-hidden="true">3</span>
+                        </div>
+                        <input type="range" id="renkredit_mod" name="renkredit_mod" min="1" max="5" value="3"
+                            oninput="upd(this)" aria-valuemin="1" aria-valuemax="5" aria-valuenow="3">
+                    </div>
+                </div>
+            </article>
+
+            <!-- Opción 2: KreditoR -->
+            <article class="cyber-card rounded-xl p-6 hover:border-emerald-500 group">
+                <div class="flex justify-between items-start mb-4">
+                    <h2 class="text-2xl font-bold text-white group-hover:text-emerald-400 transition">KreditoR</h2>
+                    <span
+                        class="bg-emerald-900/30 text-emerald-400 text-xs font-mono px-2 py-1 rounded border border-emerald-500/30">POWER_USER</span>
+                </div>
+                <p class="text-gray-400 text-sm mb-6 h-10">Juego de palabras: "Creditor" + "Renace". Agresivo, empodera
+                    al cobrador.</p>
+                <div class="space-y-4 font-mono text-xs">
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label for="kreditor_trust" class="cursor-pointer">CONFIANZA_LEVEL</label>
+                            <span id="v_kreditor_trust" class="text-emerald-400" aria-hidden="true">3</span>
+                        </div>
+                        <input type="range" id="kreditor_trust" name="kreditor_trust" min="1" max="5" value="3"
+                            oninput="upd(this)" aria-valuemin="1" aria-valuemax="5" aria-valuenow="3">
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label for="kreditor_mod" class="cursor-pointer">MODERNIDAD_INDEX</label>
+                            <span id="v_kreditor_mod" class="text-emerald-400" aria-hidden="true">3</span>
+                        </div>
+                        <input type="range" id="kreditor_mod" name="kreditor_mod" min="1" max="5" value="3"
+                            oninput="upd(this)" aria-valuemin="1" aria-valuemax="5" aria-valuenow="3">
+                    </div>
+                </div>
+            </article>
+
+            <!-- Opción 3: PrestaK -->
+            <article class="cyber-card rounded-xl p-6 hover:border-purple-500 group">
+                <div class="flex justify-between items-start mb-4">
+                    <h2 class="text-2xl font-bold text-white group-hover:text-purple-400 transition">PrestaK</h2>
+                    <span
+                        class="bg-purple-900/30 text-purple-400 text-xs font-mono px-2 py-1 rounded border border-purple-500/30">MOBILE_APP</span>
+                </div>
+                <p class="text-gray-400 text-sm mb-6 h-10">Rápido, corto, urbano. La "K" indica tecnología/capital.
+                    Enfoque masivo.</p>
+                <div class="space-y-4 font-mono text-xs">
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label for="prestak_trust" class="cursor-pointer">CONFIANZA_LEVEL</label>
+                            <span id="v_prestak_trust" class="text-purple-400" aria-hidden="true">3</span>
+                        </div>
+                        <input type="range" id="prestak_trust" name="prestak_trust" min="1" max="5" value="3"
+                            oninput="upd(this)" aria-valuemin="1" aria-valuemax="5" aria-valuenow="3">
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label for="prestak_mod" class="cursor-pointer">MODERNIDAD_INDEX</label>
+                            <span id="v_prestak_mod" class="text-purple-400" aria-hidden="true">3</span>
+                        </div>
+                        <input type="range" id="prestak_mod" name="prestak_mod" min="1" max="5" value="3"
+                            oninput="upd(this)" aria-valuemin="1" aria-valuemax="5" aria-valuenow="3">
+                    </div>
+                </div>
+            </article>
+
+            <!-- Opción 4: RenKred -->
+            <article class="cyber-card rounded-xl p-6 hover:border-slate-400 group">
+                <div class="flex justify-between items-start mb-4">
+                    <h2 class="text-2xl font-bold text-white group-hover:text-slate-300 transition">RenKred</h2>
+                    <span
+                        class="bg-slate-800 text-slate-300 text-xs font-mono px-2 py-1 rounded border border-slate-600">STARTUP</span>
+                </div>
+                <p class="text-gray-400 text-sm mb-6 h-10">Minimalista. 7 letras. Ideal para dominio .io o .tech. Sin
+                    fricción.</p>
+                <div class="space-y-4 font-mono text-xs">
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label for="renkred_trust" class="cursor-pointer">CONFIANZA_LEVEL</label>
+                            <span id="v_renkred_trust" class="text-slate-400" aria-hidden="true">3</span>
+                        </div>
+                        <input type="range" id="renkred_trust" name="renkred_trust" min="1" max="5" value="3"
+                            oninput="upd(this)" aria-valuemin="1" aria-valuemax="5" aria-valuenow="3">
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label for="renkred_mod" class="cursor-pointer">MODERNIDAD_INDEX</label>
+                            <span id="v_renkred_mod" class="text-slate-400" aria-hidden="true">3</span>
+                        </div>
+                        <input type="range" id="renkred_mod" name="renkred_mod" min="1" max="5" value="3"
+                            oninput="upd(this)" aria-valuemin="1" aria-valuemax="5" aria-valuenow="3">
+                    </div>
+                </div>
+            </article>
+        </div>
+
+        <!-- Veredicto Final -->
+        <section class="cyber-card rounded-xl p-8 border-t-4 border-tech-success relative"
+            aria-labelledby="section-veredicto">
+            <h3 id="section-veredicto" class="text-2xl font-bold text-white mb-6 text-center">SELECCIÓN DE PROTOCOLO
+                FINAL</h3>
+
+            <div class="max-w-xl mx-auto space-y-4">
+                <label for="winner" class="sr-only">Seleccione Candidato Ganador</label>
+                <select id="winner" name="winner" required
+                    class="tech-input w-full p-4 text-lg font-bold text-tech-neon rounded-lg text-center appearance-none"
+                    aria-required="true">
+                    <option value="" disabled selected>-- SELECCIONAR CANDIDATO GANADOR --</option>
+                    <option value="RenKredit">RenKredit</option>
+                    <option value="KreditoR">KreditoR</option>
+                    <option value="PrestaK">PrestaK</option>
+                    <option value="RenKred">RenKred</option>
+                </select>
+
+                <label for="comments" class="sr-only">Comentarios Adicionales</label>
+                <textarea id="comments" name="comments" rows="2"
+                    placeholder="// Ingrese comentarios técnicos adicionales..."
+                    class="tech-input w-full p-3 rounded-lg font-mono text-sm"></textarea>
+            </div>
+
+            <!-- Botón de Ejecución -->
+            <div class="mt-8 text-center">
+                <button type="submit" id="submitBtn"
+                    class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-12 rounded-lg shadow-[0_0_20px_rgba(37,99,235,0.5)] transition-all transform hover:scale-105 flex items-center justify-center gap-3 mx-auto focus:ring-4 focus:ring-blue-500/50">
+                    <i class="fa-solid fa-satellite-dish" aria-hidden="true"></i>
+                    <span>ENVIAR DATOS A SERVIDOR</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Consola de Salida -->
+        <div id="console-output" class="terminal rounded-lg p-4 text-xs text-green-500 hidden h-48 overflow-y-auto"
+            role="log" aria-live="polite">
+            <p>> SYSTEM READY.</p>
+            <p>> WAITING FOR INPUT...</p>
+        </div>
+
+    </form>
+
+    <script>
+        // Actualizar números en tiempo real
+        function upd(el) {
+            const id = 'v_' + el.name;
+            const span = document.getElementById(id);
+            if (span) {
+                span.innerText = el.value;
+                el.setAttribute('aria-valuenow', el.value);
+                const label = document.querySelector(`label[for="${el.id}"]`);
+                if (label) {
+                    el.setAttribute('aria-label', `${label.innerText}: ${el.value} de 5`);
+                }
+            }
+        }
+
+        const form = document.getElementById('systemForm');
+        const consoleDiv = document.getElementById('console-output');
+
+        // Función para escribir en la consola simulada
+        function log(text, color = 'text-green-500') {
+            const p = document.createElement('p');
+            p.className = `${color} font-mono mb-1`;
+            p.innerHTML = `<span class="opacity-50">${new Date().toLocaleTimeString()}</span> > ${text}`;
+            consoleDiv.appendChild(p);
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+
+        form.addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            // UI Effects
+            consoleDiv.classList.remove('hidden');
+            log("INITIATING DATA TRANSMISSION...", "text-blue-400");
+            const btn = document.getElementById('submitBtn');
+            const originalText = btn.innerHTML;
+
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> PROCESANDO...';
+            btn.classList.add('opacity-75');
+
+            // Recopilar Datos en JSON Estructurado
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+
+            const complexData = {
+                evaluator: { name: data.evaluator_name, role: data.evaluator_role },
+                winner: data.winner,
+                comments: data.comments,
+                scores: {
+                    RenKredit: { trust: data.renkredit_trust, modern: data.renkredit_mod },
+                    KreditoR: { trust: data.kreditor_trust, modern: data.kreditor_mod },
+                    PrestaK: { trust: data.prestak_trust, modern: data.prestak_mod },
+                    RenKred: { trust: data.renkred_trust, modern: data.renkred_mod }
+                },
+                timestamp: new Date().toISOString()
+            };
+
+            try {
+                // Modo simulado si falla o local
+                let success = false;
+
+                // Intento real (PHP)
+                try {
+                    if (window.location.protocol !== 'file:') {
+                        log("CONNECTING TO RENACE SECURE SERVER...", "text-yellow-400");
+                        const response = await fetch('guardar.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(complexData)
+                        });
+
+                        if (response.ok && response.headers.get("content-type")?.includes("json")) {
+                            const result = await response.json();
+                            if (result.status === 'success') success = true;
+                            else log("SERVER ERROR: " + result.message, "text-red-500");
+                        } else {
+                            log(`SERVER ERROR: HTTP ${response.status}`, "text-red-500");
+                            if (response.status === 403 || response.status === 404 || response.status === 500) {
+                                log("CHECK PERMISSIONS (CHMOD 777)", "text-red-400");
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.log("Server fetch failed, trying local storage");
+                    log("CONNECTION FAILED: " + e.message, "text-red-500");
+                }
+
+                // FALLBACK: LOCALSTORAGE (Para pruebas locales sin servidor)
+                if (!success) {
+                    log("MODO LOCAL: GUARDANDO EN NAVEGADOR...", "text-yellow-400");
+                    try {
+                        const existing = JSON.parse(localStorage.getItem('renace_form_data') || '[]');
+                        // Añadir ID y timestamp si no existen
+                        complexData.id = 'loc_' + Date.now();
+                        existing.push(complexData);
+                        localStorage.setItem('renace_form_data', JSON.stringify(existing));
+                        success = true;
+                        log("GUARDADO EN MEMORIA LOCAL (LocalStorage)", "text-green-400");
+                    } catch (e) {
+                        console.error(e);
+                        success = false;
+                    }
+                }
+
+                if (success) {
+                    log("¡EVALUACIÓN COMPLETADA! Redirigiendo...", "text-green-400");
+
+                    // Mostrar mensaje de agradecimiento visualmente
+                    const section = document.querySelector('section[aria-labelledby="section-veredicto"]');
+                    section.innerHTML = `
+                        <div class="text-center py-8">
+                            <i class="fa-solid fa-check-circle text-6xl text-tech-success mb-4"></i>
+                            <h3 class="text-2xl font-bold text-white mb-2">¡EVALUACIÓN COMPLETADA!</h3>
+                            <p class="text-gray-400">Gracias por tu aporte al protocolo Renace.</p>
+                            <p class="text-sm text-gray-500 mt-4">Redirigiendo a inicio...</p>
+                        </div>
+                    `;
+
+                    setTimeout(() => {
+                        window.location.href = '../index.html'; // Redirigir a la home de Renace
+                    }, 3000);
+                } else {
+                    throw new Error('No se pudo guardar ni en servidor ni localmente');
+                }
+
+            } catch (err) {
+                console.error(err);
+                log("CRITICAL ERROR: CONNECTION FAILED.", "text-red-500");
+                btn.innerHTML = 'ERROR DE SERVIDOR';
+                btn.classList.replace('bg-blue-600', 'bg-red-600');
+            }
+        });
+    </script>
+</body>
+
+</html>

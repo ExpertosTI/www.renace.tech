@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0f1a">
+<meta name="description" content="RENACE.TECH — Consultores de tecnología con IA que te acompañamos en la integración de procesos digitales. Expertos en Inteligencia Artificial, Odoo ERP y Facturación Electrónica DGII.">
+<meta name="keywords" content="IA, Inteligencia Artificial, Odoo ERP, Facturación Electrónica DGII, Transformación Digital, Consultoría Tech, Automatización de Procesos, SaaS, Dominicana, e-CF, R-Commerce">
+<meta property="og:title" content="RENACE.TECH — Consultoría, IA y Transformación Digital">
+<meta property="og:description" content="Integración de Inteligencia Artificial y tecnología avanzada en tus empresas y procesos. Expertos en Odoo ERP, e-CF DGII y automatización inteligente.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://renace.tech">
+<title>RENACE.TECH — Consultoría con IA y Transformación Digital</title>
+
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'self';
+               script-src 'self';
+               style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+               font-src 'self' https://fonts.gstatic.com;
+               img-src 'self' data: https:;
+               connect-src 'self';
+               frame-src 'none';
+               object-src 'none';
+               base-uri 'self';
+               form-action 'self' https://*.renace.tech;">
+
+<link rel="icon" href="/images/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:            #0a0f1a;
+    --bg-soft:       #0e1525;
+    --surface:       #111827;
+    --surface-2:     #1a2332;
+    --surface-3:     #222f44;
+    --border:        rgba(148, 163, 184, 0.10);
+    --border-strong: rgba(148, 163, 184, 0.22);
+    --text:          #e8edf5;
+    --text-dim:      #b4c0d4;
+    --muted:         #7b8faa;
+    --accent:        #00b4d8;
+    --accent-2:      #0077b6;
+    --accent-soft:   rgba(0, 180, 216, 0.15);
+    --purple:        #8b5cf6;
+    --teal:          #2dd4bf;
+    --gold:          #f4c15a;
+    --good:          #34d399;
+    --radius-sm:     8px;
+    --radius:        14px;
+    --radius-lg:     22px;
+    --shadow-soft:   0 10px 30px -12px rgba(0,0,0,0.5);
+    --shadow-glow:   0 0 60px -10px rgba(0, 180, 216, 0.35);
+    --max:           1200px;
+  }
+
+  html { height: 100%; scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.55;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse at 20% 0%,  rgba(0, 180, 216, 0.10), transparent 55%),
+      radial-gradient(ellipse at 80% 10%, rgba(139, 92, 246, 0.08), transparent 50%),
+      radial-gradient(ellipse at 50% 100%, rgba(45, 212, 191, 0.05), transparent 60%);
+    pointer-events: none; z-index: 0;
+  }
+
+  a { color: inherit; text-decoration: none; }
+  img, svg { display: block; max-width: 100%; }
+
+  .container { max-width: var(--max); margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+  /* ── NAV ─────────────────────────────────────────────── */
+  .nav {
+    position: sticky; top: 0; z-index: 50;
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    background: rgba(10, 15, 26, 0.65);
+    border-bottom: 1px solid transparent;
+    transition: border-color .25s ease, background .25s ease;
+  }
+  .nav.scrolled {
+    background: rgba(10, 15, 26, 0.88);
+    border-bottom-color: var(--border);
+  }
+  .nav-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    height: 72px;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700; letter-spacing: .5px; font-size: 18px;
+  }
+  .brand-mark {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    display: grid; place-items: center;
+    box-shadow: var(--shadow-glow);
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700; color: #0a0f1a; font-size: 18px;
+  }
+  .brand-name small { color: var(--muted); font-weight: 400; font-size: 13px; letter-spacing: 1px; }
+  .nav-links { display: flex; gap: 28px; align-items: center; }
+  .nav-links a {
+    color: var(--text-dim); font-size: 14.5px; font-weight: 500;
+    transition: color .2s;
+  }
+  .nav-links a:hover { color: var(--text); }
+  .nav-cta {
+    padding: 10px 18px; border-radius: 999px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #001018 !important; font-weight: 600; font-size: 14px;
+    transition: transform .2s, box-shadow .2s;
+  }
+  .nav-cta:hover { transform: translateY(-1px); box-shadow: var(--shadow-glow); }
+  .nav-toggle {
+    display: none; background: none; border: 0; color: var(--text);
+    cursor: pointer; padding: 8px;
+  }
+
+  /* ── HERO ────────────────────────────────────────────── */
+  .hero { padding: 96px 0 120px; position: relative; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 14px; border-radius: 999px;
+    background: var(--accent-soft);
+    border: 1px solid rgba(0,180,216,0.25);
+    font-size: 13px; color: var(--accent);
+    font-weight: 500; letter-spacing: .5px;
+  }
+  .eyebrow-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity:1; transform: scale(1); } 50% { opacity:.55; transform: scale(.85); } }
+
+  h1.hero-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(42px, 6vw, 74px);
+    line-height: 1.02;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 18px 0 22px;
+    max-width: 900px;
+  }
+  .hero-title .grad {
+    background: linear-gradient(135deg, #4fd6f7 0%, #8b5cf6 55%, #2dd4bf 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-sub {
+    font-size: clamp(16px, 1.3vw, 19px);
+    color: var(--text-dim);
+    max-width: 640px;
+    margin-bottom: 36px;
+  }
+  .hero-cta { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 48px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 14px 24px; border-radius: 12px;
+    font-family: 'Inter', sans-serif; font-weight: 600; font-size: 15px;
+    border: 1px solid transparent; cursor: pointer;
+    transition: transform .2s, box-shadow .2s, background .2s, border-color .2s;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #001018;
+    box-shadow: 0 10px 30px -10px rgba(0, 180, 216, 0.55);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 40px -8px rgba(0, 180, 216, 0.7); }
+  .btn-ghost {
+    background: transparent; color: var(--text);
+    border-color: var(--border-strong);
+  }
+  .btn-ghost:hover { background: var(--surface); border-color: rgba(0,180,216,0.5); }
+
+  .hero-proof {
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    color: var(--muted); font-size: 14px;
+  }
+  .avatars { display: flex; }
+  .avatars span {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    border: 2px solid var(--bg);
+    margin-left: -10px; display: grid; place-items: center;
+    font-family: 'Space Grotesk', sans-serif; font-weight: 600;
+    font-size: 12px; color: #001018;
+  }
+  .avatars span:first-child { margin-left: 0; }
+  .stars { color: var(--gold); letter-spacing: 2px; }
+
+  /* ── SECTION basics ──────────────────────────────── */
+  section { padding: 96px 0; position: relative; }
+  .section-head { max-width: 680px; margin: 0 auto 56px; text-align: center; }
+  .section-eyebrow {
+    color: var(--accent); font-size: 13px; font-weight: 600;
+    letter-spacing: 2px; text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .section-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(30px, 3.5vw, 44px);
+    line-height: 1.1; letter-spacing: -0.01em;
+    margin-bottom: 14px;
+  }
+  .section-sub { color: var(--text-dim); font-size: 17px; }
+
+  /* ── STATS ───────────────────────────────────────── */
+  .stats {
+    padding: 56px 0;
+    background: linear-gradient(180deg, transparent 0%, var(--bg-soft) 50%, transparent 100%);
+  }
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px;
+  }
+  .stat {
+    text-align: center; padding: 24px;
+    border-right: 1px solid var(--border);
+  }
+  .stat:last-child { border-right: 0; }
+  .stat-num {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(36px, 4vw, 54px);
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--teal));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    line-height: 1;
+  }
+  .stat-label { color: var(--muted); font-size: 13.5px; margin-top: 8px; letter-spacing: .5px; }
+
+  /* ── SERVICES ────────────────────────────────────── */
+  .services-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+  }
+  .service {
+    padding: 32px 28px;
+    background: linear-gradient(180deg, var(--surface), var(--surface-2));
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    position: relative; overflow: hidden;
+    transition: transform .3s, border-color .3s;
+  }
+  .service::before {
+    content: ''; position: absolute;
+    inset: 0; padding: 1px; border-radius: inherit;
+    background: linear-gradient(135deg, transparent 40%, rgba(0,180,216,.25), transparent 60%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    opacity: 0; transition: opacity .3s;
+    pointer-events: none;
+  }
+  .service:hover { transform: translateY(-4px); border-color: rgba(0,180,216,.35); }
+  .service:hover::before { opacity: 1; }
+  .service-icon {
+    width: 52px; height: 52px; border-radius: 14px;
+    display: grid; place-items: center;
+    background: var(--accent-soft); color: var(--accent);
+    margin-bottom: 18px;
+  }
+  .service-icon svg { width: 26px; height: 26px; stroke-width: 2; }
+  .service h3 {
+    font-family: 'Space Grotesk', sans-serif; font-weight: 600;
+    font-size: 20px; margin-bottom: 8px;
+  }
+  .service p { color: var(--text-dim); font-size: 14.5px; }
+  .service-tag {
+    position: absolute; top: 20px; right: 20px;
+    font-size: 11px; letter-spacing: 1.5px; color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  /* ── METHOD ──────────────────────────────────────── */
+  .method { background: linear-gradient(180deg, transparent, var(--bg-soft) 50%, transparent); }
+  .steps {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px;
+    counter-reset: step;
+  }
+  .step {
+    position: relative; padding: 28px 24px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+  .step::before {
+    counter-increment: step;
+    content: counter(step, decimal-leading-zero);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 44px; font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    line-height: 1; display: block; margin-bottom: 14px;
+  }
+  .step h4 { font-family: 'Space Grotesk', sans-serif; font-size: 17px; margin-bottom: 6px; }
+  .step p { color: var(--muted); font-size: 13.5px; }
+
+  /* ── CLIENTS ─────────────────────────────────────── */
+  .clients-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+  }
+  .client {
+    padding: 28px 26px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius);
+    transition: transform .25s, border-color .25s;
+  }
+  .client:hover { transform: translateY(-3px); border-color: rgba(139,92,246,0.35); }
+  .client-name {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600; font-size: 17px; margin-bottom: 4px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .client-name::before {
+    content: ''; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--good); box-shadow: 0 0 8px var(--good);
+  }
+  .client-sector { color: var(--accent); font-size: 12px; letter-spacing: 1px; text-transform: uppercase; }
+  .client-result { color: var(--text-dim); font-size: 14px; margin-top: 12px; }
+
+  /* ── TESTIMONIAL ─────────────────────────────────── */
+  .testimonial-card {
+    max-width: 820px; margin: 0 auto;
+    padding: 48px 44px;
+    background: linear-gradient(135deg, var(--surface), var(--surface-2));
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    position: relative;
+  }
+  .quote-mark {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 120px; line-height: 1;
+    color: var(--accent); opacity: .25;
+    position: absolute; top: 12px; left: 24px;
+    pointer-events: none;
+  }
+  .testimonial-card blockquote {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(20px, 2vw, 26px);
+    line-height: 1.35; letter-spacing: -0.01em;
+    font-weight: 500; position: relative;
+  }
+  .testimonial-author {
+    margin-top: 26px; display: flex; align-items: center; gap: 14px;
+  }
+  .author-avatar {
+    width: 50px; height: 50px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    display: grid; place-items: center; font-weight: 600; color: #001018;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .author-name { font-weight: 600; }
+  .author-role { color: var(--muted); font-size: 13px; }
+
+  /* ── FINAL CTA ───────────────────────────────────── */
+  .final-cta {
+    position: relative; overflow: hidden;
+    background: linear-gradient(135deg, var(--surface), var(--surface-2));
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    padding: 64px 48px;
+    text-align: center;
+  }
+  .final-cta::before {
+    content: ''; position: absolute; inset: 0;
+    background:
+      radial-gradient(circle at 20% 30%, rgba(0,180,216,.15), transparent 40%),
+      radial-gradient(circle at 80% 70%, rgba(139,92,246,.15), transparent 40%);
+    pointer-events: none;
+  }
+  .final-cta h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(28px, 3.5vw, 42px);
+    line-height: 1.1; letter-spacing: -0.01em;
+    margin-bottom: 14px; position: relative;
+  }
+  .final-cta p { color: var(--text-dim); margin-bottom: 30px; position: relative; font-size: 17px; }
+  .final-cta .btn-row { display: inline-flex; gap: 14px; position: relative; flex-wrap: wrap; justify-content: center; }
+
+  /* ── FOOTER ──────────────────────────────────────── */
+  footer {
+    padding: 64px 0 32px;
+    border-top: 1px solid var(--border);
+    margin-top: 96px;
+  }
+  .footer-grid {
+    display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 40px;
+    margin-bottom: 40px;
+  }
+  .footer-col h5 {
+    color: var(--muted); font-size: 12px; letter-spacing: 2px;
+    text-transform: uppercase; font-weight: 600; margin-bottom: 16px;
+  }
+  .footer-col a {
+    display: block; color: var(--text-dim); font-size: 14.5px;
+    padding: 6px 0; transition: color .2s;
+  }
+  .footer-col a:hover { color: var(--accent); }
+  .footer-about p { color: var(--muted); font-size: 14px; max-width: 300px; margin-top: 10px; }
+  .footer-bottom {
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+    padding-top: 24px; border-top: 1px solid var(--border);
+    color: var(--muted); font-size: 13px;
+  }
+
+  /* ── Reveal on scroll ────────────────────────────── */
+  .reveal { opacity: 0; transform: translateY(24px); transition: opacity .7s ease, transform .7s ease; }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+
+  /* ── Mobile ──────────────────────────────────────── */
+  @media (max-width: 900px) {
+    .nav-links { display: none; }
+    .nav-toggle { display: block; }
+    .nav.open .nav-links {
+      display: flex; flex-direction: column;
+      position: absolute; top: 72px; left: 0; right: 0;
+      background: rgba(10,15,26,.97); backdrop-filter: blur(14px);
+      padding: 18px 24px; border-bottom: 1px solid var(--border);
+      gap: 14px;
+    }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .stat { border-right: 0; border-bottom: 1px solid var(--border); padding-bottom: 18px; }
+    .stat:nth-last-child(-n+2) { border-bottom: 0; }
+    .services-grid { grid-template-columns: 1fr; }
+    .steps { grid-template-columns: repeat(2, 1fr); }
+    .clients-grid { grid-template-columns: 1fr; }
+    .footer-grid { grid-template-columns: 1fr 1fr; }
+    .hero { padding: 56px 0 72px; }
+    section { padding: 72px 0; }
+    .testimonial-card { padding: 36px 28px; }
+    .final-cta { padding: 44px 24px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+    .reveal { opacity: 1; transform: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════ NAV ══════════════════════════════════════════ -->
+<header class="nav" id="nav">
+  <div class="container nav-inner">
+    <a href="#" class="brand" aria-label="RENACE.TECH">
+      <span class="brand-mark">R</span>
+      <span class="brand-name">RENACE<small>.TECH</small></span>
+    </a>
+    <nav class="nav-links" aria-label="Navegación principal">
+      <a href="#servicios">Servicios</a>
+      <a href="#metodo">Método</a>
+      <a href="#clientes">Clientes</a>
+      <a href="#contacto">Contacto</a>
+      <a href="/portal" class="nav-cta">Portal de Clientes</a>
+    </nav>
+    <button class="nav-toggle" id="navToggle" aria-label="Menú" aria-expanded="false">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<!-- ══════ HERO ═════════════════════════════════════════ -->
+<section class="hero">
+  <div class="container">
+    <span class="eyebrow reveal">
+      <span class="eyebrow-dot"></span>
+      Cumplimiento DGII e-CF activo para 2026
+    </span>
+    <h1 class="hero-title reveal">
+      Consultores expertos en<br>
+      <span class="grad">IA e integración tecnológica</span>.
+    </h1>
+    <p class="hero-sub reveal">
+      Te acompañamos en la implementación de <strong>Inteligencia Artificial</strong> 
+      y digitalización de procesos con Odoo ERP y facturación electrónica 
+      diseñada para la nueva economía digital.
+    </p>
+    <div class="hero-cta reveal">
+      <a href="/cotizacion" class="btn btn-primary">
+        Agendar diagnóstico gratis
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12,5 19,12 12,19"/>
+        </svg>
+      </a>
+      <a href="#servicios" class="btn btn-ghost">
+        Ver servicios
+      </a>
+    </div>
+    <div class="hero-proof reveal">
+      <div class="avatars" aria-hidden="true">
+        <span>PA</span><span>IR</span><span>YM</span><span>IF</span>
+      </div>
+      <div>
+        <div class="stars">★★★★★</div>
+        <div>Usado por 50+ empresas en República Dominicana</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ STATS ════════════════════════════════════════ -->
+<section class="stats">
+  <div class="container stats-grid">
+    <div class="stat reveal">
+      <div class="stat-num" data-count="14">0</div>
+      <div class="stat-label">AÑOS DE EXPERIENCIA</div>
+    </div>
+    <div class="stat reveal">
+      <div class="stat-num" data-count="50" data-suffix="+">0</div>
+      <div class="stat-label">CLIENTES ACTIVOS</div>
+    </div>
+    <div class="stat reveal">
+      <div class="stat-num" data-count="90" data-suffix=" días">0</div>
+      <div class="stat-label">IMPLEMENTACIÓN TÍPICA</div>
+    </div>
+    <div class="stat reveal">
+      <div class="stat-num" data-count="99" data-suffix="%">0</div>
+      <div class="stat-label">UPTIME GARANTIZADO</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ SERVICES ═════════════════════════════════════ -->
+<section id="servicios">
+  <div class="container">
+    <div class="section-head reveal">
+      <div class="section-eyebrow">Servicios</div>
+      <h2 class="section-title">Una plataforma completa para correr tu negocio</h2>
+      <p class="section-sub">Cubrimos el ciclo completo: ERP, facturación, ventas, inventario, contabilidad y analítica — todo integrado.</p>
+    </div>
+
+    <div class="services-grid">
+      <div class="service reveal">
+        <span class="service-tag">CORE</span>
+        <div class="service-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        </div>
+        <h3>Odoo ERP</h3>
+        <p>Implementación certificada, migración de datos, personalización y soporte continuo. CRM, ventas, compras, inventario y contabilidad.</p>
+      </div>
+
+      <div class="service reveal">
+        <span class="service-tag">DGII</span>
+        <div class="service-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
+        </div>
+        <h3>Facturación Electrónica e-CF</h3>
+        <p>Cumplimiento total con la normativa DGII 2026. Emisión, recepción y archivo de comprobantes fiscales electrónicos certificados.</p>
+      </div>
+
+      <div class="service reveal">
+        <span class="service-tag">CLOUD</span>
+        <div class="service-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        </div>
+        <h3>POS en la Nube</h3>
+        <p>Punto de venta multi-sucursal, sincronización offline, control de caja y reportes en tiempo real desde el móvil.</p>
+      </div>
+
+      <div class="service reveal">
+        <span class="service-tag">R-COMMERCE</span>
+        <div class="service-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        </div>
+        <h3>Únete al R-Commerce</h3>
+        <p>Vive la experiencia de las grandes plataformas nativa en tu ERP. Con nuestro software, estás a un clic del ecommerce total.</p>
+      </div>
+
+      <div class="service reveal">
+        <span class="service-tag">MOBILE</span>
+        <div class="service-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+        </div>
+        <h3>Apps Móviles a Medida</h3>
+        <p>Android e iOS nativas con Capacitor. Para tu equipo, tus clientes o tus procesos operativos — conectadas a tu ERP.</p>
+      </div>
+
+      <div class="service reveal">
+        <span class="service-tag">DATA</span>
+        <div class="service-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        </div>
+        <h3>BI & Dashboards</h3>
+        <p>Indicadores operativos y financieros en vivo. Decide con datos, no con intuición — reportes personalizados por rol.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ METHOD ═══════════════════════════════════════ -->
+<section id="metodo" class="method">
+  <div class="container">
+    <div class="section-head reveal">
+      <div class="section-eyebrow">Método RENACE</div>
+      <h2 class="section-title">De la primera reunión al go-live en 90 días</h2>
+      <p class="section-sub">Un proceso probado, sin sorpresas. Entregables claros, fechas fijas, responsables definidos.</p>
+    </div>
+
+    <div class="steps">
+      <div class="step reveal">
+        <h4>Diagnóstico</h4>
+        <p>Mapeamos tus procesos actuales y detectamos cuellos de botella. Entregable: plan de digitalización.</p>
+      </div>
+      <div class="step reveal">
+        <h4>Diseño</h4>
+        <p>Configuramos Odoo para tu industria. Parametrización, flujos de aprobación y roles por usuario.</p>
+      </div>
+      <div class="step reveal">
+        <h4>Despliegue</h4>
+        <p>Migración de datos, pruebas integrales y capacitación a tu equipo. Go-live asistido paso a paso.</p>
+      </div>
+      <div class="step reveal">
+        <h4>Acompañamiento</h4>
+        <p>Soporte continuo, nuevas integraciones y optimización trimestral del rendimiento del sistema.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ CLIENTS ══════════════════════════════════════ -->
+<section id="clientes">
+  <div class="container">
+    <div class="section-head reveal">
+      <div class="section-eyebrow">Casos de éxito</div>
+      <h2 class="section-title">Empresas que renacieron con nosotros</h2>
+      <p class="section-sub">Sectores reales. Resultados medibles. Implementaciones entregadas.</p>
+    </div>
+
+    <div class="clients-grid">
+      <div class="client reveal">
+        <div class="client-name">Pescadería Altamar</div>
+        <div class="client-sector">RETAIL · ALIMENTOS</div>
+        <div class="client-result">Cadena de frío digitalizada, POS multi-sucursal y facturación e-CF desde día uno.</div>
+      </div>
+      <div class="client reveal">
+        <div class="client-name">Importadora R40</div>
+        <div class="client-sector">DISTRIBUCIÓN</div>
+        <div class="client-result">Gestión de importaciones, aduanas y costeo de mercancías unificado en Odoo.</div>
+      </div>
+      <div class="client reveal">
+        <div class="client-name">Yoya's Makeup School</div>
+        <div class="client-sector">EDUCACIÓN</div>
+        <div class="client-result">Plataforma de formación docente con gestión académica y certificación digital.</div>
+      </div>
+      <div class="client reveal">
+        <div class="client-name">Iron Fury</div>
+        <div class="client-sector">FITNESS · SaaS</div>
+        <div class="client-result">App móvil nativa + CRM para gestión de membresías y clases en sucursales.</div>
+      </div>
+      <div class="client reveal">
+        <div class="client-name">Rifapp</div>
+        <div class="client-sector">FINTECH · RIFAS</div>
+        <div class="client-result">Plataforma de rifas digitales con pagos locales integrados y panel administrativo.</div>
+      </div>
+      <div class="client reveal">
+        <div class="client-name">Caughy's Training</div>
+        <div class="client-sector">EDUCACIÓN</div>
+        <div class="client-result">Portal de capacitación con control de progreso, certificados y gestión de instructores.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ TESTIMONIAL ═════════════════════════════════ -->
+<section>
+  <div class="container">
+    <div class="testimonial-card reveal">
+      <div class="quote-mark" aria-hidden="true">"</div>
+      <blockquote>
+        Antes corríamos el negocio con hojas de cálculo y facturas en papel.
+        Hoy, con Odoo gestionado por RENACE.TECH, tenemos control en tiempo real
+        de cada sucursal, cumplimos con DGII sin estrés y cerramos mes en horas,
+        no en semanas.
+      </blockquote>
+      <div class="testimonial-author">
+        <div class="author-avatar">JM</div>
+        <div>
+          <div class="author-name">Juan Martínez</div>
+          <div class="author-role">Director de Operaciones · Cliente retail</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ FINAL CTA ════════════════════════════════════ -->
+<section id="contacto">
+  <div class="container">
+    <div class="final-cta reveal">
+      <h2>Estás invitado al futuro del R-Commerce</h2>
+      <p>Olvida la complejidad. Agenda tu diagnóstico gratuito y descubre cómo, con nuestro software, estás a un clic de tu propio ecommerce.</p>
+      <div class="btn-row">
+        <a href="/cotizacion" class="btn btn-primary">
+          Solicitar cotización
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12,5 19,12 12,19"/>
+          </svg>
+        </a>
+        <a href="https://wa.me/18095550123?text=Hola%2C%20quiero%20un%20diagn%C3%B3stico" class="btn btn-ghost" rel="noopener" target="_blank">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884"/></svg>
+          Escribir por WhatsApp
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ FOOTER ═══════════════════════════════════════ -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-col footer-about">
+        <div class="brand">
+          <span class="brand-mark">R</span>
+          <span class="brand-name">RENACE<small>.TECH</small></span>
+        </div>
+        <p>Plataforma de digitalización empresarial. Odoo, e-CF, POS y apps para PyMEs en República Dominicana.</p>
+      </div>
+      <div class="footer-col">
+        <h5>Servicios</h5>
+        <a href="#servicios">Odoo ERP</a>
+        <a href="#servicios">Facturación e-CF</a>
+        <a href="#servicios">POS Cloud</a>
+        <a href="#servicios">Apps móviles</a>
+      </div>
+      <div class="footer-col">
+        <h5>Empresa</h5>
+        <a href="/team">Equipo</a>
+        <a href="#clientes">Clientes</a>
+        <a href="#contacto">Contacto</a>
+        <a href="/portal">Portal</a>
+      </div>
+      <div class="footer-col">
+        <h5>Legal</h5>
+        <a href="/terminos">Términos</a>
+        <a href="/privacidad">Privacidad</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div>© <span id="year">2026</span> RENACE.TECH — Todos los derechos reservados.</div>
+      <div>Santo Domingo, República Dominicana</div>
+    </div>
+  </div>
+</footer>
+
+<script src="/landing.js" defer></script>"
+    <script src="js/renace-access.js" defer></script>
+</body>"
+</html>

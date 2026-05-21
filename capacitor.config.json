@@ -1,0 +1,10 @@
+{
+  "appId": "tech.renace.app",
+  "appName": "RENACE",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "server": {
+    "url": "https://sistema.renace.tech",
+    "cleartext": false
+  }
+}

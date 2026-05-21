@@ -1,0 +1,14 @@
+# RENACE.TECH — robots.txt
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /data/
+Disallow: /.env
+Disallow: /node_modules/
+Disallow: /admin-dashboard.html
+Disallow: /cotizacion.html
+Disallow: /portal
+Disallow: /portal.html
+Disallow: /metrics.html
+
+Sitemap: https://renace.tech/sitemap.xml
