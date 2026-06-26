@@ -1794,11 +1794,21 @@ async function sendDocumentsList(res) {
     const missingBundled = getStaticBundledDocs().filter(d => !docs.some(x => x.name === d.name));
     return res.json([...docs, ...missingBundled]);
   } catch {
+    const bundled = getStaticBundledDocs();
     const jsonPath = path.join(__dirname, 'data', 'documents.json');
     if (fs.existsSync(jsonPath)) {
-      return res.sendFile('data/documents.json', { root: __dirname });
+      try {
+        const legacy = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+        const legacyList = Array.isArray(legacy) ? legacy : [];
+        const merged = [...legacyList];
+        for (const item of bundled) {
+          if (!merged.some((x) => x.name === item.name)) merged.push(item);
+        }
+        return res.json(merged);
+      } catch {
+        return res.json(bundled.length ? bundled : []);
+      }
     }
-    const bundled = getStaticBundledDocs();
     return res.json(bundled.length ? bundled : []);
   }
 }
