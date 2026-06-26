@@ -43,31 +43,26 @@ find . -name "* 2.html" -delete 2>/dev/null || true
 find . -name "* 2.js" -delete 2>/dev/null || true
 find . -name "* 2.css" -delete 2>/dev/null || true
 find . -name "creds.json.bak" -delete 2>/dev/null || true
-find . -name "docker-compose.yml.bak" -delete 2>/dev/null || true
 rm -rf www/ 2>/dev/null || true
 
-# 3. Build and deploy the stack
-echo "🐳 Building Docker image locally..."
-docker compose -f docker-compose.yml build
+# 2.6 Disk check (VPS was at ~91% — build needs free space)
+DISK_USE=$(df / | awk 'NR==2 {print $5}' | tr -d '%')
+if [ "$DISK_USE" -gt 88 ]; then
+    echo "⚠️  Disco al ${DISK_USE}%. Liberando imágenes huérfanas antes del build..."
+    docker image prune -f 2>/dev/null || true
+fi
 
-echo "🚀 Stopping old standalone containers if they exist..."
-docker compose down 2>/dev/null || true
+if [ ! -f docker-compose.yml ] || [ ! -f Dockerfile ]; then
+    echo "❌ Faltan docker-compose.yml o Dockerfile. Asegúrate de tener el repo actualizado."
+    exit 1
+fi
 
-echo "🚀 Deploying stack to Docker Swarm with resolved environment..."
-set -a
-source .env
-set +a
-docker stack deploy -c docker-compose.yml renace
+# 3. Build ONLY the app image — NO stack deploy (preserva env vars en Swarm)
+echo "🐳 Building renace-app image (solo servicio app)..."
+docker compose -f docker-compose.yml build app
 
-# NOTE: Las variables de entorno se pasan al stack en el primer deploy via .env
-# En actualizaciones subsecuentes, Swarm conserva las variables ya configuradas.
-# Para cambiar una variable manualmente usa:
-#   docker service update --env-add NOMBRE_VAR=valor renace_app
-
-# For local Swarm without a registry, Swarm ignores the newly built 'latest' image
-# if the tag hasn't changed. We MUST force the service to restart to pick up the new code.
-echo "🔄 Forcing Swarm to restart the app and pick up the new local image..."
-docker service update --force renace_app 2>/dev/null || true
+echo "🔄 Reiniciando solo renace_app para cargar la imagen nueva..."
+docker service update --force renace_app
 
 # 4. Clean up unused builder resources to save space
 echo "🧹 Cleaning up unused Docker images..."

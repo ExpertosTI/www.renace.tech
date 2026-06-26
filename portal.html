@@ -703,11 +703,6 @@
 
       setLoading(true);
 
-      // Detectar si estamos dentro del Cascarón (app nativa)
-      const isShellApp = window.navigator.userAgent.includes('RENACE-App') || 
-                         window.location.href.includes('?shell=true') ||
-                         window.parent !== window;
-
       try {
         // Usar el nuevo endpoint SSO para generar token
         const res = await fetch('/api/sso/generate-token', {
@@ -729,8 +724,8 @@
           localStorage.setItem('renace_client_name', data.client_name);
         }
 
-        // Si estamos en el Cascarón, redirigir a la URL /renace del cliente
-        if (isShellApp && data.redirect_url) {
+        // Redirigir al SSO de Odoo o servicio del cliente
+        if (data.redirect_url) {
           window.location.href = data.redirect_url;
           return;
         }
@@ -761,7 +756,7 @@
         setLoading(false);
       }
     });
-  </script>"
-    <script src="js/renace-access.js" defer></script>
-</body>"
+  </script>
+  <script src="js/renace-access.js" defer></script>
+</body>
 </html>

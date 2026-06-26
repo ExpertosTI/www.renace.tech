@@ -26,6 +26,15 @@ const PORT = process.env.PORT || 3000;
 const isProd = process.env.NODE_ENV === 'production';
 const FORM_DATA_PATH = path.join(__dirname, 'form', 'data.json');
 const QUOTE_DATA_PATH = path.join(__dirname, 'data', 'quotes.json');
+const DOWNLOADS_DIR = path.join(__dirname, 'downloads');
+const BUNDLED_DOWNLOADS = [
+  {
+    filename: 'EnviosRH.apk',
+    displayName: 'Envíos RH v3.1.0 (Android)',
+    mimeType: 'application/vnd.android.package-archive',
+    category: 'app',
+  },
+];
 const blockedStaticPathPattern = /(?:^\/(?:server\.js|package(?:-lock)?\.json|docker-compose\.yml|Dockerfile|deploy\.sh)$|\.(?:php|env|yml|yaml|sh|sql|log|bak|md)$)/i;
 const ADMIN_EMAILS = [
   (process.env.ADMIN_EMAIL || 'expertostird@gmail.com').toLowerCase(),
@@ -1157,14 +1166,18 @@ app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
       }
     }
 
-    // Store password if not already stored
-    const hashedPassword = crypto.createHash('sha256').update(password).digest('hex');
-    await pool.query(
-      `UPDATE client_portal_users 
-       SET odoo_password_enc = $1 
-       WHERE id = $2 AND (odoo_password_enc IS NULL OR odoo_password_enc != $1)`,
-      [hashedPassword, user.id]
-    );
+    // Store encrypted password for Google OAuth (requires PORTAL_ENCRYPTION_KEY)
+    if (PORTAL_ENCRYPTION_KEY) {
+      try {
+        const encryptedPassword = portalEncrypt(password);
+        await pool.query(
+          `UPDATE client_portal_users SET odoo_password_enc = $1 WHERE id = $2`,
+          [encryptedPassword, user.id]
+        );
+      } catch (e) {
+        console.warn('[sso generate] Could not encrypt password:', e.message);
+      }
+    }
 
     // If it's a custom service like RNV Manager, it handles its own JWT.
     // We just return it directly so the frontend can redirect with it.
@@ -1744,6 +1757,27 @@ function requireBasicAuth(req, res) {
   return true;
 }
 
+function getStaticBundledDocs() {
+  const docs = [];
+  for (const bundle of BUNDLED_DOWNLOADS) {
+    const filePath = path.join(DOWNLOADS_DIR, bundle.filename);
+    if (!fs.existsSync(filePath)) continue;
+    const stat = fs.statSync(filePath);
+    const ext = path.extname(bundle.filename).replace('.', '').toUpperCase();
+    const sizeLabel = stat.size > 1024 * 1024
+      ? `${(stat.size / (1024 * 1024)).toFixed(1)} MB`
+      : `${(stat.size / 1024).toFixed(1)} KB`;
+    docs.push({
+      name: bundle.displayName,
+      type: ext,
+      size: sizeLabel,
+      file: `/downloads/${bundle.filename}`,
+      category: bundle.category || 'other',
+    });
+  }
+  return docs;
+}
+
 async function sendDocumentsList(res) {
   try {
     const result = await pool.query(
@@ -1757,13 +1791,15 @@ async function sendDocumentsList(res) {
       file: `/api/documents/${row.id}/download`,
       category: row.category,
     }));
-    return res.json(docs);
+    const missingBundled = getStaticBundledDocs().filter(d => !docs.some(x => x.name === d.name));
+    return res.json([...docs, ...missingBundled]);
   } catch {
     const jsonPath = path.join(__dirname, 'data', 'documents.json');
     if (fs.existsSync(jsonPath)) {
       return res.sendFile('data/documents.json', { root: __dirname });
     }
-    return res.json([]);
+    const bundled = getStaticBundledDocs();
+    return res.json(bundled.length ? bundled : []);
   }
 }
 
@@ -2247,11 +2283,41 @@ function getCategory(ext) {
     audio: ['MP3', 'WAV', 'OGG', 'AAC', 'FLAC'],
     archive: ['ZIP', 'RAR', '7Z', 'TAR', 'GZ'],
     document: ['PDF', 'DOC', 'DOCX', 'XLS', 'XLSX', 'PPT', 'PPTX', 'TXT', 'CSV'],
+    app: ['APK', 'IPA', 'AAB', 'EXE', 'MSI', 'DMG'],
   };
   for (const [cat, exts] of Object.entries(cats)) {
     if (exts.includes(ext)) return cat;
   }
   return 'other';
+}
+
+async function seedBundledDownloads() {
+  if (!fs.existsSync(DOWNLOADS_DIR)) return;
+  for (const bundle of BUNDLED_DOWNLOADS) {
+    const filePath = path.join(DOWNLOADS_DIR, bundle.filename);
+    if (!fs.existsSync(filePath)) continue;
+    try {
+      const existing = await pool.query(
+        'SELECT id FROM documents WHERE name = $1 LIMIT 1',
+        [bundle.displayName]
+      );
+      if (existing.rows.length) continue;
+
+      const buffer = fs.readFileSync(filePath);
+      const ext = path.extname(bundle.filename).replace('.', '').toUpperCase();
+      const sizeLabel = buffer.length > 1024 * 1024
+        ? `${(buffer.length / (1024 * 1024)).toFixed(1)} MB`
+        : `${(buffer.length / 1024).toFixed(1)} KB`;
+
+      await pool.query(
+        'INSERT INTO documents (name, type, size, mime_type, data, category) VALUES ($1,$2,$3,$4,$5,$6)',
+        [bundle.displayName, ext, sizeLabel, bundle.mimeType, buffer, getCategory(ext)]
+      );
+      console.log(`[downloads] Registered: ${bundle.displayName}`);
+    } catch (e) {
+      console.warn(`[downloads] Could not seed ${bundle.filename}:`, e.message);
+    }
+  }
 }
 
 // ── Odoo Reverse Proxy ──────────────────────────────────────────
@@ -2810,5 +2876,6 @@ async function initOdooSSOKey() {
 rawServer.listen(PORT, async () => {
   console.log(`🚀 RENACE.TECH running on port ${PORT} (${isProd ? 'production' : 'development'})`);
   await initDB();
+  await seedBundledDownloads();
   await initOdooSSOKey();
 });

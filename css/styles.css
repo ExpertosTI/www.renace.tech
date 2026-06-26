@@ -927,6 +927,7 @@ a *, button *, [onclick] *, .finder-control *, .control *, .terminal-btn *, .btn
 .document-icon--pdf { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
 .document-icon--zip { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
 .document-icon--exe { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+.document-icon--apk { background: rgba(74, 222, 128, 0.15); color: #4ade80; }
 .document-icon--doc { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
 .document-icon--xls { background: rgba(52, 211, 153, 0.15); color: #34d399; }
 .document-icon--ppt { background: rgba(251, 146, 60, 0.15); color: #fb923c; }

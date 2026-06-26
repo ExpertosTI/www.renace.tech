@@ -286,6 +286,7 @@ function getDocumentIconConfig(doc) {
   if (type.includes('PDF') || file.endsWith('.pdf')) return { iconClass: 'fa-file-pdf', typeClass: 'document-icon--pdf' };
   if (type.includes('ZIP') || file.match(/\.(zip|rar|7z)$/)) return { iconClass: 'fa-file-archive', typeClass: 'document-icon--zip' };
   if (type.includes('EXE') || file.match(/\.(exe|msi)$/)) return { iconClass: 'fa-microchip', typeClass: 'document-icon--exe' };
+  if (type.includes('APK') || file.match(/\.(apk|aab|ipa)$/)) return { iconClass: 'fa-mobile-alt', typeClass: 'document-icon--apk' };
   if (type.includes('DOC') || file.match(/\.docx?$/)) return { iconClass: 'fa-file-word', typeClass: 'document-icon--doc' };
   if (type.includes('XLS') || file.match(/\.xlsx?$/)) return { iconClass: 'fa-file-excel', typeClass: 'document-icon--xls' };
   if (type.includes('PPT') || file.match(/\.pptx?$/)) return { iconClass: 'fa-file-powerpoint', typeClass: 'document-icon--ppt' };
@@ -294,6 +295,7 @@ function getDocumentIconConfig(doc) {
 }
 
 function getDocumentCategory(doc) {
+  if (doc?.category && doc.category !== 'other') return doc.category;
   const name = doc?.name || doc?.file || '';
   const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
   const cats = {
@@ -302,6 +304,7 @@ function getDocumentCategory(doc) {
     audio: ['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a'],
     archive: ['zip', 'rar', '7z', 'tar', 'gz'],
     document: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv'],
+    app: ['apk', 'aab', 'ipa', 'exe', 'msi', 'dmg'],
   };
   for (const [cat, exts] of Object.entries(cats)) {
     if (exts.includes(ext)) return cat;
