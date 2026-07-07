@@ -40,7 +40,10 @@ docker service update \
   --env-add "SMTP_PORT=${SMTP_PORT:-587}" \
   --env-add "SMTP_USER=${SMTP_USER:-}" \
   --env-add "SMTP_PASSWORD=${SMTP_PASSWORD:-}" \
-  --env-add "SMTP_FROM=${SMTP_FROM:-}" \
+  --env-add "SMTP_FROM=${SMTP_FROM:-RENACE.TECH <info@renace.tech>}" \
+  --env-add "MAIL_REPLY_TO=${MAIL_REPLY_TO:-info@renace.tech}" \
+  --env-add "ADMIN_EMAIL=${ADMIN_EMAIL:-}" \
+  --env-add "CHAT_WEBHOOK=${CHAT_WEBHOOK:-}" \
   --env-add "ODOO_URL=${ODOO_URL:-}" \
   --env-add "ODOO_LONGPOLL_URL=${ODOO_LONGPOLL_URL:-}" \
   --env-add "ODOO_DB=${ODOO_DB:-}" \

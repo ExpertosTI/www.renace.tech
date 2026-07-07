@@ -43,6 +43,9 @@ services:
       SMTP_USER: ${SMTP_USER}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       SMTP_FROM: ${SMTP_FROM}
+      MAIL_REPLY_TO: ${MAIL_REPLY_TO:-info@renace.tech}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      CHAT_WEBHOOK: ${CHAT_WEBHOOK:-}
       PORT: ${PORT:-3000}
       NODE_ENV: production
       ODOO_URL: ${ODOO_URL}

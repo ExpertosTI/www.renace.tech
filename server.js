@@ -40,6 +40,17 @@ const ADMIN_EMAILS = [
   (process.env.ADMIN_EMAIL || 'expertostird@gmail.com').toLowerCase(),
   'rcexpertos@gmail.com'
 ];
+const MAIL_REPLY_TO = (process.env.MAIL_REPLY_TO || 'info@renace.tech').trim();
+
+function getMailFrom() {
+  const raw = (process.env.SMTP_FROM || 'RENACE.TECH <info@renace.tech>').trim();
+  if (raw.includes('<')) return raw;
+  return `RENACE.TECH <${raw}>`;
+}
+
+function getMailOptions(extra = {}) {
+  return { from: getMailFrom(), replyTo: MAIL_REPLY_TO, ...extra };
+}
 const ADMIN_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const ADMIN_CODE_TTL_MS = 10 * 60 * 1000; // 10 min
 const QUOTE_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
@@ -454,12 +465,11 @@ function generateCode(len = 6) {
 async function sendAdminCode(email, code) {
   if (!transporter) return false;
   try {
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM || 'RENACE.TECH <noreply@renace.tech>',
+    await transporter.sendMail(getMailOptions({
       to: email,
       subject: 'Código de acceso dashboard Renace',
       text: `Tu código de acceso es: ${code} (válido por 10 minutos).`,
-    });
+    }));
     return true;
   } catch (e) {
     console.warn('[admin code email]', e.message);
@@ -1904,8 +1914,7 @@ async function handleContactSubmission(req, res) {
 
   if (transporter) {
     try {
-      await transporter.sendMail({
-        from: process.env.SMTP_FROM || 'RENACE.TECH <noreply@renace.tech>',
+      await transporter.sendMail(getMailOptions({
         to: ADMIN_EMAILS.join(', '),
         subject: `🎯 Nuevo Lead/Contacto: ${safeName} — renace.tech`,
         text: `Nombre: ${safeName}\nEmail: ${safeEmail}\n\n${safeMessage}`,
@@ -1913,7 +1922,7 @@ async function handleContactSubmission(req, res) {
           <p><strong>Nombre:</strong> ${safeName}</p>
           <p><strong>Email:</strong> ${safeEmail}</p>
           <p>${safeMessage.replace(/\n/g, '<br>')}</p>`,
-      });
+      }));
     } catch (err) {
       console.warn('Email send failed:', err.message);
     }
@@ -2094,8 +2103,7 @@ async function sendAdminNotification(submission, req) {
   if (transporter && ADMIN_EMAILS.length > 0) {
     try {
       const adminList = ADMIN_EMAILS.join(', ');
-      await transporter.sendMail({
-        from: process.env.SMTP_FROM || 'RENACE.TECH <noreply@renace.tech>',
+      await transporter.sendMail(getMailOptions({
         to: adminList,
         subject: `🚨 Nueva Cotización: ${submission.name} — renace.tech`,
         html: `
@@ -2145,7 +2153,41 @@ app.post('/api/chat', chatLimiter, async (req, res) => {
 });
 
 app.get('/api/health/live', (req, res) => {
-  res.json({ status: 'ok' });
+  res.json({
+    status: 'ok',
+    mail: {
+      configured: Boolean(transporter),
+      from: getMailFrom(),
+      replyTo: MAIL_REPLY_TO,
+    },
+  });
+});
+
+app.post('/api/health/mail-test', gateLimiter, async (req, res) => {
+  const expected = process.env.ADMIN_ACCESS_PASSWORD;
+  if (!expected) return res.status(503).json({ ok: false, error: 'gate_disabled' });
+  const pin = getAdminCredential(req);
+  if (!securePinMatch(pin, expected)) {
+    return res.status(401).json({ ok: false, error: 'unauthorized' });
+  }
+  if (!transporter) {
+    return res.status(503).json({ ok: false, error: 'smtp_not_configured' });
+  }
+  const target = ADMIN_EMAILS[0];
+  try {
+    await transporter.sendMail(getMailOptions({
+      to: target,
+      subject: 'RENACE — verificación de notificaciones',
+      text: `Prueba post-despliegue OK.\nRemitente: ${getMailFrom()}\nReply-To: ${MAIL_REPLY_TO}\nHora: ${new Date().toISOString()}`,
+      html: `<p>Prueba post-despliegue <strong>OK</strong>.</p>
+        <p><strong>Remitente:</strong> ${getMailFrom()}</p>
+        <p><strong>Reply-To:</strong> ${MAIL_REPLY_TO}</p>
+        <p><strong>Hora:</strong> ${new Date().toISOString()}</p>`,
+    }));
+    res.json({ ok: true, from: getMailFrom(), replyTo: MAIL_REPLY_TO, to: target });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
 });
 
 app.get('/documents.php', apiLimiter, async (req, res) => sendDocumentsList(res));
