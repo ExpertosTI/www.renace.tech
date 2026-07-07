@@ -2128,7 +2128,7 @@ async function sendAdminNotification(submission, req) {
             <a href="https://renace.tech/admin-dashboard.html" style="display: inline-block; padding: 10px 20px; background: #2563eb; color: #fff; text-decoration: none; border-radius: 5px;">Abrir Panel de Admin</a>
           </div>
         `
-      });
+      }));
     } catch (e) {
       console.warn('[Admin Notif Email failed]:', e.message);
     }
