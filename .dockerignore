@@ -80,6 +80,4 @@ setup_email_forwarding.sh
 validate-compose.sh
 build-android.sh
 
-# Admin / internal HTML not needed for public container
-admin-dashboard.html
-metrics.html
+# metrics.html stays optional; admin-dashboard is required for Command Center

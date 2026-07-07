@@ -138,7 +138,7 @@
       id: 'quote',
       icon: 'fas fa-file-invoice-dollar',
       label: 'Solicitar Cotización',
-      desc: 'Obtén un presupuesto personalizado para tu proyecto',
+      desc: 'Presupuesto personalizado para proyectos',
       gradient: 'linear-gradient(135deg, #0077b6, #00b4d8)',
       action: () => { window.open('/cotizacion.html', '_blank'); closeAction(); }
     },
@@ -146,26 +146,90 @@
       id: 'portal',
       icon: 'fas fa-sign-in-alt',
       label: 'Portal de Clientes',
-      desc: 'Accede a tu plataforma empresarial',
+      desc: 'SSO Google · acceso Odoo',
       gradient: 'linear-gradient(135deg, #0096c7, #48cae4)',
       action: () => { window.open('/portal', '_blank'); closeAction(); }
     },
     {
+      id: 'enviosrh',
+      icon: 'fas fa-shipping-fast',
+      label: 'Envíos RH',
+      desc: 'Logística · enviosrh.renace.tech',
+      gradient: 'linear-gradient(135deg, #059669, #34d399)',
+      action: () => { window.open('https://enviosrh.renace.tech', '_blank'); closeAction(); }
+    },
+    {
+      id: 'apk',
+      icon: 'fas fa-mobile-alt',
+      label: 'APK Envíos RH',
+      desc: 'Descarga Android v3.1',
+      gradient: 'linear-gradient(135deg, #7c3aed, #a78bfa)',
+      action: () => { window.open('/downloads/EnviosRH.apk', '_blank'); closeAction(); }
+    },
+    {
       id: 'instances',
-      icon: 'fas fa-server',
-      label: 'Gestor de Nodos',
-      desc: 'Visualiza la topología de la infraestructura híbrida',
+      icon: 'fas fa-project-diagram',
+      label: 'Mapa de Nodos',
+      desc: 'Topología infraestructura híbrida',
       gradient: 'linear-gradient(135deg, #023e8a, #0096c7)',
       action: () => {
-        document.querySelector('.nodes-canvas-wrap')?.scrollIntoView({ behavior: 'smooth' });
+        document.getElementById('nodes-section')?.scrollIntoView({ behavior: 'smooth' });
         closeAction();
       }
+    },
+    {
+      id: 'odoo-hub',
+      icon: 'fas fa-cubes',
+      label: 'Odoo Hub',
+      desc: 'Instancia principal odoo.renace.tech',
+      gradient: 'linear-gradient(135deg, #b45309, #f59e0b)',
+      action: () => { window.open('https://odoo.renace.tech', '_blank'); closeAction(); }
+    },
+    {
+      id: 'portainer',
+      icon: 'fab fa-docker',
+      label: 'Portainer',
+      desc: 'Gestión contenedores Docker',
+      gradient: 'linear-gradient(135deg, #0e7490, #22d3ee)',
+      action: () => { window.open('https://portainer.renace.tech', '_blank'); closeAction(); }
+    },
+    {
+      id: 'tools',
+      icon: 'fas fa-toolbox',
+      label: 'Herramientas',
+      desc: '12 utilidades web gratuitas',
+      gradient: 'linear-gradient(135deg, #4c1d95, #8b5cf6)',
+      action: () => { window.open('/tools.html', '_blank'); closeAction(); }
+    },
+    {
+      id: 'links',
+      icon: 'fas fa-link',
+      label: 'RENACE Links',
+      desc: 'Central de enlaces oficiales',
+      gradient: 'linear-gradient(135deg, #1e3a8a, #3b82f6)',
+      action: () => { window.open('/links.html', '_blank'); closeAction(); }
+    },
+    {
+      id: 'downloads',
+      icon: 'fas fa-download',
+      label: 'Centro de Descargas',
+      desc: 'Documentos, APKs y utilidades',
+      gradient: 'linear-gradient(135deg, #14532d, #22c55e)',
+      action: () => { window.open('/#documentos', '_blank'); closeAction(); }
+    },
+    {
+      id: 'metrics',
+      icon: 'fas fa-chart-pie',
+      label: 'Métricas',
+      desc: 'Panel de analítica interna',
+      gradient: 'linear-gradient(135deg, #831843, #ec4899)',
+      action: () => { window.open('/metrics.html', '_blank'); closeAction(); }
     },
     {
       id: 'whatsapp',
       icon: 'fab fa-whatsapp',
       label: 'Soporte VIP',
-      desc: 'Escríbenos directamente por WhatsApp',
+      desc: 'WhatsApp directo',
       gradient: 'linear-gradient(135deg, #03045e, #0077b6)',
       action: () => { window.open('https://wa.me/18494577463?text=Hola%2C%20necesito%20soporte%20tecnico', '_blank'); }
     }
@@ -178,8 +242,8 @@
     const welcome = document.createElement('div');
     welcome.className = 'rg-action-welcome';
     welcome.innerHTML = `
-      <p class="rg-action-greeting">Hola 👋 Administrador</p>
-      <p class="rg-action-subtitle">Selecciona una acción para comenzar</p>
+      <p class="rg-action-greeting">RENACE://root</p>
+      <p class="rg-action-subtitle">Selecciona un nodo o servicio</p>
     `;
     actionContainer.appendChild(welcome);
 
@@ -292,6 +356,18 @@
     { name:'fullbloke', type:'odoo', url:'https://fullbloke.renace.tech' },
     { name:'limytech', type:'odoo', url:'https://limytech.renace.tech' },
     { name:'mojo', type:'odoo', url:'https://mojo.renace.tech' },
+    { name:'enviosrh', type:'web', url:'https://enviosrh.renace.tech' },
+    { name:'portainer', type:'api', url:'https://portainer.renace.tech' },
+    { name:'ecf', type:'web', url:'https://ecf.renace.tech' },
+    { name:'rifapp', type:'web', url:'https://rifapp.renace.tech' },
+    { name:'pescaderia', type:'web', url:'https://pescaderia.renace.tech' },
+    { name:'insforge', type:'api', url:'https://insforge.renace.tech' },
+    { name:'astro', type:'web', url:'https://astro.renace.tech' },
+    { name:'moonshadows', type:'web', url:'https://moonshadows.renace.tech' },
+    { name:'envical', type:'web', url:'https://envical.renace.tech' },
+    { name:'roseline', type:'web', url:'https://roseline.renace.tech' },
+    { name:'renace', type:'web', url:'https://renace.tech' },
+    { name:'portal', type:'web', url:'https://renace.tech/portal' },
     { name:'bx', type:'web', url:'https://bx.renace.tech' },
     { name:'forms', type:'web', url:'https://forms.renace.tech' },
     { name:'mvpflow', type:'web', url:'https://mvpflow.renace.tech' },
@@ -770,6 +846,7 @@
       loadOdooSection();
       initNodesGraph();
       startAutoRefresh();
+      loadCampaigns();
     } catch (e) {
       setMessage(e.message, 'error');
       token = '';
@@ -1227,12 +1304,14 @@
   const nodesSection = document.getElementById('nodes-section');
 
   const VPS_GROUPS = {
+    vpsProd: ['enviosrh', 'portainer', 'ecf', 'rifapp', 'pescaderia', 'insforge', 'astro', 'renace'],
     vps1: ['thiagosmart','dyfsmart','soriinails','odoo','delkilo','thiago','lakersdisco','alcaduarte','metro','hansel','henryh'],
     vps2: ['ceramicajc','clb','delkilofood','calpad','rey','sp','guerrero','universal'],
     vps3: ['manuelhookah','nominarf','reyplaza','cacorojo','cueromacho','launi','naje','lagrasa'],
     vps4: ['ronuimport','magile','camuflaje','tarjetaroja','heredia','pim','easymovil','disttineo','yeurismart','fullbloke','limytech','mojo'],
   };
   const VPS_META = {
+    vpsProd: { label:'VPS-PROD', ip:'45.9.191.18' },
     vps1: { label:'VPS-1', ip:'85.31.224.232' },
     vps2: { label:'VPS-2', ip:'85.31.224.233' },
     vps3: { label:'VPS-3', ip:'85.31.224.234' },
@@ -1525,25 +1604,36 @@
           el.appendChild(sub);
         }
 
-        // Drag
-        let dragging = false, startX, startY, startNX, startNY;
+        // Drag + click
+        let dragging = false;
+        let moved = false;
+        let startX, startY, startNX, startNY;
         el.addEventListener('mousedown', ev => {
           if (ev.button !== 0) return;
-          ev.preventDefault(); dragging = true;
-          startX = ev.clientX; startY = ev.clientY;
-          startNX = nd.x; startNY = nd.y;
+          ev.preventDefault();
+          dragging = true;
+          moved = false;
+          startX = ev.clientX;
+          startY = ev.clientY;
+          startNX = nd.x;
+          startNY = nd.y;
           el.style.zIndex = 20;
         });
         const onMove = ev => {
           if (!dragging) return;
-          nd.x = startNX + ev.clientX - startX;
-          nd.y = startNY + ev.clientY - startY;
-          el.style.left = nd.x + 'px'; el.style.top = nd.y + 'px';
+          const dx = ev.clientX - startX;
+          const dy = ev.clientY - startY;
+          if (Math.abs(dx) > 4 || Math.abs(dy) > 4) moved = true;
+          nd.x = startNX + dx;
+          nd.y = startNY + dy;
+          el.style.left = nd.x + 'px';
+          el.style.top = nd.y + 'px';
           renderEdges();
         };
         const onUp = () => {
           if (!dragging) return;
-          dragging = false; el.style.zIndex = '';
+          dragging = false;
+          el.style.zIndex = '';
           savePos();
         };
         window.addEventListener('mousemove', onMove);
@@ -1552,23 +1642,31 @@
         // Touch
         el.addEventListener('touchstart', ev => {
           const t = ev.touches[0];
-          dragging = true; startX = t.clientX; startY = t.clientY;
-          startNX = nd.x; startNY = nd.y;
+          dragging = true;
+          moved = false;
+          startX = t.clientX;
+          startY = t.clientY;
+          startNX = nd.x;
+          startNY = nd.y;
         }, { passive: true });
         el.addEventListener('touchmove', ev => {
           if (!dragging) return;
           ev.preventDefault();
           const t = ev.touches[0];
-          nd.x = startNX + t.clientX - startX; nd.y = startNY + t.clientY - startY;
-          el.style.left = nd.x + 'px'; el.style.top = nd.y + 'px';
+          const dx = t.clientX - startX;
+          const dy = t.clientY - startY;
+          if (Math.abs(dx) > 4 || Math.abs(dy) > 4) moved = true;
+          nd.x = startNX + dx;
+          nd.y = startNY + dy;
+          el.style.left = nd.x + 'px';
+          el.style.top = nd.y + 'px';
           renderEdges();
         }, { passive: false });
         el.addEventListener('touchend', () => { dragging = false; savePos(); });
 
-        // Click → open URL (only if not dragged)
         el.addEventListener('click', () => {
-          if (Math.abs(nd.x - startNX) > 5 || Math.abs(nd.y - startNY) > 5) return;
-          if (nd.url) window.open(nd.url, '_blank');
+          if (moved) { moved = false; return; }
+          if (nd.url) window.open(nd.url, '_blank', 'noopener,noreferrer');
         });
 
         container.appendChild(el);

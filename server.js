@@ -565,6 +565,14 @@ const portalLimiter = rateLimit({
   message: { error: 'Demasiados intentos de acceso, intenta más tarde.' },
 });
 
+const gateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 12,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, error: 'rate_limited' },
+});
+
 // ── Admin auth + analytics (after rate limiters to avoid hoisting issues) ──
 app.post('/api/admin/login/request-code', apiLimiter, async (req, res) => {
   const email = (req.body?.email || '').trim().toLowerCase();
@@ -592,6 +600,24 @@ app.post('/api/admin/login/verify-code', apiLimiter, (req, res) => {
   adminTokens.set(token, { email, exp: Date.now() + ADMIN_TOKEN_TTL_MS });
   adminCodes.delete(email);
   res.json({ token, ttlMs: ADMIN_TOKEN_TTL_MS });
+});
+
+function securePinMatch(pin, expected) {
+  if (!expected || typeof pin !== 'string') return false;
+  const a = Buffer.from(pin);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+app.post('/api/admin/gate', gateLimiter, (req, res) => {
+  const expected = process.env.ADMIN_ACCESS_PASSWORD;
+  if (!expected) return res.status(503).json({ ok: false, error: 'gate_disabled' });
+  const pin = getAdminCredential(req);
+  if (!securePinMatch(pin, expected)) {
+    return res.status(401).json({ ok: false, error: 'invalid_pin' });
+  }
+  res.json({ ok: true, redirect: '/admin-dashboard.html' });
 });
 
 function requireAdminToken(req, res) {
