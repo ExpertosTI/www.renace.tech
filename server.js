@@ -46,8 +46,10 @@ const ADMIN_EMAILS = [
 const MAIL_REPLY_TO = (process.env.MAIL_REPLY_TO || 'info@renace.tech').trim();
 
 function getMailFrom() {
-  const raw = (process.env.SMTP_FROM || 'RENACE.TECH <info@renace.tech>').trim();
+  const raw = (process.env.SMTP_FROM || process.env.SMTP_USER || 'info@renace.tech').trim();
+  if (!raw) return 'RENACE.TECH <info@renace.tech>';
   if (raw.includes('<')) return raw;
+  // Hostinger exige From == usuario autenticado
   return `RENACE.TECH <${raw}>`;
 }
 
@@ -1739,11 +1741,24 @@ async function initDB() {
 // ── SMTP ──
 let transporter = null;
 if (process.env.SMTP_HOST) {
+  const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
+  const smtpSecure = process.env.SMTP_SECURE === '1' || process.env.SMTP_SECURE === 'true' || smtpPort === 465;
   transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: parseInt(process.env.SMTP_PORT || '587') === 465,
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
+    port: smtpPort,
+    secure: smtpSecure,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASSWORD,
+    },
+    // Hostinger / relays: force STARTTLS on 587
+    requireTLS: !smtpSecure && smtpPort === 587,
+    tls: { minVersion: 'TLSv1.2' },
+  });
+  transporter.verify().then(() => {
+    console.log(`[SMTP] OK ${process.env.SMTP_HOST}:${smtpPort} as ${process.env.SMTP_USER || '(no user)'}`);
+  }).catch((e) => {
+    console.warn(`[SMTP] verify failed: ${e.message}`);
   });
 }
 
