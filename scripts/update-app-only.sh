@@ -82,6 +82,21 @@ else
   echo "⚠️  Saltando mail-test (falta ADMIN_ACCESS_PASSWORD o SMTP_HOST)"
 fi
 
+if [ -n "${ADMIN_ACCESS_PASSWORD:-}" ] && [ -n "${EVOLUTION_API_KEY:-}" ]; then
+  echo "📱 Enviando WhatsApp de prueba (Evolution API)..."
+  WA_RESULT=$(curl -sf -X POST "https://renace.tech/api/health/wa-test" \
+    -H "Content-Type: application/json" \
+    -d "{\"pin\":\"${ADMIN_ACCESS_PASSWORD}\"}" 2>&1) || WA_RESULT='{"ok":false}'
+  echo "   $WA_RESULT"
+  if echo "$WA_RESULT" | grep -q '"ok":true'; then
+    echo "✅ WhatsApp de prueba enviado desde 809-348-7921"
+  else
+    echo "⚠️  WhatsApp de prueba falló — revisa EVOLUTION_API_KEY en .env"
+  fi
+else
+  echo "⚠️  Saltando wa-test (falta ADMIN_ACCESS_PASSWORD o EVOLUTION_API_KEY)"
+fi
+
 echo ""
 echo "📊 Estado del servicio:"
 docker service ps renace_app --no-trunc | head -4

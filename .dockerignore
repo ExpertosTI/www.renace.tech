@@ -70,8 +70,7 @@ rifapp-stack/
 rnv-manager-stack/
 temp_git_fix/
 
-# Docs and local tooling
-docs/
+# Local markdown tooling (keep public downloadable binaries in /docs via volume)
 *.md
 !README.md
 deploy_corporate.sh

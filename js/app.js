@@ -272,11 +272,28 @@ let _adminCredential = '';
 
 function getSafeDocumentUrl(doc) {
   if (!doc || typeof doc.file !== 'string') return null;
-  const raw = doc.file.trim();
+  let raw = doc.file.trim();
   if (!raw) return null;
   const lower = raw.toLowerCase();
   if (lower.startsWith('javascript:') || lower.startsWith('data:') || lower.includes('..')) return null;
+  // Normalize relative legacy paths: docs/x.exe → /docs/x.exe
+  if (!/^https?:\/\//i.test(raw) && !raw.startsWith('/')) {
+    raw = `/${raw.replace(/^\/+/, '')}`;
+  }
   return raw;
+}
+
+function getDocumentDownloadName(doc, url) {
+  try {
+    const pathName = new URL(url, window.location.origin).pathname;
+    const fromUrl = decodeURIComponent(pathName.split('/').pop() || '');
+    if (fromUrl && /\.[a-z0-9]{1,8}$/i.test(fromUrl)) return fromUrl;
+  } catch { /* ignore */ }
+  const name = String(doc?.name || 'archivo').trim();
+  if (/\.[a-z0-9]{1,8}$/i.test(name)) return name;
+  const type = String(doc?.type || '').toLowerCase();
+  if (type && type !== 'n/a') return `${name}.${type}`;
+  return name;
 }
 
 function getDocumentIconConfig(doc) {
@@ -368,9 +385,8 @@ function initDocumentsList() {
 
     if (url) {
       item.href = url;
-      item.target = '_blank';
       item.rel = 'noopener noreferrer';
-      item.setAttribute('download', '');
+      item.setAttribute('download', getDocumentDownloadName(doc, url));
     } else {
       item.setAttribute('aria-disabled', 'true');
     }

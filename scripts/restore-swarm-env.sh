@@ -44,6 +44,12 @@ docker service update \
   --env-add "MAIL_REPLY_TO=${MAIL_REPLY_TO:-info@renace.tech}" \
   --env-add "ADMIN_EMAIL=${ADMIN_EMAIL:-}" \
   --env-add "CHAT_WEBHOOK=${CHAT_WEBHOOK:-}" \
+  --env-add "EVOLUTION_API_URL=${EVOLUTION_API_URL:-https://evoapi.renace.tech}" \
+  --env-add "EVOLUTION_API_KEY=${EVOLUTION_API_KEY:-}" \
+  --env-add "EVOLUTION_INSTANCE=${EVOLUTION_INSTANCE:-RENACE.TECH}" \
+  --env-add "WHATSAPP_SENDER_NUMBER=${WHATSAPP_SENDER_NUMBER:-18093487921}" \
+  --env-add "WHATSAPP_NOTIFY_NUMBERS=${WHATSAPP_NOTIFY_NUMBERS:-}" \
+  --env-add "NOTIFY_API_KEY=${NOTIFY_API_KEY:-}" \
   --env-add "ODOO_URL=${ODOO_URL:-}" \
   --env-add "ODOO_LONGPOLL_URL=${ODOO_LONGPOLL_URL:-}" \
   --env-add "ODOO_DB=${ODOO_DB:-}" \

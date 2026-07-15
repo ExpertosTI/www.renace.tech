@@ -1655,7 +1655,7 @@ function getSafeDocumentUrl(doc) {
             return null;
         }
 
-        const raw = doc.file.trim();
+        let raw = doc.file.trim();
         if (!raw) {
             return null;
         }
@@ -1670,6 +1670,10 @@ function getSafeDocumentUrl(doc) {
         if (lower.includes('..')) {
             console.warn('Ruta de documento con secuencias no permitidas bloqueada:', raw);
             return null;
+        }
+
+        if (!/^https?:\/\//i.test(raw) && !raw.startsWith('/')) {
+            raw = `/${raw.replace(/^\/+/, '')}`;
         }
 
         return raw;
@@ -1877,9 +1881,15 @@ function initDocumentsList() {
 
         if (!isDisabled) {
             item.href = url;
-            item.target = '_blank';
             item.rel = 'noopener noreferrer';
-            item.setAttribute('download', '');
+            const pathName = (() => {
+                try { return new URL(url, window.location.origin).pathname; } catch { return ''; }
+            })();
+            const fromUrl = decodeURIComponent((pathName.split('/').pop() || ''));
+            const downloadName = (fromUrl && /\.[a-z0-9]{1,8}$/i.test(fromUrl))
+                ? fromUrl
+                : String(doc.name || 'archivo');
+            item.setAttribute('download', downloadName);
         } else {
             item.setAttribute('aria-disabled', 'true');
         }

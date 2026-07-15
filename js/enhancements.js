@@ -4,7 +4,7 @@
  */
 
 (function () {
-    const WHATSAPP_NUMBER = '8494577463';
+    const WHATSAPP_NUMBER = '18093487921';
     const WHATSAPP_BASE_URL = `https://wa.me/${WHATSAPP_NUMBER}`;
 
     function onReady(callback) {

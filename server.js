@@ -14,6 +14,7 @@ const rateLimit = require('express-rate-limit');
 const multer = require('multer');
 const { Pool } = require('pg');
 const nodemailer = require('nodemailer');
+const waNotify = require('./lib/whatsapp-notify');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -27,6 +28,8 @@ const isProd = process.env.NODE_ENV === 'production';
 const FORM_DATA_PATH = path.join(__dirname, 'form', 'data.json');
 const QUOTE_DATA_PATH = path.join(__dirname, 'data', 'quotes.json');
 const DOWNLOADS_DIR = path.join(__dirname, 'downloads');
+const DOCS_DIR = path.join(__dirname, 'docs');
+const DATA_DIR = path.join(__dirname, 'data');
 const BUNDLED_DOWNLOADS = [
   {
     filename: 'EnviosRH.apk',
@@ -60,7 +63,12 @@ const METRICS_DATA_PATH = path.join(__dirname, 'data', 'metrics.json');
 const CAMPAIGNS_DATA_PATH = path.join(__dirname, 'data', 'campaigns.json');
 
 // Ensure the runtime data directory exists before any read/write of JSON stores.
-try { fs.mkdirSync(path.join(__dirname, 'data'), { recursive: true }); } catch { /* noop */ }
+try {
+  fs.mkdirSync(path.join(__dirname, 'data'), { recursive: true });
+  fs.mkdirSync(path.join(__dirname, 'data', 'docs'), { recursive: true });
+  fs.mkdirSync(path.join(__dirname, 'downloads'), { recursive: true });
+  fs.mkdirSync(path.join(__dirname, 'docs'), { recursive: true });
+} catch { /* noop */ }
 
 let requestMetrics = [];
 let campaignData = [
@@ -1809,9 +1817,82 @@ function getStaticBundledDocs() {
       size: sizeLabel,
       file: `/downloads/${bundle.filename}`,
       category: bundle.category || 'other',
+      available: true,
     });
   }
   return docs;
+}
+
+/** Resolve a documents.json file path to an existing on-disk file. */
+function resolvePublicDownload(fileRef) {
+  if (!fileRef || typeof fileRef !== 'string') return null;
+  const raw = fileRef.trim().replace(/^\/+/, '');
+  if (!raw || raw.includes('..')) return null;
+
+  const basename = path.basename(raw);
+  const candidates = [];
+  if (raw.startsWith('docs/')) candidates.push(path.join(__dirname, raw));
+  else if (raw.startsWith('downloads/')) candidates.push(path.join(__dirname, raw));
+  else candidates.push(path.join(__dirname, raw));
+
+  // Prefer dedicated folders, then the already-mounted data volume
+  candidates.push(
+    path.join(DOCS_DIR, basename),
+    path.join(DOWNLOADS_DIR, basename),
+    path.join(DATA_DIR, 'docs', basename),
+    path.join(DATA_DIR, 'downloads', basename),
+    path.join(DATA_DIR, basename),
+  );
+
+  for (const abs of candidates) {
+    try {
+      if (fs.existsSync(abs) && fs.statSync(abs).isFile()) {
+        const filename = path.basename(abs);
+        const normalizedAbs = abs.split(path.sep).join('/');
+        const preferDownloads = normalizedAbs.includes('/downloads/') || abs.startsWith(DOWNLOADS_DIR + path.sep);
+        const url = preferDownloads ? `/downloads/${filename}` : `/docs/${filename}`;
+        return { abs, url, filename };
+      }
+    } catch { /* skip */ }
+  }
+  return null;
+}
+
+function formatSizeLabel(bytes) {
+  if (!Number.isFinite(bytes) || bytes < 0) return 'N/A';
+  if (bytes > 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / 1024).toFixed(1)} KB`;
+}
+
+function loadLegacyDocumentsJson() {
+  const jsonPath = path.join(DATA_DIR, 'documents.json');
+  if (!fs.existsSync(jsonPath)) return [];
+  try {
+    const legacy = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+    return Array.isArray(legacy) ? legacy : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Keep only legacy entries whose files exist; rewrite URLs to absolute public paths. */
+function getAvailableLegacyDocs() {
+  const out = [];
+  for (const item of loadLegacyDocumentsJson()) {
+    const resolved = resolvePublicDownload(item.file);
+    if (!resolved) continue;
+    const stat = fs.statSync(resolved.abs);
+    const ext = path.extname(resolved.filename).replace('.', '').toUpperCase();
+    out.push({
+      name: item.name || resolved.filename,
+      type: item.type || ext,
+      size: item.size && item.size !== 'N/A' ? item.size : formatSizeLabel(stat.size),
+      file: resolved.url,
+      category: item.category || getCategory(ext),
+      available: true,
+    });
+  }
+  return out;
 }
 
 async function sendDocumentsList(res) {
@@ -1826,27 +1907,42 @@ async function sendDocumentsList(res) {
       size: row.size,
       file: `/api/documents/${row.id}/download`,
       category: row.category,
+      available: true,
     }));
-    const missingBundled = getStaticBundledDocs().filter(d => !docs.some(x => x.name === d.name));
-    return res.json([...docs, ...missingBundled]);
-  } catch {
-    const bundled = getStaticBundledDocs();
-    const jsonPath = path.join(__dirname, 'data', 'documents.json');
-    if (fs.existsSync(jsonPath)) {
-      try {
-        const legacy = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-        const legacyList = Array.isArray(legacy) ? legacy : [];
-        const merged = [...legacyList];
-        for (const item of bundled) {
-          if (!merged.some((x) => x.name === item.name)) merged.push(item);
-        }
-        return res.json(merged);
-      } catch {
-        return res.json(bundled.length ? bundled : []);
+    const names = new Set(docs.map(d => d.name));
+    for (const item of [...getStaticBundledDocs(), ...getAvailableLegacyDocs()]) {
+      if (!names.has(item.name)) {
+        docs.push(item);
+        names.add(item.name);
       }
     }
-    return res.json(bundled.length ? bundled : []);
+    return res.json(docs);
+  } catch {
+    const merged = [];
+    const names = new Set();
+    for (const item of [...getAvailableLegacyDocs(), ...getStaticBundledDocs()]) {
+      if (names.has(item.name)) continue;
+      merged.push(item);
+      names.add(item.name);
+    }
+    return res.json(merged);
   }
+}
+
+function sendAttachmentFile(res, absPath, fallbackName) {
+  const filename = sanitizeFilename(fallbackName || path.basename(absPath));
+  const ext = path.extname(filename).toLowerCase();
+  const mimeMap = {
+    '.apk': 'application/vnd.android.package-archive',
+    '.exe': 'application/octet-stream',
+    '.msi': 'application/octet-stream',
+    '.zip': 'application/zip',
+    '.pdf': 'application/pdf',
+  };
+  res.setHeader('Content-Type', mimeMap[ext] || 'application/octet-stream');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  return res.sendFile(absPath);
 }
 
 async function handleDocumentUpload(req, res) {
@@ -1926,6 +2022,12 @@ async function handleContactSubmission(req, res) {
     } catch (err) {
       console.warn('Email send failed:', err.message);
     }
+  }
+
+  if (waNotify.isConfigured()) {
+    const waText = `📩 *Nuevo contacto web*\n\n*Nombre:* ${safeName}\n*Email:* ${safeEmail}\n\n${safeMessage}`;
+    waNotify.notifyAdmins(waText, { app: 'renace.tech', event: 'contacto' })
+      .catch((e) => console.warn('[Contact WhatsApp]', e.message));
   }
 
   return res.json({ status: 'success', message: '¡Mensaje recibido! Te contactaremos pronto.' });
@@ -2078,19 +2180,34 @@ function requestChatWebhook(payload, req) {
 }
 
 async function sendAdminNotification(submission, req) {
-  // 1. WhatsApp / Webhook Notification (OpenClaw)
-  if (CHAT_WEBHOOK) {
+  const waMessage = `🚨 *Nueva solicitud de cotización*\n\n*Cliente:* ${submission.name}\n*Empresa:* ${submission.business}\n*Sector:* ${submission.sector}\n*WhatsApp:* ${submission.phone}\n*Email:* ${submission.email}\n*Objetivo:* ${submission.objective}\n*Timeline:* ${submission.timeline}\n*Cajas:* ${submission.cashiers} · *Empleados:* ${submission.employees}\n*Ingresos:* ${submission.revenue}\n\n*Mensaje:* ${submission.message || 'Sin mensaje adicional.'}`;
+
+  // 1. WhatsApp vía Evolution API (RENACE.TECH · 809-348-7921)
+  if (waNotify.isConfigured()) {
+    try {
+      const waResult = await waNotify.notifyAdmins(waMessage, {
+        app: 'renace.tech',
+        event: 'cotización',
+      });
+      if (!waResult.ok) {
+        console.warn('[Admin Notif WhatsApp]', JSON.stringify(waResult));
+      }
+    } catch (e) {
+      console.warn('[Admin Notif WhatsApp failed]:', e.message);
+    }
+  } else if (CHAT_WEBHOOK) {
+    // Fallback legacy (OpenClaw / n8n)
     const chatPayload = {
-      message: `🚨 *Nueva solicitud de cotización*\n\n*Cliente:* ${submission.name}\n*Empresa:* ${submission.business}\n*Sector:* ${submission.sector}\n*WhatsApp:* ${submission.phone}\n*Email:* ${submission.email}\n*Objetivo:* ${submission.objective}\n*Timeline:* ${submission.timeline}\n*Cajas:* ${submission.cashiers} · *Empleados:* ${submission.employees}\n*Ingresos:* ${submission.revenue}\n\n*Mensaje:* ${submission.message || 'Sin mensaje adicional.'}`,
+      message: waMessage,
       sessionId: `admin-notif-${Date.now()}`,
       source: 'renace-server-notif',
       mode: 'admin_notification',
-      context: { 
-        name: submission.name, 
-        business: submission.business, 
-        sector: submission.sector, 
-        revenue: submission.revenue 
-      }
+      context: {
+        name: submission.name,
+        business: submission.business,
+        sector: submission.sector,
+        revenue: submission.revenue,
+      },
     };
     try {
       await requestChatWebhook(chatPayload, req);
@@ -2160,7 +2277,58 @@ app.get('/api/health/live', (req, res) => {
       from: getMailFrom(),
       replyTo: MAIL_REPLY_TO,
     },
+    whatsapp: waNotify.getStatus(),
   });
+});
+
+app.get('/api/public-config', (req, res) => {
+  const wa = waNotify.WHATSAPP_SENDER_NUMBER;
+  res.json({
+    whatsapp: wa,
+    whatsappUrl: `https://wa.me/${wa}`,
+    whatsappDisplay: `+${wa.replace(/^1(\d{3})(\d{3})(\d{4})$/, '1 ($1) $2-$3')}`,
+    notifyApi: '/api/notify/whatsapp',
+  });
+});
+
+app.post('/api/notify/whatsapp', apiLimiter, async (req, res) => {
+  const expected = process.env.NOTIFY_API_KEY || process.env.ADMIN_ACCESS_PASSWORD;
+  const key = typeof req.headers['x-notify-key'] === 'string'
+    ? req.headers['x-notify-key']
+    : (typeof req.body?.key === 'string' ? req.body.key : '');
+  if (!expected || key !== expected) {
+    return res.status(401).json({ ok: false, error: 'unauthorized' });
+  }
+
+  const { text, to, app, event } = req.body || {};
+  if (!text || typeof text !== 'string') {
+    return res.status(400).json({ ok: false, error: 'text_required' });
+  }
+
+  if (to) {
+    const result = await waNotify.sendText(to, text);
+    return res.status(result.ok ? 200 : 502).json(result);
+  }
+
+  const result = await waNotify.notifyAdmins(text, { app, event });
+  return res.status(result.ok ? 200 : 502).json(result);
+});
+
+app.post('/api/health/wa-test', gateLimiter, async (req, res) => {
+  const expected = process.env.ADMIN_ACCESS_PASSWORD;
+  if (!expected) return res.status(503).json({ ok: false, error: 'gate_disabled' });
+  const pin = getAdminCredential(req);
+  if (!securePinMatch(pin, expected)) {
+    return res.status(401).json({ ok: false, error: 'unauthorized' });
+  }
+  if (!waNotify.isConfigured()) {
+    return res.status(503).json({ ok: false, error: 'whatsapp_not_configured' });
+  }
+  const result = await waNotify.notifyAdmins(
+    '✅ *RENACE notifier OK*\nPrueba post-despliegue desde Evolution API.\nInstancia RENACE.TECH · 809-348-7921',
+    { app: 'renace.tech', event: 'deploy-test' }
+  );
+  return res.status(result.ok ? 200 : 502).json({ ...result, status: waNotify.getStatus() });
 });
 
 app.post('/api/health/mail-test', gateLimiter, async (req, res) => {
@@ -2239,6 +2407,41 @@ app.use((req, res, next) => {
 });
 
 // ── Static Files ──
+// Explicit download routes (force attachment + verify path)
+app.get('/downloads/:filename', (req, res) => {
+  const filename = path.basename(String(req.params.filename || ''));
+  if (!filename || filename.includes('..')) return res.status(400).end();
+  const candidates = [
+    path.join(DOWNLOADS_DIR, filename),
+    path.join(DATA_DIR, 'downloads', filename),
+    path.join(DATA_DIR, 'docs', filename),
+    path.join(DOCS_DIR, filename),
+  ];
+  const abs = candidates.find((p) => {
+    try { return fs.existsSync(p) && fs.statSync(p).isFile(); } catch { return false; }
+  });
+  if (!abs) return res.status(404).end();
+  return sendAttachmentFile(res, abs, filename);
+});
+
+app.get('/docs/:filename', (req, res) => {
+  const filename = path.basename(String(req.params.filename || ''));
+  if (!filename || filename.includes('..')) return res.status(400).end();
+  // Prefer docs/, then downloads/, then data volume (already mounted in Swarm)
+  const candidates = [
+    path.join(DOCS_DIR, filename),
+    path.join(DOWNLOADS_DIR, filename),
+    path.join(DATA_DIR, 'docs', filename),
+    path.join(DATA_DIR, 'downloads', filename),
+    path.join(DATA_DIR, filename),
+  ];
+  const abs = candidates.find((p) => {
+    try { return fs.existsSync(p) && fs.statSync(p).isFile(); } catch { return false; }
+  });
+  if (!abs) return res.status(404).end();
+  return sendAttachmentFile(res, abs, filename);
+});
+
 app.use(express.static(path.join(__dirname), {
   index: 'index.html',
   extensions: ['html'],

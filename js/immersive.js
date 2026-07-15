@@ -46,22 +46,33 @@
       }, 2200);
     }
 
+    function resolveDownloadFilename(link, href) {
+      try {
+        const pathName = new URL(href, window.location.origin).pathname;
+        const fromUrl = decodeURIComponent(pathName.split('/').pop() || '');
+        if (fromUrl && /\.[a-z0-9]{1,8}$/i.test(fromUrl)) return fromUrl;
+      } catch { /* ignore */ }
+      const label = link.querySelector('.document-name')?.textContent?.trim() || 'archivo';
+      return label;
+    }
+
     document.addEventListener('click', async (e) => {
-      const link = e.target.closest('a.document-item[download], a.document-item[href*="/download"]');
+      // Only intercept API blob downloads — let the browser handle /downloads and /docs
+      const link = e.target.closest('a.document-item[href*="/api/documents/"][href*="/download"]');
       if (!link) return;
 
       const href = link.href;
       if (!href || href.startsWith('blob:')) return;
 
       e.preventDefault();
-      const filename = link.querySelector('.document-name')?.textContent?.trim() || 'archivo';
+      const filename = resolveDownloadFilename(link, href);
       const toast = createProgressUI(filename);
       const bar = toast.querySelector('.dl-toast-bar');
       const pct = toast.querySelector('.dl-toast-pct');
       const status = toast.querySelector('.dl-toast-status');
 
       try {
-        const res = await fetch(href);
+        const res = await fetch(href, { credentials: 'same-origin' });
         if (!res.ok) throw new Error('Error en la descarga');
         const total = parseInt(res.headers.get('content-length') || '0', 10);
         const reader = res.body.getReader();

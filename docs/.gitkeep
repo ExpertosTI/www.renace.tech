@@ -1,0 +1,2 @@
+Place downloadable binaries here (Rufus, VC_redist, POS Agent, etc.).
+In production they live in the renace_docs_data Docker volume mounted at /app/docs.

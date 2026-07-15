@@ -5,11 +5,13 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 COPY server.js ./
+COPY lib/ ./lib/
 COPY css/ ./css/
 COPY js/ ./js/
 COPY images/ ./images/
 COPY form/ ./form/
 COPY downloads/ ./downloads/
+COPY docs/ ./docs/
 COPY contacto/ ./contacto/
 COPY terms/ ./terms/
 COPY formv/ ./formv/

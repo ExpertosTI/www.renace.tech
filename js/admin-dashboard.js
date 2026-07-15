@@ -231,7 +231,7 @@
       label: 'Soporte VIP',
       desc: 'WhatsApp directo',
       gradient: 'linear-gradient(135deg, #03045e, #0077b6)',
-      action: () => { window.open('https://wa.me/18494577463?text=Hola%2C%20necesito%20soporte%20tecnico', '_blank'); }
+      action: () => { window.open('https://wa.me/18093487921?text=Hola%2C%20necesito%20soporte%20tecnico', '_blank'); }
     }
   ];
 
