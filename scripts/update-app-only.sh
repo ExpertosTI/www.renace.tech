@@ -37,9 +37,17 @@ if [ -n "${DATABASE_URL:-}" ]; then
   export DATABASE_URL
 fi
 
-# Remitente: si falta, usar el SMTP_USER (Hostinger autenticado)
-if [ -z "${SMTP_FROM:-}" ] && [ -n "${SMTP_USER:-}" ]; then
-  export SMTP_FROM="RENACE.TECH <${SMTP_USER}>"
+# Correo oficial: info@renace.tech (nunca renace.space)
+if echo "${SMTP_USER:-}${SMTP_FROM:-}" | grep -qi 'renace\.space'; then
+  echo "⚠️  Detectado renace.space — corrigiendo a info@renace.tech"
+  export SMTP_USER="info@renace.tech"
+  export SMTP_FROM="RENACE.TECH <info@renace.tech>"
+fi
+if [ -z "${SMTP_USER:-}" ]; then
+  export SMTP_USER="info@renace.tech"
+fi
+if [ -z "${SMTP_FROM:-}" ]; then
+  export SMTP_FROM="RENACE.TECH <info@renace.tech>"
 fi
 if [ -z "${MAIL_REPLY_TO:-}" ]; then
   export MAIL_REPLY_TO="info@renace.tech"
