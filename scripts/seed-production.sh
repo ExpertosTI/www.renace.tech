@@ -1,6 +1,7 @@
 #!/bin/bash
 # Seed RENACE — auto, sin nano, sin placeholders.
 # Secretos: Swarm → .env → .env.bak
+# Estilo Catagce/EnvíosRH: solo env no-vacío + service update (NO stack deploy).
 #
 # Pegar:
 #   cd /opt/www.renace.tech && git fetch origin main && git reset --hard origin/main && chmod +x scripts/*.sh && ./scripts/seed-production.sh
@@ -11,6 +12,13 @@ cd /opt/www.renace.tech
 echo "═══════════════════════════════════════════"
 echo " RENACE — seed producción (auto)"
 echo "═══════════════════════════════════════════"
+
+DISK_PCT=$(df -P / | awk 'NR==2{gsub(/%/,"",$5); print $5}')
+echo "💾 Disco /: ${DISK_PCT}%"
+if [ "${DISK_PCT:-0}" -ge 90 ]; then
+  echo "⚠️  Disco casi lleno — docker update puede fallar. Limpia imágenes viejas si hace falta:"
+  echo "   docker system df; docker image prune -af"
+fi
 
 env_get() {
   python3 -c '
@@ -65,12 +73,11 @@ for line in sys.stdin:
 ' "$1"
 }
 
-# Reparar .env si falta o está roto
+# Reparar .env si falta o tiene placeholders
 NEED_RESTORE=0
 [ ! -f .env ] && NEED_RESTORE=1
 if [ -f .env ]; then
   if grep -q 'TU_PASSWORD\|TU_API_KEY' .env 2>/dev/null; then NEED_RESTORE=1; fi
-  if grep -q '^SMTP_FROM=.*<' .env 2>/dev/null && ! grep -q '^SMTP_FROM="' .env 2>/dev/null; then NEED_RESTORE=1; fi
 fi
 
 if [ "$NEED_RESTORE" = "1" ]; then
@@ -90,6 +97,14 @@ EVOLUTION_KEY_VAL="$(swarm_get EVOLUTION_API_KEY)"
 [ -z "$EVOLUTION_KEY_VAL" ] && EVOLUTION_KEY_VAL="$(env_get .env EVOLUTION_API_KEY)"
 [ -z "$EVOLUTION_KEY_VAL" ] && EVOLUTION_KEY_VAL="$(env_get .env.bak EVOLUTION_API_KEY)"
 
+# Fallback: key ya guardada en el volumen del contenedor
+if [ -z "$EVOLUTION_KEY_VAL" ]; then
+  CID=$(docker ps -q -f name=renace_app | head -1 || true)
+  if [ -n "${CID:-}" ]; then
+    EVOLUTION_KEY_VAL=$(docker exec "$CID" node -e 'try{const c=require("/app/data/whatsapp-config.json");process.stdout.write(c.apiKey||"")}catch{}' 2>/dev/null || true)
+  fi
+fi
+
 ADMIN_PIN_VAL="$(swarm_get ADMIN_ACCESS_PASSWORD)"
 [ -z "$ADMIN_PIN_VAL" ] && ADMIN_PIN_VAL="$(env_get .env ADMIN_ACCESS_PASSWORD)"
 [ -z "$ADMIN_PIN_VAL" ] && ADMIN_PIN_VAL="$(env_get .env.bak ADMIN_ACCESS_PASSWORD)"
@@ -99,12 +114,13 @@ DATABASE_URL_VAL="$(swarm_get DATABASE_URL)"
 [ -z "$DATABASE_URL_VAL" ] && DATABASE_URL_VAL="$(env_get .env.bak DATABASE_URL)"
 DATABASE_URL_VAL="${DATABASE_URL_VAL//@insforge_postgres:/@db:}"
 
-# Ignorar basura de placeholders
 case "$SMTP_PASSWORD_VAL" in *TU_PASSWORD*|*"@RENACE.TECH") SMTP_PASSWORD_VAL="";; esac
 case "$EVOLUTION_KEY_VAL" in *TU_API_KEY*|*your-evolution*) EVOLUTION_KEY_VAL="";; esac
 
 echo "📋 SMTP_PASSWORD=${SMTP_PASSWORD_VAL:+set}  EVOLUTION_API_KEY=${EVOLUTION_KEY_VAL:+set}  ADMIN_PIN=${ADMIN_PIN_VAL:+set}"
 [ -n "$SMTP_PASSWORD_VAL" ] || { echo "❌ Sin SMTP_PASSWORD en Swarm/.env.bak"; exit 1; }
+[ -n "$ADMIN_PIN_VAL" ] || { echo "❌ Sin ADMIN_ACCESS_PASSWORD en Swarm/.env.bak"; exit 1; }
+[ -n "$DATABASE_URL_VAL" ] || { echo "❌ Sin DATABASE_URL"; exit 1; }
 
 echo "📧 SMTP info@renace.tech..."
 env_set SMTP_HOST "smtp.hostinger.com"
@@ -121,13 +137,14 @@ env_set EVOLUTION_INSTANCE "RENACE.TECH"
 env_set WHATSAPP_SENDER_NUMBER "18093487921"
 env_set WHATSAPP_NOTIFY_NUMBERS "18494577463,18099152622"
 [ -n "$EVOLUTION_KEY_VAL" ] && env_set EVOLUTION_API_KEY "$EVOLUTION_KEY_VAL"
-[ -n "$ADMIN_PIN_VAL" ] && env_set ADMIN_ACCESS_PASSWORD "$ADMIN_PIN_VAL"
-[ -n "$DATABASE_URL_VAL" ] && env_set DATABASE_URL "$DATABASE_URL_VAL"
+env_set ADMIN_ACCESS_PASSWORD "$ADMIN_PIN_VAL"
+env_set DATABASE_URL "$DATABASE_URL_VAL"
 env_set PORT "3000"
 env_set NEXT_PUBLIC_BASE_URL "https://renace.tech"
+env_set NODE_ENV "production"
 
 CID=$(docker ps -q -f name=renace_app | head -1 || true)
-if [ -n "$CID" ]; then
+if [ -n "${CID:-}" ]; then
   echo "💾 whatsapp-config.json..."
   docker exec "$CID" mkdir -p /app/data
   docker exec -e EVO_KEY="$EVOLUTION_KEY_VAL" "$CID" node -e '
@@ -149,45 +166,78 @@ console.log(JSON.stringify({ok:true,hasKey:!!cfg.apiKey}));
 '
 fi
 
-echo "🔄 Sync Swarm..."
-args=(--force)
-add(){ [ -n "$2" ] && args+=(--env-add "$1=$2"); }
-add SMTP_HOST "smtp.hostinger.com"
-add SMTP_PORT "465"
-add SMTP_SECURE "1"
-add SMTP_USER "info@renace.tech"
-add SMTP_PASSWORD "$SMTP_PASSWORD_VAL"
-add SMTP_FROM "RENACE.TECH <info@renace.tech>"
-add MAIL_REPLY_TO "info@renace.tech"
-add EVOLUTION_API_URL "https://evoapi.renace.tech"
-add EVOLUTION_INSTANCE "RENACE.TECH"
-add WHATSAPP_SENDER_NUMBER "18093487921"
-add WHATSAPP_NOTIFY_NUMBERS "18494577463,18099152622"
-add EVOLUTION_API_KEY "$EVOLUTION_KEY_VAL"
-add ADMIN_ACCESS_PASSWORD "$ADMIN_PIN_VAL"
-add DATABASE_URL "$DATABASE_URL_VAL"
-add PORT "3000"
-add NEXT_PUBLIC_BASE_URL "https://renace.tech"
-add NODE_ENV "production"
-docker service update "${args[@]}" renace_app
+# Sync Swarm: solo valores no vacíos (mismo patrón que update-app-only.sh)
+# --detach evita colgarse si el disco está lleno / task no converge
+env_add_args=()
+add_env() {
+  local key="$1"
+  local val="${2-}"
+  if [ -n "$val" ]; then
+    env_add_args+=(--env-add "${key}=${val}")
+  fi
+}
+add_env DATABASE_URL "$DATABASE_URL_VAL"
+add_env NEXT_PUBLIC_BASE_URL "https://renace.tech"
+add_env ADMIN_ACCESS_PASSWORD "$ADMIN_PIN_VAL"
+add_env SMTP_HOST "smtp.hostinger.com"
+add_env SMTP_PORT "465"
+add_env SMTP_SECURE "1"
+add_env SMTP_USER "info@renace.tech"
+add_env SMTP_PASSWORD "$SMTP_PASSWORD_VAL"
+add_env SMTP_FROM "RENACE.TECH <info@renace.tech>"
+add_env MAIL_REPLY_TO "info@renace.tech"
+add_env EVOLUTION_API_URL "https://evoapi.renace.tech"
+add_env EVOLUTION_API_KEY "$EVOLUTION_KEY_VAL"
+add_env EVOLUTION_INSTANCE "RENACE.TECH"
+add_env WHATSAPP_SENDER_NUMBER "18093487921"
+add_env WHATSAPP_NOTIFY_NUMBERS "18494577463,18099152622"
+add_env PORT "3000"
+add_env NODE_ENV "production"
 
-echo "⏳ 50s..."
-sleep 50
-
-echo "🏥 Health:"
-curl -sS "https://renace.tech/api/health/live" || true
-echo ""
-
-if [ -n "$ADMIN_PIN_VAL" ]; then
-  echo "📨 Mail-test:"
-  python3 -c 'import json,sys; print(json.dumps({"pin":sys.argv[1]}))' "$ADMIN_PIN_VAL" \
-    | curl -sS -X POST "https://renace.tech/api/health/mail-test" -H "Content-Type: application/json" -d @- || true
-  echo ""
+echo "🔄 Sync Swarm (detach, sin stack deploy)..."
+if ! docker service update --detach "${env_add_args[@]}" --force renace_app; then
+  echo "❌ docker service update falló"
+  docker service ps renace_app --no-trunc 2>/dev/null | head -20 || true
+  exit 1
 fi
 
-echo "🔐 OTP:"
-curl -sS -X POST "https://renace.tech/api/admin/login/request-code" \
+echo "⏳ Esperando health (hasta 90s)..."
+OK=0
+for i in 1 2 3 4 5 6 7 8 9; do
+  sleep 10
+  HEALTH=$(curl -sS --max-time 8 "https://renace.tech/api/health/live" 2>/dev/null || true)
+  if echo "$HEALTH" | grep -q '"status":"ok"'; then
+    echo "🏥 Health OK (${i}0s)"
+    echo "$HEALTH" | head -c 500
+    echo ""
+    OK=1
+    break
+  fi
+  echo "   … aún no ($((i*10))s)"
+done
+
+if [ "$OK" != "1" ]; then
+  echo "❌ Health no OK. Estado del servicio:"
+  docker service ps renace_app --no-trunc 2>/dev/null | head -15 || true
+  df -h / | head -2
+  exit 1
+fi
+
+echo "📨 Mail-test:"
+python3 -c 'import json,sys; print(json.dumps({"pin":sys.argv[1]}))' "$ADMIN_PIN_VAL" \
+  | curl -sS --max-time 45 -X POST "https://renace.tech/api/health/mail-test" \
+      -H "Content-Type: application/json" -d @- || true
+echo ""
+
+echo "🔐 OTP email:"
+curl -sS --max-time 45 -X POST "https://renace.tech/api/admin/login/request-code" \
   -H "Content-Type: application/json" \
   -d '{"email":"expertostird@gmail.com","channel":"email"}' || true
 echo ""
+
+if [ -z "$EVOLUTION_KEY_VAL" ]; then
+  echo "⚠️  EVOLUTION_API_KEY ausente (SMTP/OTP email igual pueden funcionar)."
+  echo "   Configúrala en Admin → WhatsApp o en .env.bak y re-corre el seed."
+fi
+
 echo "✅ Seed OK"
