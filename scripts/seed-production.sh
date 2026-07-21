@@ -85,7 +85,7 @@ if [ "$NEED_RESTORE" = "1" ]; then
   [ -f .env.bak ] || { echo "❌ Falta .env.bak"; exit 1; }
   cp .env.bak .env
   sed -i 's/@insforge_postgres:/@db:/g' .env
-  sed -i 's/info@renace\.space/info@renace.tech/g' .env
+  # NO reemplazar SMTP_USER space→tech: el password de .env.bak es de la mailbox original
 fi
 
 # Secretos
@@ -93,16 +93,48 @@ SMTP_PASSWORD_VAL="$(swarm_get SMTP_PASSWORD)"
 [ -z "$SMTP_PASSWORD_VAL" ] && SMTP_PASSWORD_VAL="$(env_get .env SMTP_PASSWORD)"
 [ -z "$SMTP_PASSWORD_VAL" ] && SMTP_PASSWORD_VAL="$(env_get .env.bak SMTP_PASSWORD)"
 
+# Auth SMTP = mailbox dueña del password (.env.bak). From/Reply = marca renace.tech
+SMTP_USER_VAL="$(env_get .env.bak SMTP_USER)"
+[ -z "$SMTP_USER_VAL" ] && SMTP_USER_VAL="$(swarm_get SMTP_USER)"
+[ -z "$SMTP_USER_VAL" ] && SMTP_USER_VAL="$(env_get .env SMTP_USER)"
+[ -z "$SMTP_USER_VAL" ] && SMTP_USER_VAL="info@renace.tech"
+
 EVOLUTION_KEY_VAL="$(swarm_get EVOLUTION_API_KEY)"
 [ -z "$EVOLUTION_KEY_VAL" ] && EVOLUTION_KEY_VAL="$(env_get .env EVOLUTION_API_KEY)"
 [ -z "$EVOLUTION_KEY_VAL" ] && EVOLUTION_KEY_VAL="$(env_get .env.bak EVOLUTION_API_KEY)"
 
-# Fallback: key ya guardada en el volumen del contenedor
+# Fallback: key en volumen del contenedor
 if [ -z "$EVOLUTION_KEY_VAL" ]; then
   CID=$(docker ps -q -f name=renace_app | head -1 || true)
   if [ -n "${CID:-}" ]; then
     EVOLUTION_KEY_VAL=$(docker exec "$CID" node -e 'try{const c=require("/app/data/whatsapp-config.json");process.stdout.write(c.apiKey||"")}catch{}' 2>/dev/null || true)
   fi
+fi
+
+# Fallback: key en otros servicios Swarm con instance RENACE.TECH
+if [ -z "$EVOLUTION_KEY_VAL" ]; then
+  EVOLUTION_KEY_VAL=$(
+    docker service ls --format '{{.Name}}' 2>/dev/null | while read -r svc; do
+      docker service inspect "$svc" --format '{{range .Spec.TaskTemplate.ContainerSpec.Env}}{{println .}}{{end}}' 2>/dev/null
+    done | python3 -c '
+import sys
+key=inst=None
+best=""
+for line in sys.stdin:
+    line=line.strip()
+    if line.startswith("EVOLUTION_INSTANCE="):
+        inst=line.split("=",1)[1].strip()
+    elif line.startswith("EVOLUTION_API_KEY="):
+        key=line.split("=",1)[1].strip()
+        if key and inst in ("RENACE.TECH","RENACE","renace.tech"):
+            best=key
+            break
+        if key and not best:
+            best=key
+print(best, end="")
+'
+  )
+  [ -n "$EVOLUTION_KEY_VAL" ] && echo "🔑 EVOLUTION_API_KEY tomada de otro servicio (instance RENACE.TECH)"
 fi
 
 ADMIN_PIN_VAL="$(swarm_get ADMIN_ACCESS_PASSWORD)"
@@ -117,17 +149,18 @@ DATABASE_URL_VAL="${DATABASE_URL_VAL//@insforge_postgres:/@db:}"
 case "$SMTP_PASSWORD_VAL" in *TU_PASSWORD*|*"@RENACE.TECH") SMTP_PASSWORD_VAL="";; esac
 case "$EVOLUTION_KEY_VAL" in *TU_API_KEY*|*your-evolution*) EVOLUTION_KEY_VAL="";; esac
 
-echo "📋 SMTP_PASSWORD=${SMTP_PASSWORD_VAL:+set}  EVOLUTION_API_KEY=${EVOLUTION_KEY_VAL:+set}  ADMIN_PIN=${ADMIN_PIN_VAL:+set}"
+echo "📋 SMTP_USER=$SMTP_USER_VAL  SMTP_PASSWORD=${SMTP_PASSWORD_VAL:+set}  EVOLUTION_API_KEY=${EVOLUTION_KEY_VAL:+set}  ADMIN_PIN=${ADMIN_PIN_VAL:+set}"
 [ -n "$SMTP_PASSWORD_VAL" ] || { echo "❌ Sin SMTP_PASSWORD en Swarm/.env.bak"; exit 1; }
 [ -n "$ADMIN_PIN_VAL" ] || { echo "❌ Sin ADMIN_ACCESS_PASSWORD en Swarm/.env.bak"; exit 1; }
 [ -n "$DATABASE_URL_VAL" ] || { echo "❌ Sin DATABASE_URL"; exit 1; }
 
-echo "📧 SMTP info@renace.tech..."
+echo "📧 SMTP auth=$SMTP_USER_VAL  from=info@renace.tech..."
 env_set SMTP_HOST "smtp.hostinger.com"
 env_set SMTP_PORT "465"
 env_set SMTP_SECURE "1"
-env_set SMTP_USER "info@renace.tech"
+env_set SMTP_USER "$SMTP_USER_VAL"
 env_set SMTP_PASSWORD "$SMTP_PASSWORD_VAL"
+# From marca renace.tech; si Hostinger exige mismo buzón, auth ya usa .env.bak
 env_set SMTP_FROM "RENACE.TECH <info@renace.tech>"
 env_set MAIL_REPLY_TO "info@renace.tech"
 
@@ -182,7 +215,7 @@ add_env ADMIN_ACCESS_PASSWORD "$ADMIN_PIN_VAL"
 add_env SMTP_HOST "smtp.hostinger.com"
 add_env SMTP_PORT "465"
 add_env SMTP_SECURE "1"
-add_env SMTP_USER "info@renace.tech"
+add_env SMTP_USER "$SMTP_USER_VAL"
 add_env SMTP_PASSWORD "$SMTP_PASSWORD_VAL"
 add_env SMTP_FROM "RENACE.TECH <info@renace.tech>"
 add_env MAIL_REPLY_TO "info@renace.tech"
