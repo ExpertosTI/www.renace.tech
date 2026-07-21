@@ -804,7 +804,13 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: emailInput.value.trim(), channel })
       });
-      const data = await res.json();
+      const raw = await res.text();
+      let data = {};
+      try { data = JSON.parse(raw); } catch {
+        throw new Error(res.status === 502
+          ? 'Servidor no respondió (502). Ejecuta: ./scripts/seed-production.sh'
+          : `Respuesta inválida (${res.status}). Revisa SMTP/seed.`);
+      }
       if (!res.ok) throw new Error(data.error || 'Error al enviar código');
       setMessage(data.message || 'Código enviado.', 'success');
     } catch (e) {
@@ -836,7 +842,11 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: emailInput.value.trim(), code: codeInput.value.trim() })
       });
-      const data = await res.json();
+      const raw = await res.text();
+      let data = {};
+      try { data = JSON.parse(raw); } catch {
+        throw new Error(`Respuesta inválida (${res.status}). Revisa el servicio.`);
+      }
       if (!res.ok) throw new Error(data.error || 'Código inválido');
       token = data.token;
       localStorage.setItem('admin_token', token);

@@ -37,8 +37,9 @@ docker service update \
   --env-add "ADMIN_SESSION_SECRET=${ADMIN_SESSION_SECRET}" \
   --env-add "PARTICIPANT_SESSION_SECRET=${PARTICIPANT_SESSION_SECRET}" \
   --env-add "SMTP_HOST=${SMTP_HOST:-}" \
-  --env-add "SMTP_PORT=${SMTP_PORT:-587}" \
-  --env-add "SMTP_USER=${SMTP_USER:-}" \
+  --env-add "SMTP_PORT=${SMTP_PORT:-465}" \
+  --env-add "SMTP_SECURE=${SMTP_SECURE:-1}" \
+  --env-add "SMTP_USER=${SMTP_USER:-info@renace.tech}" \
   --env-add "SMTP_PASSWORD=${SMTP_PASSWORD:-}" \
   --env-add "SMTP_FROM=${SMTP_FROM:-RENACE.TECH <info@renace.tech>}" \
   --env-add "MAIL_REPLY_TO=${MAIL_REPLY_TO:-info@renace.tech}" \

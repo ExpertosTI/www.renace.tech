@@ -475,11 +475,14 @@ function generateCode(len = 6) {
 async function sendAdminCode(email, code) {
   if (!transporter) return false;
   try {
-    await transporter.sendMail(getMailOptions({
-      to: email,
-      subject: 'Código de acceso dashboard Renace',
-      text: `Tu código de acceso es: ${code} (válido por 10 minutos).`,
-    }));
+    await Promise.race([
+      transporter.sendMail(getMailOptions({
+        to: email,
+        subject: 'Código de acceso dashboard Renace',
+        text: `Tu código de acceso es: ${code} (válido por 10 minutos).`,
+      })),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('smtp_timeout')), 10000)),
+    ]);
     return true;
   } catch (e) {
     console.warn('[admin code email]', e.message);
@@ -616,40 +619,46 @@ const gateLimiter = rateLimit({
 
 // ── Admin auth + analytics (after rate limiters to avoid hoisting issues) ──
 app.post('/api/admin/login/request-code', apiLimiter, async (req, res) => {
-  const email = (req.body?.email || '').trim().toLowerCase();
-  const channel = String(req.body?.channel || 'email').toLowerCase();
-  if (!ADMIN_EMAILS.includes(email)) return res.status(403).json({ error: 'No autorizado' });
-  if (!['email', 'whatsapp', 'both'].includes(channel)) {
-    return res.status(400).json({ error: 'Canal inválido (email | whatsapp | both)' });
-  }
-  if ((channel === 'whatsapp' || channel === 'both') && !waNotify.isConfigured()) {
-    return res.status(503).json({ error: 'WhatsApp no configurado. Configúralo en el panel o usa email.' });
-  }
-  if ((channel === 'whatsapp' || channel === 'both') && !waNotify.getOtpPhoneForEmail(email)) {
-    return res.status(400).json({ error: 'No hay número WhatsApp OTP para esta identidad. Configúralo en el panel.' });
-  }
+  res.type('json');
+  try {
+    const email = (req.body?.email || '').trim().toLowerCase();
+    const channel = String(req.body?.channel || 'email').toLowerCase();
+    if (!ADMIN_EMAILS.includes(email)) return res.status(403).json({ error: 'No autorizado' });
+    if (!['email', 'whatsapp', 'both'].includes(channel)) {
+      return res.status(400).json({ error: 'Canal inválido (email | whatsapp | both)' });
+    }
+    if ((channel === 'whatsapp' || channel === 'both') && !waNotify.isConfigured()) {
+      return res.status(503).json({ error: 'WhatsApp no configurado. Ejecuta seed o configúralo en el panel.' });
+    }
+    if ((channel === 'whatsapp' || channel === 'both') && !waNotify.getOtpPhoneForEmail(email)) {
+      return res.status(400).json({ error: 'No hay número WhatsApp OTP para esta identidad.' });
+    }
 
-  const code = generateCode();
-  const exp = Date.now() + ADMIN_CODE_TTL_MS;
-  adminCodes.set(email, { code, exp });
+    const code = generateCode();
+    const exp = Date.now() + ADMIN_CODE_TTL_MS;
+    adminCodes.set(email, { code, exp });
 
-  const delivered = await deliverAdminCode(email, code, channel);
-  if (!delivered.channels.length) {
-    console.warn('[ADMIN LOGIN] Delivery failed', { email, channel, waError: delivered.waError });
-    return res.status(502).json({
-      error: channel === 'whatsapp'
-        ? 'No se pudo enviar por WhatsApp'
-        : 'No se pudo enviar el código',
-      detail: delivered.waError || 'delivery_failed',
+    const delivered = await deliverAdminCode(email, code, channel);
+    if (!delivered.channels.length) {
+      console.warn('[ADMIN LOGIN] Delivery failed', { email, channel, waError: delivered.waError });
+      return res.status(502).json({
+        error: channel === 'whatsapp'
+          ? 'No se pudo enviar por WhatsApp'
+          : 'No se pudo enviar el código (SMTP). Revisa SMTP_PASSWORD con seed-production.sh',
+        detail: delivered.waError || 'delivery_failed',
+      });
+    }
+
+    const labels = delivered.channels.map((c) => (c === 'whatsapp' ? 'WhatsApp' : 'correo'));
+    return res.json({
+      status: 'ok',
+      message: `Código enviado por ${labels.join(' y ')}`,
+      channels: delivered.channels,
     });
+  } catch (e) {
+    console.error('[ADMIN LOGIN] request-code', e.message);
+    return res.status(500).json({ error: 'Error interno al solicitar código', detail: e.message });
   }
-
-  const labels = delivered.channels.map((c) => (c === 'whatsapp' ? 'WhatsApp' : 'correo'));
-  res.json({
-    status: 'ok',
-    message: `Código enviado por ${labels.join(' y ')}`,
-    channels: delivered.channels,
-  });
 });
 
 app.post('/api/admin/login/verify-code', apiLimiter, (req, res) => {
@@ -1836,9 +1845,11 @@ if (process.env.SMTP_HOST) {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASSWORD,
     },
-    // Hostinger / relays: force STARTTLS on 587
     requireTLS: !smtpSecure && smtpPort === 587,
     tls: { minVersion: 'TLSv1.2' },
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 12000,
   });
   transporter.verify().then(() => {
     console.log(`[SMTP] OK ${process.env.SMTP_HOST}:${smtpPort} as ${process.env.SMTP_USER || '(no user)'}`);
