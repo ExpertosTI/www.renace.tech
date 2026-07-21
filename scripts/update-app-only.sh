@@ -25,10 +25,26 @@ if [ -f .env.bak ] && ! grep -q '^POSTGRES_USER=renace' .env 2>/dev/null; then
   sed -i 's/@insforge_postgres:/@db:/' .env
 fi
 
-set -a
-# shellcheck disable=SC1091
-source .env
-set +a
+# Load .env safely (supports quoted values with < > @)
+eval "$(python3 - <<'PY'
+from pathlib import Path
+p = Path(".env")
+if not p.exists():
+    raise SystemExit(0)
+for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+    line = line.strip()
+    if not line or line.startswith("#") or "=" not in line:
+        continue
+    k, v = line.split("=", 1)
+    k = k.strip()
+    v = v.strip()
+    if (v.startswith('"') and v.endswith('"')) or (v.startswith("'") and v.endswith("'")):
+        v = v[1:-1]
+    # export for bash via printf %q
+    import shlex
+    print(f"export {k}={shlex.quote(v)}")
+PY
+)"
 
 export PORT="${PORT:-3000}"
 
