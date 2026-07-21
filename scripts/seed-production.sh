@@ -7,6 +7,7 @@
 #   cd /opt/www.renace.tech && git fetch origin main && git reset --hard origin/main && chmod +x scripts/*.sh && ./scripts/seed-production.sh
 #
 set -euo pipefail
+trap 'echo "❌ Abortó en línea $LINENO (exit $?)"; exit 1' ERR
 cd /opt/www.renace.tech
 
 echo "═══════════════════════════════════════════"
@@ -60,9 +61,12 @@ print("  set", key)
 ' "$1" "$2"
 }
 
+# Nunca abortar el script si docker/inspect falla (set -e + pipefail)
 swarm_get() {
-  docker service inspect renace_app --format '{{range .Spec.TaskTemplate.ContainerSpec.Env}}{{println .}}{{end}}' 2>/dev/null \
-  | python3 -c '
+  local key="$1"
+  local out=""
+  out=$(docker service inspect renace_app --format '{{range .Spec.TaskTemplate.ContainerSpec.Env}}{{println .}}{{end}}' 2>/dev/null || true)
+  printf '%s\n' "$out" | python3 -c '
 import sys
 key=sys.argv[1]
 for line in sys.stdin:
@@ -70,42 +74,46 @@ for line in sys.stdin:
   if line.startswith(key+"="):
     print(line.split("=",1)[1], end="")
     break
-' "$1"
+' "$key" || true
 }
 
-# Reparar .env si falta o tiene placeholders
+echo "→ comprobando .env..."
 NEED_RESTORE=0
-[ ! -f .env ] && NEED_RESTORE=1
-if [ -f .env ]; then
-  if grep -q 'TU_PASSWORD\|TU_API_KEY' .env 2>/dev/null; then NEED_RESTORE=1; fi
+if [ ! -f .env ]; then
+  NEED_RESTORE=1
+elif grep -q 'TU_PASSWORD\|TU_API_KEY' .env 2>/dev/null; then
+  NEED_RESTORE=1
 fi
 
 if [ "$NEED_RESTORE" = "1" ]; then
   echo "⚠️  Reparando .env desde .env.bak"
-  [ -f .env.bak ] || { echo "❌ Falta .env.bak"; exit 1; }
+  if [ ! -f .env.bak ]; then
+    echo "❌ Falta .env.bak"
+    exit 1
+  fi
   cp .env.bak .env
   sed -i 's/@insforge_postgres:/@db:/g' .env
   # NO reemplazar SMTP_USER space→tech: el password de .env.bak es de la mailbox original
 fi
 
-# Secretos
+echo "→ leyendo secretos (Swarm / .env / .env.bak)..."
 SMTP_PASSWORD_VAL="$(swarm_get SMTP_PASSWORD)"
-[ -z "$SMTP_PASSWORD_VAL" ] && SMTP_PASSWORD_VAL="$(env_get .env SMTP_PASSWORD)"
-[ -z "$SMTP_PASSWORD_VAL" ] && SMTP_PASSWORD_VAL="$(env_get .env.bak SMTP_PASSWORD)"
+if [ -z "$SMTP_PASSWORD_VAL" ]; then SMTP_PASSWORD_VAL="$(env_get .env SMTP_PASSWORD)"; fi
+if [ -z "$SMTP_PASSWORD_VAL" ]; then SMTP_PASSWORD_VAL="$(env_get .env.bak SMTP_PASSWORD)"; fi
 
 # Auth SMTP = mailbox dueña del password (.env.bak). From/Reply = marca renace.tech
 SMTP_USER_VAL="$(env_get .env.bak SMTP_USER)"
-[ -z "$SMTP_USER_VAL" ] && SMTP_USER_VAL="$(swarm_get SMTP_USER)"
-[ -z "$SMTP_USER_VAL" ] && SMTP_USER_VAL="$(env_get .env SMTP_USER)"
-[ -z "$SMTP_USER_VAL" ] && SMTP_USER_VAL="info@renace.tech"
+if [ -z "$SMTP_USER_VAL" ]; then SMTP_USER_VAL="$(swarm_get SMTP_USER)"; fi
+if [ -z "$SMTP_USER_VAL" ]; then SMTP_USER_VAL="$(env_get .env SMTP_USER)"; fi
+if [ -z "$SMTP_USER_VAL" ]; then SMTP_USER_VAL="info@renace.tech"; fi
 
 EVOLUTION_KEY_VAL="$(swarm_get EVOLUTION_API_KEY)"
-[ -z "$EVOLUTION_KEY_VAL" ] && EVOLUTION_KEY_VAL="$(env_get .env EVOLUTION_API_KEY)"
-[ -z "$EVOLUTION_KEY_VAL" ] && EVOLUTION_KEY_VAL="$(env_get .env.bak EVOLUTION_API_KEY)"
+if [ -z "$EVOLUTION_KEY_VAL" ]; then EVOLUTION_KEY_VAL="$(env_get .env EVOLUTION_API_KEY)"; fi
+if [ -z "$EVOLUTION_KEY_VAL" ]; then EVOLUTION_KEY_VAL="$(env_get .env.bak EVOLUTION_API_KEY)"; fi
 
 # Fallback: key en volumen del contenedor
 if [ -z "$EVOLUTION_KEY_VAL" ]; then
-  CID=$(docker ps -q -f name=renace_app | head -1 || true)
+  CID=$(docker ps -q -f name=renace_app 2>/dev/null | head -1 || true)
   if [ -n "${CID:-}" ]; then
     EVOLUTION_KEY_VAL=$(docker exec "$CID" node -e 'try{const c=require("/app/data/whatsapp-config.json");process.stdout.write(c.apiKey||"")}catch{}' 2>/dev/null || true)
   fi
@@ -113,9 +121,13 @@ fi
 
 # Fallback: key en otros servicios Swarm con instance RENACE.TECH
 if [ -z "$EVOLUTION_KEY_VAL" ]; then
+  echo "→ buscando EVOLUTION_API_KEY en otros servicios..."
   EVOLUTION_KEY_VAL=$(
-    docker service ls --format '{{.Name}}' 2>/dev/null | while read -r svc; do
-      docker service inspect "$svc" --format '{{range .Spec.TaskTemplate.ContainerSpec.Env}}{{println .}}{{end}}' 2>/dev/null
+    {
+      docker service ls --format '{{.Name}}' 2>/dev/null || true
+    } | while read -r svc; do
+      [ -n "$svc" ] || continue
+      docker service inspect "$svc" --format '{{range .Spec.TaskTemplate.ContainerSpec.Env}}{{println .}}{{end}}' 2>/dev/null || true
     done | python3 -c '
 import sys
 key=inst=None
@@ -132,27 +144,29 @@ for line in sys.stdin:
         if key and not best:
             best=key
 print(best, end="")
-'
+' || true
   )
-  [ -n "$EVOLUTION_KEY_VAL" ] && echo "🔑 EVOLUTION_API_KEY tomada de otro servicio (instance RENACE.TECH)"
+  if [ -n "$EVOLUTION_KEY_VAL" ]; then
+    echo "🔑 EVOLUTION_API_KEY tomada de otro servicio (instance RENACE.TECH)"
+  fi
 fi
 
 ADMIN_PIN_VAL="$(swarm_get ADMIN_ACCESS_PASSWORD)"
-[ -z "$ADMIN_PIN_VAL" ] && ADMIN_PIN_VAL="$(env_get .env ADMIN_ACCESS_PASSWORD)"
-[ -z "$ADMIN_PIN_VAL" ] && ADMIN_PIN_VAL="$(env_get .env.bak ADMIN_ACCESS_PASSWORD)"
+if [ -z "$ADMIN_PIN_VAL" ]; then ADMIN_PIN_VAL="$(env_get .env ADMIN_ACCESS_PASSWORD)"; fi
+if [ -z "$ADMIN_PIN_VAL" ]; then ADMIN_PIN_VAL="$(env_get .env.bak ADMIN_ACCESS_PASSWORD)"; fi
 
 DATABASE_URL_VAL="$(swarm_get DATABASE_URL)"
-[ -z "$DATABASE_URL_VAL" ] && DATABASE_URL_VAL="$(env_get .env DATABASE_URL)"
-[ -z "$DATABASE_URL_VAL" ] && DATABASE_URL_VAL="$(env_get .env.bak DATABASE_URL)"
+if [ -z "$DATABASE_URL_VAL" ]; then DATABASE_URL_VAL="$(env_get .env DATABASE_URL)"; fi
+if [ -z "$DATABASE_URL_VAL" ]; then DATABASE_URL_VAL="$(env_get .env.bak DATABASE_URL)"; fi
 DATABASE_URL_VAL="${DATABASE_URL_VAL//@insforge_postgres:/@db:}"
 
 case "$SMTP_PASSWORD_VAL" in *TU_PASSWORD*|*"@RENACE.TECH") SMTP_PASSWORD_VAL="";; esac
 case "$EVOLUTION_KEY_VAL" in *TU_API_KEY*|*your-evolution*) EVOLUTION_KEY_VAL="";; esac
 
 echo "📋 SMTP_USER=$SMTP_USER_VAL  SMTP_PASSWORD=${SMTP_PASSWORD_VAL:+set}  EVOLUTION_API_KEY=${EVOLUTION_KEY_VAL:+set}  ADMIN_PIN=${ADMIN_PIN_VAL:+set}"
-[ -n "$SMTP_PASSWORD_VAL" ] || { echo "❌ Sin SMTP_PASSWORD en Swarm/.env.bak"; exit 1; }
-[ -n "$ADMIN_PIN_VAL" ] || { echo "❌ Sin ADMIN_ACCESS_PASSWORD en Swarm/.env.bak"; exit 1; }
-[ -n "$DATABASE_URL_VAL" ] || { echo "❌ Sin DATABASE_URL"; exit 1; }
+if [ -z "$SMTP_PASSWORD_VAL" ]; then echo "❌ Sin SMTP_PASSWORD en Swarm/.env.bak"; exit 1; fi
+if [ -z "$ADMIN_PIN_VAL" ]; then echo "❌ Sin ADMIN_ACCESS_PASSWORD en Swarm/.env.bak"; exit 1; fi
+if [ -z "$DATABASE_URL_VAL" ]; then echo "❌ Sin DATABASE_URL"; exit 1; fi
 
 echo "📧 SMTP auth=$SMTP_USER_VAL  from=info@renace.tech..."
 env_set SMTP_HOST "smtp.hostinger.com"
@@ -169,7 +183,7 @@ env_set EVOLUTION_API_URL "https://evoapi.renace.tech"
 env_set EVOLUTION_INSTANCE "RENACE.TECH"
 env_set WHATSAPP_SENDER_NUMBER "18093487921"
 env_set WHATSAPP_NOTIFY_NUMBERS "18494577463,18099152622"
-[ -n "$EVOLUTION_KEY_VAL" ] && env_set EVOLUTION_API_KEY "$EVOLUTION_KEY_VAL"
+if [ -n "$EVOLUTION_KEY_VAL" ]; then env_set EVOLUTION_API_KEY "$EVOLUTION_KEY_VAL"; fi
 env_set ADMIN_ACCESS_PASSWORD "$ADMIN_PIN_VAL"
 env_set DATABASE_URL "$DATABASE_URL_VAL"
 env_set PORT "3000"
