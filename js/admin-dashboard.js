@@ -798,14 +798,15 @@
     setMessage('Enviando código...');
     btnRequest.disabled = true;
     try {
+      const channel = document.querySelector('input[name="otp-channel"]:checked')?.value || 'email';
       const res = await fetch('/api/admin/login/request-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: emailInput.value.trim() })
+        body: JSON.stringify({ email: emailInput.value.trim(), channel })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error al enviar código');
-      setMessage('Código enviado. Revisa tu correo.', 'success');
+      setMessage(data.message || 'Código enviado.', 'success');
     } catch (e) {
       setMessage(e.message, 'error');
     } finally {
@@ -847,6 +848,7 @@
       initNodesGraph();
       startAutoRefresh();
       loadCampaigns();
+      loadWhatsAppConfig();
     } catch (e) {
       setMessage(e.message, 'error');
       token = '';
@@ -1715,7 +1717,99 @@
     initNodesGraph();
     startAutoRefresh();
     loadCampaigns();
+    loadWhatsAppConfig();
   }
+
+  // ── WhatsApp Evolution config ──
+  function waMsg(text, type = 'muted') {
+    const el = document.getElementById('wa-config-msg');
+    if (!el) return;
+    el.textContent = text;
+    el.className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'muted';
+  }
+
+  async function loadWhatsAppConfig() {
+    const section = document.getElementById('whatsapp-config');
+    if (!section || !token) return;
+    section.style.display = 'block';
+    try {
+      const res = await fetch('/api/admin/whatsapp-config', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'No se pudo cargar WhatsApp');
+      document.getElementById('wa-api-url').value = data.apiUrl || '';
+      document.getElementById('wa-instance').value = data.instance || '';
+      document.getElementById('wa-api-key').value = '';
+      document.getElementById('wa-api-key').placeholder = data.apiKeyHint
+        ? `Actual: ${data.apiKeyHint} (deja vacío para no cambiar)`
+        : 'Pega la API key';
+      document.getElementById('wa-sender').value = data.sender || '';
+      document.getElementById('wa-notify').value = data.notifyNumbers || '';
+      const otp = data.otpPhones || {};
+      document.getElementById('wa-otp-adderly').value = otp['expertostird@gmail.com'] || '';
+      document.getElementById('wa-otp-renso').value = otp['rcexpertos@gmail.com'] || '';
+      const st = data.status || {};
+      document.getElementById('wa-config-status').textContent =
+        `Estado: ${st.configured ? 'listo' : 'sin API key'} · instancia ${st.instance || '-'} · remitente ${st.sender || '-'}`;
+      waMsg('Configuración cargada.', 'success');
+    } catch (e) {
+      waMsg(e.message, 'error');
+    }
+  }
+
+  async function saveWhatsAppConfig() {
+    if (!token) return;
+    waMsg('Guardando...');
+    try {
+      const body = {
+        apiUrl: document.getElementById('wa-api-url').value.trim(),
+        instance: document.getElementById('wa-instance').value.trim(),
+        sender: document.getElementById('wa-sender').value.trim(),
+        notifyNumbers: document.getElementById('wa-notify').value.trim(),
+        otpPhones: {
+          'expertostird@gmail.com': document.getElementById('wa-otp-adderly').value.trim(),
+          'rcexpertos@gmail.com': document.getElementById('wa-otp-renso').value.trim(),
+        },
+      };
+      const key = document.getElementById('wa-api-key').value.trim();
+      if (key) body.apiKey = key;
+      const res = await fetch('/api/admin/whatsapp-config', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al guardar');
+      waMsg('WhatsApp guardado. OTP y notificaciones activos.', 'success');
+      document.getElementById('wa-api-key').value = '';
+      await loadWhatsAppConfig();
+    } catch (e) {
+      waMsg(e.message, 'error');
+    }
+  }
+
+  async function testWhatsAppConfig() {
+    if (!token) return;
+    waMsg('Enviando prueba...');
+    try {
+      const res = await fetch('/api/admin/whatsapp-test', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Prueba fallida');
+      waMsg('Mensaje de prueba enviado a los números de alerta.', 'success');
+    } catch (e) {
+      waMsg(e.message, 'error');
+    }
+  }
+
+  document.getElementById('btn-wa-save')?.addEventListener('click', saveWhatsAppConfig);
+  document.getElementById('btn-wa-test')?.addEventListener('click', testWhatsAppConfig);
 
   // ── Campaign Management ──
   async function loadCampaigns() {

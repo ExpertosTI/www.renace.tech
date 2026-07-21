@@ -299,22 +299,25 @@ function getDocumentDownloadName(doc, url) {
 function getDocumentIconConfig(doc) {
   const type = (doc?.type || '').toUpperCase();
   const file = (doc?.file || '').toLowerCase();
+  const name = (doc?.name || '').toLowerCase();
+  const blob = `${file} ${name}`;
 
-  if (type.includes('PDF') || file.endsWith('.pdf')) return { iconClass: 'fa-file-pdf', typeClass: 'document-icon--pdf' };
-  if (type.includes('ZIP') || file.match(/\.(zip|rar|7z)$/)) return { iconClass: 'fa-file-archive', typeClass: 'document-icon--zip' };
-  if (type.includes('EXE') || file.match(/\.(exe|msi)$/)) return { iconClass: 'fa-microchip', typeClass: 'document-icon--exe' };
-  if (type.includes('APK') || file.match(/\.(apk|aab|ipa)$/)) return { iconClass: 'fa-mobile-alt', typeClass: 'document-icon--apk' };
-  if (type.includes('DOC') || file.match(/\.docx?$/)) return { iconClass: 'fa-file-word', typeClass: 'document-icon--doc' };
-  if (type.includes('XLS') || file.match(/\.xlsx?$/)) return { iconClass: 'fa-file-excel', typeClass: 'document-icon--xls' };
-  if (type.includes('PPT') || file.match(/\.pptx?$/)) return { iconClass: 'fa-file-powerpoint', typeClass: 'document-icon--ppt' };
-  if (file.match(/\.(png|jpg|jpeg|gif|webp|bmp|svg)$/)) return { iconClass: 'fa-file-image', typeClass: 'document-icon--image' };
+  if (type === 'PDF' || blob.includes('.pdf')) return { iconClass: 'fa-file-pdf', typeClass: 'document-icon--pdf' };
+  if (['ZIP', 'RAR', '7Z'].includes(type) || blob.match(/\.(zip|rar|7z)/)) return { iconClass: 'fa-file-archive', typeClass: 'document-icon--zip' };
+  if (['EXE', 'MSI'].includes(type) || blob.match(/\.(exe|msi)/)) return { iconClass: 'fa-microchip', typeClass: 'document-icon--exe' };
+  if (['APK', 'AAB', 'IPA'].includes(type) || blob.match(/\.(apk|aab|ipa)/)) return { iconClass: 'fa-mobile-alt', typeClass: 'document-icon--apk' };
+  if (['DOC', 'DOCX'].includes(type) || blob.match(/\.docx?/)) return { iconClass: 'fa-file-word', typeClass: 'document-icon--doc' };
+  if (['XLS', 'XLSX'].includes(type) || blob.match(/\.xlsx?/)) return { iconClass: 'fa-file-excel', typeClass: 'document-icon--xls' };
+  if (['PPT', 'PPTX'].includes(type) || blob.match(/\.pptx?/)) return { iconClass: 'fa-file-powerpoint', typeClass: 'document-icon--ppt' };
+  if (blob.match(/\.(png|jpg|jpeg|gif|webp|bmp|svg)/)) return { iconClass: 'fa-file-image', typeClass: 'document-icon--image' };
   return { iconClass: 'fa-file-alt', typeClass: 'document-icon--generic' };
 }
 
 function getDocumentCategory(doc) {
   if (doc?.category && doc.category !== 'other') return doc.category;
   const name = doc?.name || doc?.file || '';
-  const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
+  const ext = name.includes('.') ? name.split('.').pop().toLowerCase().split(/[?#]/)[0] : '';
+  const type = (doc?.type || '').toLowerCase();
   const cats = {
     image: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp', 'ico'],
     video: ['mp4', 'mov', 'avi', 'mkv', 'webm'],
@@ -324,7 +327,7 @@ function getDocumentCategory(doc) {
     app: ['apk', 'aab', 'ipa', 'exe', 'msi', 'dmg'],
   };
   for (const [cat, exts] of Object.entries(cats)) {
-    if (exts.includes(ext)) return cat;
+    if (exts.includes(ext) || exts.includes(type)) return cat;
   }
   return 'other';
 }
@@ -339,8 +342,11 @@ function updateDocumentsFilter() {
   items.forEach(item => {
     const cat = item.dataset.category || 'other';
     const name = (item.dataset.name || '').toLowerCase();
-    const show = (documentsViewState.filter === 'all' || cat === documentsViewState.filter)
-      && (!q || name.includes(q));
+    const filter = documentsViewState.filter;
+    const matchFilter = filter === 'all'
+      || cat === filter
+      || (filter === 'downloads' && (cat === 'app' || cat === 'archive'));
+    const show = matchFilter && (!q || name.includes(q));
     item.style.display = show ? '' : 'none';
     if (show) visible++;
   });
@@ -511,12 +517,7 @@ function loadDocuments() {
   fetch('/api/documents', { cache: 'no-store' })
     .then(r => { if (!r.ok) throw new Error(); return r.json(); })
     .then(data => { DOCUMENTS_DATA = Array.isArray(data) ? data : []; initDocumentsList(); })
-    .catch(() => {
-      fetch('data/documents.json', { cache: 'no-store' })
-        .then(r => { if (!r.ok) throw new Error(); return r.json(); })
-        .then(data => { DOCUMENTS_DATA = Array.isArray(data) ? data : []; initDocumentsList(); })
-        .catch(() => { DOCUMENTS_DATA = []; initDocumentsList(); });
-    });
+    .catch(() => { DOCUMENTS_DATA = []; initDocumentsList(); });
 }
 
 function initDocumentsNavigation() {

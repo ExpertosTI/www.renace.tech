@@ -1018,6 +1018,20 @@
           <input id="email" type="hidden" value="expertostird@gmail.com">
         </div>
         <div>
+          <label>Canal OTP</label>
+          <div class="actions" style="flex-wrap:wrap;gap:8px;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;">
+              <input type="radio" name="otp-channel" value="email" checked> Email
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;">
+              <input type="radio" name="otp-channel" value="whatsapp"> WhatsApp
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;">
+              <input type="radio" name="otp-channel" value="both"> Ambos
+            </label>
+          </div>
+        </div>
+        <div>
           <label for="code">Código recibido</label>
           <input id="code" type="text" placeholder="6 dígitos" inputmode="numeric" autocomplete="one-time-code">
         </div>
@@ -1186,6 +1200,49 @@
         <div class="bar-grid" id="projections-bars"></div>
         <ul id="projection-notes" class="list"></ul>
       </article>
+    </section>
+
+    <section id="whatsapp-config" class="card" style="display:none;">
+      <div class="deck" style="margin-bottom:0;">
+        <h3 class="deck-title"><i class="fa-brands fa-whatsapp"></i> WhatsApp · Evolution API</h3>
+        <div class="muted">Notificaciones CRM · OTP admin · recibos · apps (Nómina, POS, Inventario)</div>
+      </div>
+      <div class="odoo-form" style="margin-top:14px;">
+        <div>
+          <label>API URL</label>
+          <input id="wa-api-url" type="url" placeholder="https://evoapi.renace.tech">
+        </div>
+        <div>
+          <label>Instancia</label>
+          <input id="wa-instance" type="text" placeholder="RENACE.TECH">
+        </div>
+        <div>
+          <label>API Key</label>
+          <input id="wa-api-key" type="password" placeholder="Pega la API key (deja vacío para no cambiar)" autocomplete="off">
+        </div>
+        <div>
+          <label>Remitente (número conectado)</label>
+          <input id="wa-sender" type="text" placeholder="18093487921">
+        </div>
+        <div style="grid-column:1/-1;">
+          <label>Números que reciben alertas (coma)</label>
+          <input id="wa-notify" type="text" placeholder="18494577463,18099152622">
+        </div>
+        <div>
+          <label>OTP Adderly (tel)</label>
+          <input id="wa-otp-adderly" type="text" placeholder="18494577463">
+        </div>
+        <div>
+          <label>OTP Renso (tel)</label>
+          <input id="wa-otp-renso" type="text" placeholder="18099152622">
+        </div>
+        <div style="align-self:end;display:flex;gap:8px;flex-wrap:wrap;">
+          <button id="btn-wa-save" class="secondary"><i class="fa-solid fa-save"></i> Guardar</button>
+          <button id="btn-wa-test" class="ghost"><i class="fa-brands fa-whatsapp"></i> Probar</button>
+        </div>
+      </div>
+      <div id="wa-config-msg" class="muted" style="margin-top:10px;min-height:18px;"></div>
+      <div id="wa-config-status" class="muted" style="font-size:12px;"></div>
     </section>
 
     <section id="odoo-clients" class="card" style="display:none;">

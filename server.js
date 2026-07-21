@@ -487,6 +487,27 @@ async function sendAdminCode(email, code) {
   }
 }
 
+async function deliverAdminCode(email, code, channel) {
+  const mode = (channel || 'email').toLowerCase();
+  const result = { email: false, whatsapp: false, channels: [] };
+
+  if (mode === 'email' || mode === 'both') {
+    result.email = await sendAdminCode(email, code);
+    if (result.email) result.channels.push('email');
+  }
+  if (mode === 'whatsapp' || mode === 'both') {
+    if (waNotify.isConfigured()) {
+      const wa = await waNotify.sendOtp(email, code);
+      result.whatsapp = Boolean(wa.ok);
+      if (result.whatsapp) result.channels.push('whatsapp');
+      else result.waError = wa.error || 'send_failed';
+    } else {
+      result.waError = 'whatsapp_not_configured';
+    }
+  }
+  return result;
+}
+
 // ── Middleware ──
 // Skip body parsing for Odoo proxy routes (stream must be unparsed)
 app.use((req, res, next) => {
@@ -596,18 +617,39 @@ const gateLimiter = rateLimit({
 // ── Admin auth + analytics (after rate limiters to avoid hoisting issues) ──
 app.post('/api/admin/login/request-code', apiLimiter, async (req, res) => {
   const email = (req.body?.email || '').trim().toLowerCase();
+  const channel = String(req.body?.channel || 'email').toLowerCase();
   if (!ADMIN_EMAILS.includes(email)) return res.status(403).json({ error: 'No autorizado' });
+  if (!['email', 'whatsapp', 'both'].includes(channel)) {
+    return res.status(400).json({ error: 'Canal inválido (email | whatsapp | both)' });
+  }
+  if ((channel === 'whatsapp' || channel === 'both') && !waNotify.isConfigured()) {
+    return res.status(503).json({ error: 'WhatsApp no configurado. Configúralo en el panel o usa email.' });
+  }
+  if ((channel === 'whatsapp' || channel === 'both') && !waNotify.getOtpPhoneForEmail(email)) {
+    return res.status(400).json({ error: 'No hay número WhatsApp OTP para esta identidad. Configúralo en el panel.' });
+  }
+
   const code = generateCode();
   const exp = Date.now() + ADMIN_CODE_TTL_MS;
   adminCodes.set(email, { code, exp });
-  console.log(`[ADMIN LOGIN] Generated code for ${email}: ${code}`);
-  const sent = await sendAdminCode(email, code);
-  if (!sent) {
-    console.warn('[ADMIN LOGIN] Email failed, but code was generated in console.');
-    // We can still allow login if email fails by returning success here for debug
-    return res.json({ status: 'ok', message: 'Revisa la consola del servidor para el código' });
+
+  const delivered = await deliverAdminCode(email, code, channel);
+  if (!delivered.channels.length) {
+    console.warn('[ADMIN LOGIN] Delivery failed', { email, channel, waError: delivered.waError });
+    return res.status(502).json({
+      error: channel === 'whatsapp'
+        ? 'No se pudo enviar por WhatsApp'
+        : 'No se pudo enviar el código',
+      detail: delivered.waError || 'delivery_failed',
+    });
   }
-  res.json({ status: 'ok', message: 'Código enviado' });
+
+  const labels = delivered.channels.map((c) => (c === 'whatsapp' ? 'WhatsApp' : 'correo'));
+  res.json({
+    status: 'ok',
+    message: `Código enviado por ${labels.join(' y ')}`,
+    channels: delivered.channels,
+  });
 });
 
 app.post('/api/admin/login/verify-code', apiLimiter, (req, res) => {
@@ -663,6 +705,49 @@ app.get('/api/admin/analytics', apiLimiter, async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+app.get('/api/admin/whatsapp-config', apiLimiter, (req, res) => {
+  if (!requireAdminToken(req, res)) return;
+  res.json({ ...waNotify.getPublicConfig(), status: waNotify.getStatus() });
+});
+
+app.put('/api/admin/whatsapp-config', apiLimiter, (req, res) => {
+  if (!requireAdminToken(req, res)) return;
+  try {
+    const body = req.body || {};
+    const patch = {};
+    if (body.apiUrl != null) patch.apiUrl = String(body.apiUrl).trim();
+    if (body.instance != null) patch.instance = String(body.instance).trim();
+    if (body.sender != null) patch.sender = String(body.sender).trim();
+    if (body.notifyNumbers != null) patch.notifyNumbers = body.notifyNumbers;
+    if (body.otpPhones != null && typeof body.otpPhones === 'object') patch.otpPhones = body.otpPhones;
+    // Only update apiKey if provided non-empty (keep existing otherwise)
+    if (typeof body.apiKey === 'string' && body.apiKey.trim() && !body.apiKey.includes('…')) {
+      patch.apiKey = body.apiKey.trim();
+    }
+    const saved = waNotify.saveConfig(patch);
+    res.json({
+      ok: true,
+      config: waNotify.getPublicConfig(),
+      status: waNotify.getStatus(),
+      savedAt: saved.updatedAt || new Date().toISOString(),
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/admin/whatsapp-test', apiLimiter, async (req, res) => {
+  if (!requireAdminToken(req, res)) return;
+  if (!waNotify.isConfigured()) {
+    return res.status(503).json({ ok: false, error: 'whatsapp_not_configured' });
+  }
+  const result = await waNotify.notifyAdmins(
+    '✅ *RENACE WhatsApp OK*\nPrueba desde Command Center.\nNotificaciones CRM · Nomina · POS · Inventario',
+    { app: 'renace.tech', event: 'admin-test' }
+  );
+  res.status(result.ok ? 200 : 502).json({ ...result, status: waNotify.getStatus() });
 });
 
 app.get('/api/admin/visit-details', apiLimiter, async (req, res) => {
@@ -2155,8 +2240,6 @@ app.get('/api/health', async (req, res) => {
     res.status(503).json({ status: 'degraded', database: 'down' });
   }
 });
-
-app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 function requestChatWebhook(payload, req) {
   return new Promise((resolve, reject) => {
