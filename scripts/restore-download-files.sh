@@ -41,13 +41,11 @@ for f in "$SRC_DIR"/*; do
     *) continue ;;
   esac
   base=$(basename "$f")
-  echo "→ copiando $base → /app/data/docs/ y /app/downloads/"
+  echo "→ copiando $base → volumen /app/data/docs/ (Documentos)"
   docker cp "$f" "$CONTAINER:/app/data/docs/$base"
-  docker cp "$f" "$CONTAINER:/app/downloads/$base" 2>/dev/null || true
-  # docker cp deja root:root 600 — el proceso node (appuser) no puede leer → HTTP 500
+  # Persistente en Swarm; no depender de /app/downloads (capa del contenedor)
   docker exec -u root "$CONTAINER" chmod 644 "/app/data/docs/$base" 2>/dev/null || true
-  docker exec -u root "$CONTAINER" chmod 644 "/app/downloads/$base" 2>/dev/null || true
-  docker exec -u root "$CONTAINER" chown appuser:nodejs "/app/data/docs/$base" "/app/downloads/$base" 2>/dev/null || true
+  docker exec -u root "$CONTAINER" chown appuser:nodejs "/app/data/docs/$base" 2>/dev/null || true
   copied=$((copied + 1))
 done
 
@@ -56,7 +54,7 @@ if [ "$copied" -eq 0 ]; then
   exit 1
 fi
 
-docker exec -u root "$CONTAINER" sh -c 'chmod 644 /app/data/docs/* /app/downloads/*; chown -R appuser:nodejs /app/data/docs /app/downloads' 2>/dev/null || true
+docker exec -u root "$CONTAINER" sh -c 'chmod 644 /app/data/docs/*; chown -R appuser:nodejs /app/data/docs' 2>/dev/null || true
 
 # Asegurar entradas en documents.json del volumen (nombres amigables)
 docker exec "$CONTAINER" node -e "
@@ -89,6 +87,7 @@ docker exec "$CONTAINER" ls -lh /app/data/docs || true
 echo "🔎 API:"
 curl -sS "https://renace.tech/api/documents" | head -c 1200 || true
 echo ""
-echo "Prueba directa POS:"
-curl -sSI "https://renace.tech/downloads/posagent-win64.exe" | head -10 || true
-curl -sSI "https://renace.tech/docs/posagent-win64.exe" | head -8 || true
+echo "Prueba directa POS (Documentos → /docs/):"
+curl -sSI "https://renace.tech/docs/posagent-win64.exe" | head -10 || true
+curl -sS "https://renace.tech/api/documents" | head -c 800 || true
+echo ""

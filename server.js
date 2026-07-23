@@ -1941,30 +1941,31 @@ function resolvePublicDownload(fileRef) {
   if (!raw || raw.includes('..')) return null;
 
   const basename = path.basename(raw);
-  const candidates = [];
-  if (raw.startsWith('docs/')) candidates.push(path.join(__dirname, raw));
-  else if (raw.startsWith('downloads/')) candidates.push(path.join(__dirname, raw));
-  else candidates.push(path.join(__dirname, raw));
-
-  // Prefer dedicated folders, then the already-mounted data volume
-  candidates.push(
-    path.join(DOCS_DIR, basename),
-    path.join(DOWNLOADS_DIR, basename),
+  // Prefer volumen persistente /app/data/docs (Swarm). /app/downloads es capa del
+  // contenedor y a menudo falla al servir .exe tras docker cp.
+  const candidates = [
     path.join(DATA_DIR, 'docs', basename),
     path.join(DATA_DIR, 'downloads', basename),
     path.join(DATA_DIR, basename),
-  );
+    path.join(DOCS_DIR, basename),
+    path.join(DOWNLOADS_DIR, basename),
+  ];
+  if (raw.startsWith('docs/') || raw.startsWith('downloads/')) {
+    candidates.unshift(path.join(__dirname, raw));
+  }
 
   for (const abs of candidates) {
     try {
       if (fs.existsSync(abs) && fs.statSync(abs).isFile()) {
+        fs.accessSync(abs, fs.constants.R_OK);
         const filename = path.basename(abs);
-        const normalizedAbs = abs.split(path.sep).join('/');
-        const preferDownloads = normalizedAbs.includes('/downloads/') || abs.startsWith(DOWNLOADS_DIR + path.sep);
-        const url = preferDownloads ? `/downloads/${filename}` : `/docs/${filename}`;
+        // Documentos del sitio: siempre /docs/ (no hay página "downloads")
+        const url = filename === 'EnviosRH.apk' && abs.startsWith(DOWNLOADS_DIR + path.sep)
+          ? `/downloads/${filename}`
+          : `/docs/${filename}`;
         return { abs, url, filename };
       }
-    } catch { /* skip */ }
+    } catch { /* skip unreadable */ }
   }
   return null;
 }
@@ -2532,35 +2533,17 @@ app.use((req, res, next) => {
 app.get('/downloads/:filename', (req, res) => {
   const filename = path.basename(String(req.params.filename || ''));
   if (!filename || filename.includes('..')) return res.status(400).end();
-  const candidates = [
-    path.join(DOWNLOADS_DIR, filename),
-    path.join(DATA_DIR, 'downloads', filename),
-    path.join(DATA_DIR, 'docs', filename),
-    path.join(DOCS_DIR, filename),
-  ];
-  const abs = candidates.find((p) => {
-    try { return fs.existsSync(p) && fs.statSync(p).isFile(); } catch { return false; }
-  });
-  if (!abs) return res.status(404).end();
-  return sendAttachmentFile(res, abs, filename);
+  const resolved = resolvePublicDownload(`downloads/${filename}`) || resolvePublicDownload(`docs/${filename}`);
+  if (!resolved) return res.status(404).end();
+  return sendAttachmentFile(res, resolved.abs, filename);
 });
 
 app.get('/docs/:filename', (req, res) => {
   const filename = path.basename(String(req.params.filename || ''));
   if (!filename || filename.includes('..')) return res.status(400).end();
-  // Prefer docs/, then downloads/, then data volume (already mounted in Swarm)
-  const candidates = [
-    path.join(DOCS_DIR, filename),
-    path.join(DOWNLOADS_DIR, filename),
-    path.join(DATA_DIR, 'docs', filename),
-    path.join(DATA_DIR, 'downloads', filename),
-    path.join(DATA_DIR, filename),
-  ];
-  const abs = candidates.find((p) => {
-    try { return fs.existsSync(p) && fs.statSync(p).isFile(); } catch { return false; }
-  });
-  if (!abs) return res.status(404).end();
-  return sendAttachmentFile(res, abs, filename);
+  const resolved = resolvePublicDownload(`docs/${filename}`) || resolvePublicDownload(`downloads/${filename}`);
+  if (!resolved) return res.status(404).end();
+  return sendAttachmentFile(res, resolved.abs, filename);
 });
 
 app.use(express.static(path.join(__dirname), {
