@@ -44,8 +44,10 @@ for f in "$SRC_DIR"/*; do
   echo "→ copiando $base → /app/data/docs/ y /app/downloads/"
   docker cp "$f" "$CONTAINER:/app/data/docs/$base"
   docker cp "$f" "$CONTAINER:/app/downloads/$base" 2>/dev/null || true
-  # docker cp deja root:root 600 — el proceso node no puede leer → HTTP 500
-  docker exec "$CONTAINER" chmod 644 "/app/data/docs/$base" "/app/downloads/$base" 2>/dev/null || true
+  # docker cp deja root:root 600 — el proceso node (appuser) no puede leer → HTTP 500
+  docker exec -u root "$CONTAINER" chmod 644 "/app/data/docs/$base" 2>/dev/null || true
+  docker exec -u root "$CONTAINER" chmod 644 "/app/downloads/$base" 2>/dev/null || true
+  docker exec -u root "$CONTAINER" chown appuser:nodejs "/app/data/docs/$base" "/app/downloads/$base" 2>/dev/null || true
   copied=$((copied + 1))
 done
 
@@ -54,7 +56,7 @@ if [ "$copied" -eq 0 ]; then
   exit 1
 fi
 
-docker exec "$CONTAINER" sh -c 'chmod 644 /app/data/docs/* /app/downloads/* 2>/dev/null || true'
+docker exec -u root "$CONTAINER" sh -c 'chmod 644 /app/data/docs/* /app/downloads/*; chown -R appuser:nodejs /app/data/docs /app/downloads' 2>/dev/null || true
 
 # Asegurar entradas en documents.json del volumen (nombres amigables)
 docker exec "$CONTAINER" node -e "
