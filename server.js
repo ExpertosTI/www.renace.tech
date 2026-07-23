@@ -2050,10 +2050,21 @@ function sendAttachmentFile(res, absPath, fallbackName) {
     '.zip': 'application/zip',
     '.pdf': 'application/pdf',
   };
+  try {
+    fs.accessSync(absPath, fs.constants.R_OK);
+  } catch (err) {
+    console.error(`[downloads] no readable: ${absPath} (${err.code || err.message})`);
+    return res.status(404).json({ error: 'Archivo no disponible' });
+  }
   res.setHeader('Content-Type', mimeMap[ext] || 'application/octet-stream');
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  return res.sendFile(absPath);
+  return res.sendFile(absPath, (err) => {
+    if (!err) return;
+    if (res.headersSent) return;
+    console.error(`[downloads] sendFile failed: ${absPath}`, err.message);
+    res.status(500).json({ error: 'No se pudo descargar el archivo' });
+  });
 }
 
 async function handleDocumentUpload(req, res) {
