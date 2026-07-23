@@ -2059,6 +2059,7 @@ function sendAttachmentFile(res, absPath, fallbackName) {
   res.setHeader('Content-Type', mimeMap[ext] || 'application/octet-stream');
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
   res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Cache-Control', 'private, no-store, max-age=0');
   return res.sendFile(absPath, (err) => {
     if (!err) return;
     if (res.headersSent) return;
