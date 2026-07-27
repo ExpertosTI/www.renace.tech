@@ -7,7 +7,7 @@ cd /opt/www.renace.tech
 
 echo "1/3 Restaurar .env desde backup..."
 cp .env.bak .env
-sed -i 's/@insforge_postgres:/@db:/' .env
+sed -i -E 's/@(insforge_postgres|db):/@renace_db:/g' .env
 
 echo "2/3 Aplicar variables a Swarm..."
 bash scripts/restore-swarm-env.sh .env

@@ -3,6 +3,8 @@
 # Uso: docker compose build app && docker stack deploy -c docker-compose.yml renace
 
 services:
+  # Swarm service name: renace_db. Clients must use host renace_db — never bare "db"
+  # (shared RenaceNet has many stacks with alias "db").
   db:
     image: postgres:16-alpine
     environment:
@@ -18,11 +20,14 @@ services:
     volumes:
       - renace_db_data:/var/lib/postgresql/data
     networks:
-      - renace_internal
+      renace_internal:
+        aliases:
+          - renace_db
+          - renace-db
     deploy:
       replicas: 1
       restart_policy:
-        condition: on-failure
+        condition: any
       resources:
         limits:
           memory: 512M

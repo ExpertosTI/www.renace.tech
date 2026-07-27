@@ -16,9 +16,9 @@ set -a
 source "$ENV_FILE"
 set +a
 
-# Host interno del stack renace (no insforge_postgres)
+# Host interno = nombre del servicio Swarm (nunca alias genérico "db")
 if [ -n "${DATABASE_URL:-}" ]; then
-  DATABASE_URL="${DATABASE_URL/@insforge_postgres:/@db:}"
+  DATABASE_URL="$(printf '%s' "$DATABASE_URL" | sed -E 's/@(insforge_postgres|db):/@renace_db:/g')"
 fi
 export PORT="${PORT:-3000}"
 

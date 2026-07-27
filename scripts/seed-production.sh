@@ -92,7 +92,7 @@ if [ "$NEED_RESTORE" = "1" ]; then
     exit 1
   fi
   cp .env.bak .env
-  sed -i 's/@insforge_postgres:/@db:/g' .env
+  sed -i -E 's/@(insforge_postgres|db):/@renace_db:/g' .env
   # NO reemplazar SMTP_USER space→tech: el password de .env.bak es de la mailbox original
 fi
 
@@ -156,7 +156,7 @@ if [ -z "$ADMIN_PIN_VAL" ]; then ADMIN_PIN_VAL="$(env_get .env.bak ADMIN_ACCESS_
 DATABASE_URL_VAL="$(swarm_get DATABASE_URL)"
 if [ -z "$DATABASE_URL_VAL" ]; then DATABASE_URL_VAL="$(env_get .env DATABASE_URL)"; fi
 if [ -z "$DATABASE_URL_VAL" ]; then DATABASE_URL_VAL="$(env_get .env.bak DATABASE_URL)"; fi
-DATABASE_URL_VAL="${DATABASE_URL_VAL//@insforge_postgres:/@db:}"
+DATABASE_URL_VAL="$(printf '%s' "$DATABASE_URL_VAL" | sed -E 's/@(insforge_postgres|db):/@renace_db:/g')"
 
 case "$SMTP_PASSWORD_VAL" in *TU_PASSWORD*|*"@RENACE.TECH") SMTP_PASSWORD_VAL="";; esac
 case "$EVOLUTION_KEY_VAL" in *TU_API_KEY*|*your-evolution*) EVOLUTION_KEY_VAL="";; esac

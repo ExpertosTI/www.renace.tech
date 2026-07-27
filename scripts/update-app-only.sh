@@ -22,7 +22,7 @@ fi
 if [ -f .env.bak ] && ! grep -q '^POSTGRES_USER=renace' .env 2>/dev/null; then
   echo "⚠️  .env incorrecto — restaurando desde .env.bak"
   cp .env.bak .env
-  sed -i 's/@insforge_postgres:/@db:/' .env
+  sed -i -E 's/@(insforge_postgres|db):/@renace_db:/g' .env
 fi
 
 # Generar secretos de seguridad si faltan (no pisa valores reales)
@@ -53,8 +53,9 @@ PY
 
 export PORT="${PORT:-3000}"
 
+# Hostname único del servicio Swarm (nunca alias genérico "db" en RenaceNet)
 if [ -n "${DATABASE_URL:-}" ]; then
-  DATABASE_URL="${DATABASE_URL/@insforge_postgres:/@db:}"
+  DATABASE_URL="$(printf '%s' "$DATABASE_URL" | sed -E 's/@(insforge_postgres|db):/@renace_db:/g')"
   export DATABASE_URL
 fi
 
