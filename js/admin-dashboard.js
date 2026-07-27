@@ -1165,28 +1165,29 @@
     try {
       const res = await adminFetch('/api/admin/odoo-instances');
       const data = await res.json();
-      if (!res.ok) { instancesTbody.innerHTML = `<tr><td colspan="5" class="error">${escapeHtml(data.error)}</td></tr>`; return; }
-      if (!data.length) { instancesTbody.innerHTML = '<tr><td colspan="5" class="muted" style="padding:14px 8px;">Sin instancias registradas.</td></tr>'; return; }
+      if (!res.ok) { instancesTbody.innerHTML = `<tr><td colspan="6" class="error">${escapeHtml(data.error)}</td></tr>`; return; }
+      if (!data.length) { instancesTbody.innerHTML = '<tr><td colspan="6" class="muted" style="padding:14px 8px;">Sin instancias registradas.</td></tr>'; return; }
       instancesTbody.innerHTML = data.map(inst => `
         <tr>
+          <td><span style="font-family:monospace;font-weight:700;color:var(--accent);">${escapeHtml(inst.service_code || '—')}</span></td>
           <td><strong>${escapeHtml(inst.client_name)}</strong></td>
           <td><a href="${escapeHtml(inst.odoo_url)}" target="_blank" rel="noopener" style="color:var(--accent);font-size:11px;">${escapeHtml(inst.odoo_url)}</a></td>
           <td>${escapeHtml(inst.odoo_db)}</td>
           <td><span class="${inst.active ? 'pill-active' : 'pill-inactive'}">${inst.active ? 'Activa' : 'Inactiva'}</span></td>
           <td style="white-space:nowrap;">
-            <button class="icon-btn-sm" onclick="window.toggleInstance(${inst.id},${!inst.active},'${escapeHtml(inst.client_name)}','${escapeHtml(inst.odoo_url)}','${escapeHtml(inst.odoo_db)}')">${inst.active ? 'Desactivar' : 'Activar'}</button>
+            <button class="icon-btn-sm" onclick="window.toggleInstance(${inst.id},${!inst.active},'${escapeHtml(inst.client_name)}','${escapeHtml(inst.odoo_url)}','${escapeHtml(inst.odoo_db)}','${escapeHtml(inst.service_code || '')}')">${inst.active ? 'Desactivar' : 'Activar'}</button>
             <button class="icon-btn-sm danger" onclick="window.deleteInstance(${inst.id})">Eliminar</button>
           </td>
         </tr>`).join('');
       populateInstanceSelect(data);
-    } catch (e) { if (instancesTbody) instancesTbody.innerHTML = `<tr><td colspan="5" class="error">${escapeHtml(e.message)}</td></tr>`; }
+    } catch (e) { if (instancesTbody) instancesTbody.innerHTML = `<tr><td colspan="6" class="error">${escapeHtml(e.message)}</td></tr>`; }
   }
 
   function populateInstanceSelect(instances) {
     if (!userInstanceSelect) return;
     const active = (instances || []).filter(i => i.active);
     userInstanceSelect.innerHTML = '<option value="">— Selecciona instancia —</option>' +
-      active.map(i => `<option value="${i.id}">${escapeHtml(i.client_name)}</option>`).join('');
+      active.map(i => `<option value="${i.id}">[${escapeHtml(i.service_code || 'S/C')}] ${escapeHtml(i.client_name)}</option>`).join('');
   }
 
   async function loadPortalUsers() {
@@ -1215,9 +1216,9 @@
     } catch (e) { if (usersTbody) usersTbody.innerHTML = `<tr><td colspan="5" class="error">${escapeHtml(e.message)}</td></tr>`; }
   }
 
-  window.toggleInstance = async function(id, active, client_name, odoo_url, odoo_db) {
+  window.toggleInstance = async function(id, active, client_name, odoo_url, odoo_db, service_code) {
     try {
-      const res = await adminFetch(`/api/admin/odoo-instances/${id}`, { method: 'PUT', body: JSON.stringify({ client_name, odoo_url, odoo_db, active }) });
+      const res = await adminFetch(`/api/admin/odoo-instances/${id}`, { method: 'PUT', body: JSON.stringify({ client_name, odoo_url, odoo_db, service_code, active }) });
       const data = await res.json();
       if (!res.ok) { odooMsg(instancesMsg, data.error, 'error'); return; }
       odooMsg(instancesMsg, `Instancia ${active ? 'activada' : 'desactivada'}.`, 'success');
@@ -1258,15 +1259,17 @@
   };
 
   document.getElementById('btn-add-instance')?.addEventListener('click', async () => {
-    const client_name = document.getElementById('inst-name')?.value.trim();
-    const odoo_url    = document.getElementById('inst-url')?.value.trim();
-    const odoo_db     = document.getElementById('inst-db')?.value.trim();
-    if (!client_name || !odoo_url || !odoo_db) { odooMsg(instancesMsg, 'Completa todos los campos.', 'error'); return; }
+    const service_code = document.getElementById('inst-code')?.value.trim();
+    const client_name  = document.getElementById('inst-name')?.value.trim();
+    const odoo_url     = document.getElementById('inst-url')?.value.trim();
+    const odoo_db      = document.getElementById('inst-db')?.value.trim();
+    if (!client_name || !odoo_url || !odoo_db) { odooMsg(instancesMsg, 'Completa los campos requeridos.', 'error'); return; }
     try {
-      const res = await adminFetch('/api/admin/odoo-instances', { method: 'POST', body: JSON.stringify({ client_name, odoo_url, odoo_db }) });
+      const res = await adminFetch('/api/admin/odoo-instances', { method: 'POST', body: JSON.stringify({ service_code, client_name, odoo_url, odoo_db }) });
       const data = await res.json();
       if (!res.ok) { odooMsg(instancesMsg, data.error, 'error'); return; }
-      odooMsg(instancesMsg, `Instancia "${data.client_name}" creada.`, 'success');
+      odooMsg(instancesMsg, `Instancia "${data.client_name}" [ID: ${data.service_code}] creada.`, 'success');
+      if (document.getElementById('inst-code')) document.getElementById('inst-code').value = '';
       document.getElementById('inst-name').value = '';
       document.getElementById('inst-url').value = '';
       document.getElementById('inst-db').value = '';
