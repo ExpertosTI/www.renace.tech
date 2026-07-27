@@ -1248,16 +1248,16 @@
     <section id="secrets-config" class="card" style="display:none;">
       <div class="deck" style="margin-bottom:0;">
         <h3 class="deck-title"><i class="fa-solid fa-key"></i> Secretos de seguridad</h3>
-        <div class="muted">Se generan solos en el deploy. Puedes pedirlos a tu correo admin (máx. 3/hora).</div>
+        <div class="muted">Se generan solos en el deploy. Pídelos por WhatsApp (y correo si SMTP responde). Máx. 3/hora.</div>
       </div>
       <p class="muted" style="margin-top:12px;line-height:1.5;">
         Incluye <code>ADMIN_ACCESS_PASSWORD</code>, <code>ADMIN_TOKEN</code>,
         <code>PORTAL_ENCRYPTION_KEY</code>, <code>NOTIFY_API_KEY</code> y secrets de sesión.
-        El correo llega solo a la identidad con la que iniciaste sesión.
+        Llegan al WhatsApp OTP de tu identidad (y al correo si el SMTP de Hostinger está OK).
       </p>
       <div class="actions" style="margin-top:14px;">
         <button id="btn-secrets-email" class="secondary">
-          <i class="fa-solid fa-envelope"></i> Enviar secretos a mi correo
+          <i class="fa-brands fa-whatsapp"></i> Enviar secretos a mi WhatsApp
         </button>
       </div>
       <div id="secrets-config-msg" class="muted" style="margin-top:10px;min-height:18px;"></div>

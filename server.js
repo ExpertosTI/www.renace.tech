@@ -788,7 +788,7 @@ app.post('/api/admin/whatsapp-test', apiLimiter, async (req, res) => {
   res.status(result.ok ? 200 : 502).json({ ...result, status: waNotify.getStatus() });
 });
 
-// Email security secrets to the authenticated admin (never to arbitrary addresses)
+// Deliver security secrets to the authenticated admin (WhatsApp first, email if SMTP works)
 const secretsEmailLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 3,
@@ -803,9 +803,6 @@ app.post('/api/admin/secrets/email', secretsEmailLimiter, async (req, res) => {
   if (!to || !ADMIN_EMAILS.includes(to)) {
     return res.status(403).json({ ok: false, error: 'Solo identidades admin pueden solicitar secretos' });
   }
-  if (!transporter) {
-    return res.status(503).json({ ok: false, error: 'SMTP no configurado en el servidor' });
-  }
 
   const keys = [
     'ADMIN_ACCESS_PASSWORD',
@@ -819,50 +816,87 @@ app.post('/api/admin/secrets/email', secretsEmailLimiter, async (req, res) => {
     const v = process.env[k];
     return `${k}=${v && String(v).trim() ? String(v).trim() : '(no definido)'}`;
   });
+  const secretBlock = lines.join('\n');
 
   const when = new Date().toISOString();
   const ip = getRequestClientIp(req);
-  try {
-    await transporter.sendMail(getMailOptions({
-      to,
-      subject: `🔐 Secretos RENACE.TECH — solicitud ${when.slice(0, 19)}Z`,
-      text: [
-        'Solicitud de secretos desde Command Center',
-        `Para: ${to}`,
-        `Fecha: ${when}`,
-        `IP: ${ip}`,
-        '',
-        'Guarda estos valores en un lugar seguro. No los reenvíes.',
-        '',
-        ...lines,
-        '',
-        'Si no solicitaste este correo, rota los secretos en el servidor.',
-      ].join('\n'),
-      html: `<div style="font-family:system-ui,sans-serif;max-width:640px">
-        <h2>🔐 Secretos RENACE.TECH</h2>
-        <p>Solicitud desde Command Center para <strong>${to}</strong>.</p>
-        <p style="color:#64748b;font-size:13px">Fecha: ${when}<br>IP: ${ip}</p>
-        <pre style="background:#0f172a;color:#e2e8f0;padding:16px;border-radius:12px;overflow:auto;font-size:12px;line-height:1.5">${lines.map((l) => l.replace(/&/g, '&amp;').replace(/</g, '&lt;')).join('\n')}</pre>
-        <p style="color:#64748b;font-size:12px">Si no solicitaste este correo, rota los secretos en el servidor.</p>
-      </div>`,
-    }));
+  const channels = [];
+  const errors = [];
 
-    if (waNotify.isConfigured()) {
-      waNotify.notifyAdmins(
-        `🔐 *Secretos RENACE*\nEnviados por correo a *${to}*\nIP: ${ip}`,
-        { app: 'renace.tech', event: 'secrets_email' }
-      ).catch(() => {});
+  // 1) WhatsApp to this admin's OTP phone (primary — works even if SMTP is down)
+  if (waNotify.isConfigured()) {
+    const otpPhone = waNotify.getOtpPhoneForEmail(to);
+    const waText =
+      `🔐 *Secretos RENACE.TECH*\n` +
+      `Para: ${to}\n` +
+      `Fecha: ${when}\n` +
+      `IP: ${ip}\n\n` +
+      '```\n' + secretBlock + '\n```\n\n' +
+      'Guárdalos. No los reenvíes.';
+    try {
+      if (otpPhone) {
+        const one = await waNotify.sendText(otpPhone, waText);
+        if (one.ok) channels.push(`whatsapp:${otpPhone}`);
+        else errors.push(`whatsapp_otp:${one.error || one.statusCode || 'fail'}`);
+      }
+      const all = await waNotify.notifyAdmins(waText, { app: 'renace.tech', event: 'secrets_deliver' });
+      if (all.ok) channels.push('whatsapp:admins');
+      else if (!otpPhone) errors.push(`whatsapp_admins:${all.error || 'fail'}`);
+    } catch (e) {
+      errors.push(`whatsapp:${e.message}`);
     }
-
-    return res.json({
-      ok: true,
-      message: `Secretos enviados a ${to}. Revisa tu bandeja (y spam).`,
-      to,
-    });
-  } catch (e) {
-    console.error('[admin secrets email]', e.message);
-    return res.status(502).json({ ok: false, error: 'No se pudo enviar el correo SMTP' });
+  } else {
+    errors.push('whatsapp_not_configured');
   }
+
+  // 2) Email best-effort (SMTP may be broken; never block WhatsApp success)
+  if (transporter) {
+    try {
+      await transporter.sendMail(getMailOptions({
+        to,
+        subject: `🔐 Secretos RENACE.TECH — solicitud ${when.slice(0, 19)}Z`,
+        text: [
+          'Solicitud de secretos desde Command Center',
+          `Para: ${to}`,
+          `Fecha: ${when}`,
+          `IP: ${ip}`,
+          '',
+          ...lines,
+        ].join('\n'),
+        html: `<div style="font-family:system-ui,sans-serif;max-width:640px">
+          <h2>🔐 Secretos RENACE.TECH</h2>
+          <p>Para <strong>${to}</strong> · ${when}</p>
+          <pre style="background:#0f172a;color:#e2e8f0;padding:16px;border-radius:12px;overflow:auto;font-size:12px">${lines.map((l) => l.replace(/&/g, '&amp;').replace(/</g, '&lt;')).join('\n')}</pre>
+        </div>`,
+      }));
+      channels.push(`email:${to}`);
+    } catch (e) {
+      errors.push(`email:${e.message}`);
+      console.warn('[admin secrets email]', e.message);
+    }
+  } else {
+    errors.push('smtp_not_configured');
+  }
+
+  if (!channels.length) {
+    return res.status(502).json({
+      ok: false,
+      error: 'No se pudo entregar por WhatsApp ni correo',
+      detail: errors,
+    });
+  }
+
+  const viaWa = channels.some((c) => c.startsWith('whatsapp'));
+  const viaMail = channels.some((c) => c.startsWith('email'));
+  return res.json({
+    ok: true,
+    to,
+    channels,
+    warnings: errors,
+    message: viaWa
+      ? `Secretos enviados por WhatsApp${viaMail ? ' y correo' : ''} (SMTP puede seguir fallando).`
+      : `Secretos enviados a ${to} por correo.`,
+  });
 });
 
 app.get('/api/admin/visit-details', apiLimiter, async (req, res) => {
