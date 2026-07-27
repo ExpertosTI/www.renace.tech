@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
-# Restaura SMTP de producción: info@renace.tech + password guardado.
-# NO usa renace.space. NO pide nano.
+# Hostinger SMTP — práctica correcta (sin saturar WhatsApp):
+#   host: smtp.hostinger.com
+#   user: info@renace.tech   (== From)
+#   pass: contraseña del buzón info@renace.tech en hPanel (Emails)
+#   465 + SSL  (preferido)  o  587 + STARTTLS
+#
+# Aplica user/from correctos y el password ya guardado; prueba mail-test.
 # Uso: ./scripts/fix-smtp-from-bak.sh
 set -euo pipefail
 cd /opt/www.renace.tech
@@ -46,9 +51,8 @@ open(".env","w",encoding="utf-8").writelines(out)
 
 swarm_get() {
   local key="$1"
-  local out=""
-  out=$(docker service inspect renace_app --format '{{range .Spec.TaskTemplate.ContainerSpec.Env}}{{println .}}{{end}}' 2>/dev/null || true)
-  printf '%s\n' "$out" | python3 -c '
+  docker service inspect renace_app --format '{{range .Spec.TaskTemplate.ContainerSpec.Env}}{{println .}}{{end}}' 2>/dev/null \
+    | python3 -c '
 import sys
 key=sys.argv[1]
 for line in sys.stdin:
@@ -60,56 +64,35 @@ for line in sys.stdin:
 }
 
 echo "═══════════════════════════════════════════"
-echo " RENACE — SMTP info@renace.tech"
+echo " Hostinger SMTP → info@renace.tech"
 echo "═══════════════════════════════════════════"
 
-# Password: Swarm (actual) → .env → .env.bak (solo el secreto, no el usuario viejo)
 SMTP_PASS_VAL="$(swarm_get SMTP_PASSWORD)"
 if [ -z "$SMTP_PASS_VAL" ]; then SMTP_PASS_VAL="$(env_get .env SMTP_PASSWORD)"; fi
 if [ -z "$SMTP_PASS_VAL" ]; then SMTP_PASS_VAL="$(env_get .env.bak SMTP_PASSWORD)"; fi
 
-SMTP_HOST_VAL="$(swarm_get SMTP_HOST)"
-if [ -z "$SMTP_HOST_VAL" ]; then SMTP_HOST_VAL="$(env_get .env SMTP_HOST)"; fi
-if [ -z "$SMTP_HOST_VAL" ]; then SMTP_HOST_VAL="$(env_get .env.bak SMTP_HOST)"; fi
-if [ -z "$SMTP_HOST_VAL" ]; then SMTP_HOST_VAL="smtp.hostinger.com"; fi
-
-SMTP_PORT_VAL="$(swarm_get SMTP_PORT)"
-if [ -z "$SMTP_PORT_VAL" ]; then SMTP_PORT_VAL="$(env_get .env SMTP_PORT)"; fi
-if [ -z "$SMTP_PORT_VAL" ]; then SMTP_PORT_VAL="$(env_get .env.bak SMTP_PORT)"; fi
-if [ -z "$SMTP_PORT_VAL" ]; then SMTP_PORT_VAL="465"; fi
-
-SMTP_SECURE_VAL="$(swarm_get SMTP_SECURE)"
-if [ -z "$SMTP_SECURE_VAL" ]; then SMTP_SECURE_VAL="$(env_get .env SMTP_SECURE)"; fi
-if [ -z "$SMTP_SECURE_VAL" ]; then
-  if [ "$SMTP_PORT_VAL" = "465" ]; then SMTP_SECURE_VAL="1"; else SMTP_SECURE_VAL="0"; fi
-fi
-
-# Canonical mailbox — never renace.space
-SMTP_USER_VAL="info@renace.tech"
-SMTP_FROM_VAL="RENACE.TECH <info@renace.tech>"
-MAIL_REPLY_VAL="info@renace.tech"
-
 if [ -z "$SMTP_PASS_VAL" ]; then
-  echo "❌ No hay SMTP_PASSWORD en Swarm/.env/.env.bak"
+  echo "❌ Sin SMTP_PASSWORD. En hPanel → Emails → info@renace.tech → reset password,"
+  echo "   luego: SMTP_PASSWORD='...' ./scripts/set-smtp-password.sh"
   exit 1
 fi
 
-echo "→ Aplicando:"
-echo "   SMTP_HOST=$SMTP_HOST_VAL"
-echo "   SMTP_PORT=$SMTP_PORT_VAL"
-echo "   SMTP_USER=$SMTP_USER_VAL"
-echo "   SMTP_FROM=$SMTP_FROM_VAL"
-echo "   SMTP_PASSWORD=set"
+SMTP_USER_VAL="info@renace.tech"
+SMTP_FROM_VAL="RENACE.TECH <info@renace.tech>"
+SMTP_HOST_VAL="smtp.hostinger.com"
+# Prefer Hostinger recommended 465 SSL; app auto-fallbacks to 587 if verify fails
+SMTP_PORT_VAL="465"
+SMTP_SECURE_VAL="1"
 
+echo "→ Aplicando SMTP_USER=$SMTP_USER_VAL :$SMTP_PORT_VAL SSL"
 env_set SMTP_HOST "$SMTP_HOST_VAL"
 env_set SMTP_PORT "$SMTP_PORT_VAL"
 env_set SMTP_SECURE "$SMTP_SECURE_VAL"
 env_set SMTP_USER "$SMTP_USER_VAL"
 env_set SMTP_PASSWORD "$SMTP_PASS_VAL"
 env_set SMTP_FROM "$SMTP_FROM_VAL"
-env_set MAIL_REPLY_TO "$MAIL_REPLY_VAL"
+env_set MAIL_REPLY_TO "info@renace.tech"
 
-echo "→ Actualizando renace_app (solo SMTP)..."
 docker service update \
   --env-add "SMTP_HOST=${SMTP_HOST_VAL}" \
   --env-add "SMTP_PORT=${SMTP_PORT_VAL}" \
@@ -117,27 +100,28 @@ docker service update \
   --env-add "SMTP_USER=${SMTP_USER_VAL}" \
   --env-add "SMTP_PASSWORD=${SMTP_PASS_VAL}" \
   --env-add "SMTP_FROM=${SMTP_FROM_VAL}" \
-  --env-add "MAIL_REPLY_TO=${MAIL_REPLY_VAL}" \
+  --env-add "MAIL_REPLY_TO=info@renace.tech" \
   --force \
   renace_app
 
-echo "⏳ Esperando 40s..."
-sleep 40
-
+echo "⏳ 35s..."
+sleep 35
 PIN="$(env_get .env ADMIN_ACCESS_PASSWORD)"
-if [ -z "$PIN" ]; then PIN="$(swarm_get ADMIN_ACCESS_PASSWORD)"; fi
-
-echo "📨 Probando SMTP..."
+[ -z "$PIN" ] && PIN="$(swarm_get ADMIN_ACCESS_PASSWORD)"
 BODY=$(mktemp)
 CODE=$(curl -sS -o "$BODY" -w "%{http_code}" -X POST "https://renace.tech/api/health/mail-test" \
-  -H "Content-Type: application/json" \
-  -d "{\"pin\":\"${PIN}\"}" || echo "000")
-echo "   HTTP $CODE  $(head -c 220 "$BODY")"
+  -H "Content-Type: application/json" -d "{\"pin\":\"${PIN}\"}" || echo 000)
+echo "📨 mail-test HTTP $CODE $(head -c 200 "$BODY")"
 rm -f "$BODY"
 
 if [ "$CODE" = "200" ]; then
-  echo "✅ SMTP OK con info@renace.tech"
-else
-  echo "⚠️  Auth falló: el password guardado no autentica info@renace.tech en Hostinger."
-  echo "   Hay que actualizar SMTP_PASSWORD en el panel Hostinger → .env (sin tocar el resto)."
+  echo "✅ SMTP listo — secretos solo por correo (WhatsApp no recibe secretos)."
+  exit 0
 fi
+
+echo ""
+echo "❌ Hostinger rechazó auth (típico 535 = password incorrecto para info@renace.tech)."
+echo "   El .env.bak a menudo tenía password del buzón viejo @renace.space."
+echo "   1) hPanel → Emails → info@renace.tech → Reset password"
+echo "   2) SMTP_PASSWORD='NUEVO' ./scripts/set-smtp-password.sh"
+exit 1

@@ -101,11 +101,9 @@ SMTP_PASSWORD_VAL="$(swarm_get SMTP_PASSWORD)"
 if [ -z "$SMTP_PASSWORD_VAL" ]; then SMTP_PASSWORD_VAL="$(env_get .env SMTP_PASSWORD)"; fi
 if [ -z "$SMTP_PASSWORD_VAL" ]; then SMTP_PASSWORD_VAL="$(env_get .env.bak SMTP_PASSWORD)"; fi
 
-# Auth SMTP = mailbox dueña del password (.env.bak). From/Reply = marca renace.tech
-SMTP_USER_VAL="$(env_get .env.bak SMTP_USER)"
-if [ -z "$SMTP_USER_VAL" ]; then SMTP_USER_VAL="$(swarm_get SMTP_USER)"; fi
-if [ -z "$SMTP_USER_VAL" ]; then SMTP_USER_VAL="$(env_get .env SMTP_USER)"; fi
-if [ -z "$SMTP_USER_VAL" ]; then SMTP_USER_VAL="info@renace.tech"; fi
+# Auth SMTP Hostinger: usuario SIEMPRE info@renace.tech (From = mismo buzón).
+# Password: Swarm → .env → .env.bak (el secreto; nunca el usuario @renace.space del bak).
+SMTP_USER_VAL="info@renace.tech"
 
 EVOLUTION_KEY_VAL="$(swarm_get EVOLUTION_API_KEY)"
 if [ -z "$EVOLUTION_KEY_VAL" ]; then EVOLUTION_KEY_VAL="$(env_get .env EVOLUTION_API_KEY)"; fi
