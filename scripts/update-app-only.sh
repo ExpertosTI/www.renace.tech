@@ -22,7 +22,12 @@ fi
 if [ -f .env.bak ] && ! grep -q '^POSTGRES_USER=renace' .env 2>/dev/null; then
   echo "⚠️  .env incorrecto — restaurando desde .env.bak"
   cp .env.bak .env
-  sed -i -E 's/@(insforge_postgres|db):/@renace_db:/g' .env
+  # Solo elimina host genérico db; no toca insforge_postgres
+  if grep -q '@db:' .env 2>/dev/null; then
+    echo "❌ .env restaurado desde bak aún tiene host genérico @db:"
+    echo "   Ejecuta: ./scripts/fix-database-url-host.sh"
+    exit 1
+  fi
 fi
 
 # Generar secretos de seguridad si faltan (no pisa valores reales)
@@ -53,11 +58,18 @@ PY
 
 export PORT="${PORT:-3000}"
 
-# Hostname único del servicio Swarm (nunca alias genérico "db" en RenaceNet)
+# Hostname DB: nunca alias genérico "db".
+# No reescribir insforge_postgres / renace_db (servicios únicos).
 if [ -n "${DATABASE_URL:-}" ]; then
-  DATABASE_URL="$(printf '%s' "$DATABASE_URL" | sed -E 's/@(insforge_postgres|db):/@renace_db:/g')"
-  export DATABASE_URL
+  case "$DATABASE_URL" in
+    *@db:*)
+      echo "❌ DATABASE_URL usa host genérico 'db' (colisiona en RenaceNet)."
+      echo "   Usa @insforge_postgres: o @renace_db: — luego ./scripts/fix-database-url-host.sh"
+      exit 1
+      ;;
+  esac
 fi
+export DATABASE_URL
 
 # ── SMTP canónico: info@renace.tech ──
 # Password se toma de .env / .env.bak / Swarm, pero el USUARIO nunca vuelve a renace.space.

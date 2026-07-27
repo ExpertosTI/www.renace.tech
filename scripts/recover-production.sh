@@ -7,7 +7,11 @@ cd /opt/www.renace.tech
 
 echo "1/3 Restaurar .env desde backup..."
 cp .env.bak .env
-sed -i -E 's/@(insforge_postgres|db):/@renace_db:/g' .env
+# No reescribir Insforge. Si el bak tiene @db: genérico, hay que corregirlo a mano.
+if grep -qE '@db:' .env; then
+  echo "❌ .env.bak tiene host genérico @db:. Edita DATABASE_URL a @insforge_postgres: o @renace_db:"
+  exit 1
+fi
 
 echo "2/3 Aplicar variables a Swarm..."
 bash scripts/restore-swarm-env.sh .env

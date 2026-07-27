@@ -16,20 +16,25 @@ set -a
 source "$ENV_FILE"
 set +a
 
-# Host interno = nombre del servicio Swarm (nunca alias genérico "db")
+# No reescribir hosts únicos. Rechazar alias genérico "db".
 if [ -n "${DATABASE_URL:-}" ]; then
-  DATABASE_URL="$(printf '%s' "$DATABASE_URL" | sed -E 's/@(insforge_postgres|db):/@renace_db:/g')"
+  case "$DATABASE_URL" in
+    *@db:*)
+      echo "❌ DATABASE_URL con host genérico 'db'. Usa insforge_postgres o renace_db."
+      exit 1
+      ;;
+  esac
 fi
 export PORT="${PORT:-3000}"
 
-echo "🔧 Restaurando renace_db..."
+echo "🔧 Restaurando renace_db env (Postgres del stack, si aplica)..."
 docker service update \
   --env-add "POSTGRES_USER=${POSTGRES_USER}" \
   --env-add "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" \
   --env-add "POSTGRES_DB=${POSTGRES_DB}" \
   renace_db
 
-echo "🔧 Restaurando renace_app..."
+echo "🔧 Restaurando renace_app (DATABASE_URL host=$(python3 -c "import re,os; m=re.search(r'@([^:/]+):', os.environ.get('DATABASE_URL','')); print(m.group(1) if m else '?')"))..."
 docker service update \
   --env-add "DATABASE_URL=${DATABASE_URL}" \
   --env-add "NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL:-https://renace.tech}" \

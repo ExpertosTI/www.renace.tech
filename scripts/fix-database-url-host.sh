@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Corrige DATABASE_URL: host genérico "db" / "insforge_postgres" → "renace_db"
-# (evidencia: en RenaceNet muchos stacks registran alias "db"; DNS de la app cae en el Postgres equivocado).
-# No regenera passwords. Solo renombra el host en .env + Swarm.
+# Normaliza SOLO el host genérico "db" en DATABASE_URL.
+# NO reescribe insforge_postgres ni renace_db (nombres de servicio únicos).
+# Si el host es "db", usa el host de .env.bak si es único; si no, falla.
 set -euo pipefail
 cd /opt/www.renace.tech
 
@@ -9,7 +9,9 @@ python3 <<'PY'
 from pathlib import Path
 import re, subprocess
 
-def load(path):
+ALLOWED = {"insforge_postgres", "renace_db"}
+
+def load_url(path):
     p = Path(path)
     if not p.exists():
         return None
@@ -18,64 +20,68 @@ def load(path):
             return line.split("=", 1)[1].strip().strip('"').strip("'")
     return None
 
-def fix(url: str) -> str:
-    return re.sub(r"@(?:insforge_postgres|db):", "@renace_db:", url)
+def host_of(url):
+    m = re.match(r"postgresql://[^:]+:[^@]+@([^:/]+):", url or "")
+    return m.group(1) if m else None
 
-url = load(".env")
+def set_host(url, host):
+    return re.sub(r"@[^:/]+:", f"@{host}:", url, count=1)
+
+def write_url(path, url):
+    p = Path(path)
+    lines = p.read_text(encoding="utf-8", errors="replace").splitlines() if p.exists() else []
+    out, found = [], False
+    for line in lines:
+        if line.startswith("DATABASE_URL="):
+            out.append(f'DATABASE_URL="{url}"'); found = True
+        else:
+            out.append(line)
+    if not found:
+        out.append(f'DATABASE_URL="{url}"')
+    p.write_text("\n".join(out) + "\n", encoding="utf-8")
+
+url = load_url(".env")
 if not url:
     raise SystemExit("❌ Sin DATABASE_URL en .env")
 
-new = fix(url)
-m = re.match(r"postgresql://([^:]+):([^@]+)@([^:/]+):(\d+)/([^?]+)", new)
-if not m:
-    raise SystemExit("❌ DATABASE_URL no parseable")
-user, _pw, host, port, db = m.groups()
-print(f"host={host} user={user} db={db} port={port}")
-if host != "renace_db":
-    raise SystemExit(f"❌ host quedó {host}, esperado renace_db")
+host = host_of(url)
+bak_host = host_of(load_url(".env.bak") or "")
+print(f"actual={host} bak={bak_host}")
 
-# write .env
-lines = Path(".env").read_text(encoding="utf-8", errors="replace").splitlines()
-out = []
-found = False
-for line in lines:
-    if line.startswith("DATABASE_URL="):
-        out.append(f'DATABASE_URL="{new}"')
-        found = True
+if host == "db":
+    if bak_host in ALLOWED:
+        url = set_host(url, bak_host)
+        host = bak_host
+        print(f"✓ host genérico db → {host} (desde .env.bak)")
     else:
-        out.append(line)
-if not found:
-    out.append(f'DATABASE_URL="{new}"')
-Path(".env").write_text("\n".join(out) + "\n", encoding="utf-8")
-print("✓ .env actualizado")
+        raise SystemExit(
+            "❌ DATABASE_URL usa host genérico 'db'. "
+            "Pon un servicio único: insforge_postgres o renace_db."
+        )
+elif host not in ALLOWED:
+    raise SystemExit(f"❌ Host no permitido: {host}. Usa: {sorted(ALLOWED)}")
+else:
+    print(f"✓ host único OK: {host}")
 
-# also fix .env.bak host if present (keep other values)
-bak = Path(".env.bak")
-if bak.exists():
-    blines = bak.read_text(encoding="utf-8", errors="replace").splitlines()
-    bout = []
-    for line in blines:
-        if line.startswith("DATABASE_URL="):
-            raw = line.split("=", 1)[1].strip().strip('"').strip("'")
-            bout.append(f'DATABASE_URL="{fix(raw)}"')
-        else:
-            bout.append(line)
-    bak.write_text("\n".join(bout) + "\n", encoding="utf-8")
-    print("✓ .env.bak host normalizado")
+write_url(".env", url)
+# bak: solo corrige si tenía "db"
+bak = load_url(".env.bak")
+if bak and host_of(bak) == "db":
+    write_url(".env.bak", set_host(bak, host))
+    print("✓ .env.bak: db →", host)
 
-Path("/tmp/renace-database-url.txt").write_text(new, encoding="utf-8")
+Path("/tmp/renace-database-url.txt").write_text(url, encoding="utf-8")
+print(f"canon host={host}")
 PY
 
 NEW_URL=$(cat /tmp/renace-database-url.txt)
 rm -f /tmp/renace-database-url.txt
+HOST=$(python3 -c "import re,sys; print(re.search(r'@([^:/]+):', sys.argv[1]).group(1))" "$NEW_URL")
 
-echo "🔄 Swarm renace_app DATABASE_URL → host renace_db"
+echo "🔄 Swarm renace_app DATABASE_URL host=$HOST"
 docker service update --env-add "DATABASE_URL=${NEW_URL}" --force renace_app
-
-echo "⏳ 25s..."
 sleep 25
 APP=$(docker ps -q -f name=renace_app | head -1)
-echo "=== dns renace_db ==="
-docker exec "$APP" node -e 'require("dns").lookup("renace_db",(e,a)=>console.log(e||a))'
-echo "=== health ==="
+echo "=== dns $HOST ==="
+docker exec "$APP" node -e "require('dns').lookup(process.argv[1],(e,a)=>console.log(e||a))" "$HOST"
 curl -sS https://renace.tech/api/health; echo
