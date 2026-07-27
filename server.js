@@ -51,11 +51,43 @@ const BUNDLED_DOWNLOADS = [
   },
 ];
 const blockedStaticPathPattern = /(?:^\/(?:server\.js|package(?:-lock)?\.json|docker-compose\.yml|Dockerfile|deploy\.sh)$|\.(?:php|env|yml|yaml|sh|sql|log|bak|md)$)/i;
+// Command Center / app superadmins (NOT portal SSO picker)
 const ADMIN_EMAILS = [
-  (process.env.ADMIN_EMAIL || 'expertostird@gmail.com').toLowerCase(),
-  'rcexpertos@gmail.com'
+  ...new Set(
+    [
+      process.env.ADMIN_EMAIL || 'expertostird@gmail.com',
+      'rcexpertos@gmail.com',
+      ...(String(process.env.ADMIN_EMAILS || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)),
+    ]
+      .map((e) => String(e).toLowerCase())
+      .filter(Boolean)
+  ),
+];
+
+// Portal SSO: emails that may pick among multiple Odoo instances after auth
+// (separate from Command Center — info@ is access-only, not app superadmin)
+const PORTAL_MULTI_INSTANCE_EMAILS = [
+  ...new Set(
+    [
+      'info@renace.tech',
+      ...ADMIN_EMAILS,
+      ...(String(process.env.PORTAL_MULTI_INSTANCE_EMAILS || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)),
+    ]
+      .map((e) => String(e).toLowerCase())
+      .filter(Boolean)
+  ),
 ];
 const MAIL_REPLY_TO = (process.env.MAIL_REPLY_TO || 'info@renace.tech').trim();
+
+function canPickPortalInstances(email) {
+  return PORTAL_MULTI_INSTANCE_EMAILS.includes(String(email || '').trim().toLowerCase());
+}
 
 function getMailFrom() {
   const raw = (process.env.SMTP_FROM || process.env.SMTP_USER || 'info@renace.tech').trim();
@@ -1055,48 +1087,86 @@ app.post('/api/portal/login', portalLimiter, async (req, res) => {
   const login = String(req.body?.login || req.body?.email || '').trim().slice(0, 254);
   const password = String(req.body?.password || '').slice(0, 256);
   const serviceCode = String(req.body?.serviceCode || req.body?.service_code || '').trim().toLowerCase().slice(0, 32);
+  const instanceIdRaw = req.body?.instanceId ?? req.body?.instance_id;
+  const requestedInstanceId = instanceIdRaw != null && instanceIdRaw !== ''
+    ? parseInt(String(instanceIdRaw), 10)
+    : null;
   const acceptsJson = req.xhr || (req.headers['accept'] && req.headers['accept'].includes('application/json')) || (req.headers['content-type'] && req.headers['content-type'].includes('application/json'));
 
   if (!login || !password) {
     if (acceptsJson) return res.status(400).json({ ok: false, error: 'Usuario y contraseña son requeridos' });
     return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
   }
+  if (requestedInstanceId != null && (!Number.isFinite(requestedInstanceId) || requestedInstanceId < 1)) {
+    if (acceptsJson) return res.status(400).json({ ok: false, error: 'instanceId inválido' });
+    return res.status(400).json({ error: 'instanceId inválido' });
+  }
 
   try {
+    const canPickInstances = canPickPortalInstances(login);
+
+    const linkedRes = await pool.query(
+      `SELECT cpu.id AS portal_user_id, oi.id AS instance_id, oi.odoo_url, oi.public_url, oi.odoo_db, oi.client_name, oi.service_code
+       FROM client_portal_users cpu
+       JOIN odoo_instances oi ON oi.id = cpu.instance_id
+       WHERE cpu.odoo_login = $1 AND cpu.active = TRUE AND oi.active = TRUE
+       ORDER BY oi.id ASC`,
+      [login]
+    );
+    const linked = linkedRes.rows;
+
     let instanceRow = null;
-    if (serviceCode) {
+
+    if (requestedInstanceId) {
       const instRes = await pool.query(
-        `SELECT id, client_name, odoo_url, odoo_db, service_code
+        `SELECT id AS instance_id, client_name, odoo_url, public_url, odoo_db, service_code
+         FROM odoo_instances WHERE id = $1 AND active = TRUE LIMIT 1`,
+        [requestedInstanceId]
+      );
+      if (!instRes.rows.length) {
+        if (acceptsJson) return res.status(404).json({ ok: false, error: 'Instancia no encontrada' });
+        return res.status(404).json({ error: 'Instancia no encontrada' });
+      }
+      instanceRow = instRes.rows[0];
+      const allowed = canPickInstances || linked.some((r) => r.instance_id === requestedInstanceId);
+      if (!allowed) {
+        if (acceptsJson) return res.status(403).json({ ok: false, error: 'No tienes acceso a esta instancia' });
+        return res.status(403).json({ error: 'No tienes acceso a esta instancia' });
+      }
+    } else if (serviceCode) {
+      const instRes = await pool.query(
+        `SELECT id AS instance_id, client_name, odoo_url, public_url, odoo_db, service_code
          FROM odoo_instances
          WHERE LOWER(service_code) = $1 AND active = TRUE
          LIMIT 1`,
         [serviceCode]
       );
-      if (instRes.rows.length) {
-        instanceRow = instRes.rows[0];
+      if (!instRes.rows.length) {
+        if (acceptsJson) return res.status(401).json({ ok: false, error: 'Código de empresa incorrecto o empresa no registrada' });
+        return res.status(401).json({ error: 'Código de empresa incorrecto o empresa no registrada' });
       }
-    }
-
-    if (!instanceRow) {
-      const userRes = await pool.query(
-        `SELECT cpu.id, oi.id AS instance_id, oi.odoo_url, oi.odoo_db, oi.client_name, oi.service_code
-         FROM client_portal_users cpu
-         JOIN odoo_instances oi ON oi.id = cpu.instance_id
-         WHERE cpu.odoo_login = $1 AND cpu.active = TRUE AND oi.active = TRUE
-         LIMIT 1`,
-        [login]
-      );
-      if (userRes.rows.length) {
-        instanceRow = userRes.rows[0];
+      instanceRow = instRes.rows[0];
+    } else if (linked.length === 1 && !canPickInstances) {
+      instanceRow = linked[0];
+    } else if (linked.length >= 1) {
+      instanceRow = linked[0];
+    } else {
+      if (acceptsJson) {
+        return res.status(400).json({
+          ok: false,
+          error: 'Código de empresa requerido',
+          code: 'service_code_required',
+          needs_service_code: true,
+        });
       }
+      return res.status(400).json({ error: 'Código de empresa requerido', needs_service_code: true });
     }
 
-    if (!instanceRow) {
-      if (acceptsJson) return res.status(401).json({ ok: false, error: 'Código de empresa o credenciales incorrectas' });
-      return res.status(401).json({ error: 'Credenciales incorrectas o empresa no registrada' });
-    }
-
-    const { id: instance_id, odoo_url, odoo_db, client_name, service_code: resolvedServiceCode } = instanceRow;
+    const instance_id = instanceRow.instance_id;
+    const odoo_url = instanceRow.odoo_url;
+    const odoo_db = instanceRow.odoo_db;
+    const client_name = instanceRow.client_name;
+    const resolvedServiceCode = instanceRow.service_code;
 
     let authResult;
     try {
@@ -1112,8 +1182,7 @@ app.post('/api/portal/login', portalLimiter, async (req, res) => {
       return res.status(401).json({ error: 'Credenciales incorrectas' });
     }
 
-    // Auto-vincular usuario del portal en la base de datos local al primer acceso exitoso
-    let portalUserId = null;
+    let portalUserId = linked.find((r) => r.instance_id === instance_id)?.portal_user_id || null;
     try {
       const bindRes = await pool.query(
         `INSERT INTO client_portal_users (odoo_login, instance_id, active)
@@ -1122,7 +1191,7 @@ app.post('/api/portal/login', portalLimiter, async (req, res) => {
          RETURNING id`,
         [login, instance_id]
       );
-      portalUserId = bindRes.rows[0]?.id || null;
+      portalUserId = bindRes.rows[0]?.id || portalUserId;
     } catch (bindErr) {
       console.warn('[portal login] auto-bind warn:', bindErr.message);
       try {
@@ -1134,9 +1203,42 @@ app.post('/api/portal/login', portalLimiter, async (req, res) => {
       } catch (_) {}
     }
 
-    const safeUrl  = odoo_url.replace(/"/g, '');
+    if (!requestedInstanceId && acceptsJson) {
+      let selectable = [];
+      if (canPickInstances) {
+        const allRes = await pool.query(
+          `SELECT id, client_name, service_code FROM odoo_instances WHERE active = TRUE ORDER BY client_name ASC`
+        );
+        selectable = allRes.rows;
+      } else {
+        const refreshed = await pool.query(
+          `SELECT oi.id, oi.client_name, oi.service_code
+           FROM client_portal_users cpu
+           JOIN odoo_instances oi ON oi.id = cpu.instance_id
+           WHERE cpu.odoo_login = $1 AND cpu.active = TRUE AND oi.active = TRUE
+           ORDER BY oi.client_name ASC`,
+          [login]
+        );
+        selectable = refreshed.rows;
+      }
+      if (selectable.length > 1) {
+        return res.json({
+          ok: false,
+          needs_instance_selection: true,
+          instances: selectable.map((r) => ({
+            id: r.id,
+            client_name: r.client_name,
+            service_code: r.service_code,
+          })),
+          message: 'Selecciona la instancia a la que deseas acceder',
+        });
+      }
+    }
+
+    const safeUrl = odoo_url.replace(/"/g, '');
     const safeName = escAttr(client_name);
-    let ssoRedirectUrl = `${safeUrl.replace(/\/$/, '')}/web/login`;
+    const publicBase = portalAuth.toPublicOdooUrl(safeUrl, instanceRow.public_url);
+    let ssoRedirectUrl = `${publicBase}/web/login`;
 
     try {
       const sso = await portalAuth.issueSsoRedirect(pool, {
@@ -1144,6 +1246,7 @@ app.post('/api/portal/login', portalLimiter, async (req, res) => {
         instanceId: instance_id,
         odooLogin: login,
         odooUrl: safeUrl,
+        publicUrl: instanceRow.public_url,
         ip: getRequestClientIp(req),
         userAgent: req.get('user-agent') || '',
       });
@@ -1152,10 +1255,10 @@ app.post('/api/portal/login', portalLimiter, async (req, res) => {
       console.warn('[portal login] SSO token warn:', ssoErr.message);
     }
 
-    // Browser HTML login may set Odoo session cookie; JSON/native clients use SSO only (no sessionId leak)
     if (!acceptsJson && authResult.sessionId) {
       try {
-        const cookieDomain = '.' + (new URL(safeUrl).hostname.split('.').slice(-2).join('.'));
+        const cookieHost = new URL(publicBase).hostname;
+        const cookieDomain = '.' + cookieHost.split('.').slice(-2).join('.');
         res.setHeader('Set-Cookie',
           `session_id=${authResult.sessionId}; Domain=${cookieDomain}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`);
       } catch (_) {}
@@ -1177,7 +1280,7 @@ app.post('/api/portal/login', portalLimiter, async (req, res) => {
       return res.json({
         ok: true,
         clientName: client_name,
-        odooUrl: safeUrl,
+        odooUrl: publicBase,
         odooDb: odoo_db,
         serviceCode: resolvedServiceCode || serviceCode || null,
         uid: authResult.uid || 1,
@@ -1187,7 +1290,7 @@ app.post('/api/portal/login', portalLimiter, async (req, res) => {
       });
     }
 
-    res.type('html').send(buildRedirectPage(safeName, safeUrl));
+    res.type('html').send(buildRedirectPage(safeName, publicBase));
   } catch (e) {
     console.error('[portal login]', e.message);
     if (acceptsJson) return res.status(500).json({ ok: false, error: 'Error interno del servidor' });
@@ -1447,20 +1550,24 @@ app.get('/api/portal/google/callback', portalLimiter, async (req, res) => {
 app.get('/api/admin/odoo-instances', apiLimiter, async (req, res) => {
   if (!requireAdminToken(req, res)) return;
   try {
-    const r = await pool.query('SELECT id, client_name, odoo_url, odoo_db, service_code, active, created_at FROM odoo_instances ORDER BY created_at DESC');
+    const r = await pool.query('SELECT id, client_name, odoo_url, public_url, odoo_db, service_code, active, created_at FROM odoo_instances ORDER BY created_at DESC');
     res.json(r.rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/admin/odoo-instances', apiLimiter, async (req, res) => {
   if (!requireAdminToken(req, res)) return;
-  const client_name  = String(req.body?.client_name || '').replace(/[<>]/g, '').trim().slice(0, 255);
+  const client_name  = String(req.body?.client_name || '').replace(/[<>"]/g, '').trim().slice(0, 255);
   const odoo_url     = String(req.body?.odoo_url || '').trim().slice(0, 500);
-  const odoo_db      = String(req.body?.odoo_db || '').replace(/[<>]/g, '').trim().slice(0, 255);
+  const public_url   = String(req.body?.public_url || req.body?.publicUrl || '').trim().slice(0, 500);
+  const odoo_db      = String(req.body?.odoo_db || '').replace(/[<>"]/g, '').trim().slice(0, 255);
   const service_code = String(req.body?.service_code || req.body?.serviceCode || '').trim().slice(0, 32);
 
   if (!client_name || !odoo_url || !odoo_db) return res.status(400).json({ error: 'Nombre, URL y base de datos son requeridos' });
   try { new URL(odoo_url); } catch { return res.status(400).json({ error: 'URL inválida' }); }
+  if (public_url) {
+    try { new URL(public_url); } catch { return res.status(400).json({ error: 'URL pública inválida' }); }
+  }
 
   try {
     let finalCode = service_code;
@@ -1470,8 +1577,8 @@ app.post('/api/admin/odoo-instances', apiLimiter, async (req, res) => {
       finalCode = String(nextNum);
     }
     const r = await pool.query(
-      'INSERT INTO odoo_instances (client_name, odoo_url, odoo_db, service_code) VALUES ($1,$2,$3,$4) RETURNING *',
-      [client_name, odoo_url, odoo_db, finalCode]
+      'INSERT INTO odoo_instances (client_name, odoo_url, public_url, odoo_db, service_code) VALUES ($1,$2,$3,$4,$5) RETURNING *',
+      [client_name, odoo_url, public_url || null, odoo_db, finalCode]
     );
     res.json(r.rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -1481,18 +1588,22 @@ app.put('/api/admin/odoo-instances/:id', apiLimiter, async (req, res) => {
   if (!requireAdminToken(req, res)) return;
   const id = parseInt(req.params.id);
   if (!id) return res.status(400).json({ error: 'ID inválido' });
-  const client_name  = String(req.body?.client_name || '').replace(/[<>]/g, '').trim().slice(0, 255);
+  const client_name  = String(req.body?.client_name || '').replace(/[<>"]/g, '').trim().slice(0, 255);
   const odoo_url     = String(req.body?.odoo_url || '').trim().slice(0, 500);
-  const odoo_db      = String(req.body?.odoo_db || '').replace(/[<>]/g, '').trim().slice(0, 255);
+  const public_url   = String(req.body?.public_url || req.body?.publicUrl || '').trim().slice(0, 500);
+  const odoo_db      = String(req.body?.odoo_db || '').replace(/[<>"]/g, '').trim().slice(0, 255);
   const service_code = String(req.body?.service_code || req.body?.serviceCode || '').trim().slice(0, 32);
   const active       = req.body?.active !== undefined ? !!req.body.active : true;
 
   if (!client_name || !odoo_url || !odoo_db) return res.status(400).json({ error: 'Campos requeridos' });
   try { new URL(odoo_url); } catch { return res.status(400).json({ error: 'URL inválida' }); }
+  if (public_url) {
+    try { new URL(public_url); } catch { return res.status(400).json({ error: 'URL pública inválida' }); }
+  }
   try {
     const r = await pool.query(
-      'UPDATE odoo_instances SET client_name=$1, odoo_url=$2, odoo_db=$3, service_code=$4, active=$5 WHERE id=$6 RETURNING *',
-      [client_name, odoo_url, odoo_db, service_code || null, active, id]
+      'UPDATE odoo_instances SET client_name=$1, odoo_url=$2, public_url=$3, odoo_db=$4, service_code=$5, active=$6 WHERE id=$7 RETURNING *',
+      [client_name, odoo_url, public_url || null, odoo_db, service_code || null, active, id]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'No encontrado' });
     res.json(r.rows[0]);
@@ -1840,127 +1951,196 @@ async function validateServiceCredentials(url, db, login, password) {
 app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
   const odoo_login = String(req.body?.odoo_login || req.body?.login || '').trim().slice(0, 254);
   const password = String(req.body?.password || '').slice(0, 256);
-  
+  const serviceCode = String(req.body?.serviceCode || req.body?.service_code || '').trim().toLowerCase().slice(0, 32);
+  const instanceIdRaw = req.body?.instanceId ?? req.body?.instance_id;
+  const requestedInstanceId = instanceIdRaw != null && instanceIdRaw !== ''
+    ? parseInt(String(instanceIdRaw), 10)
+    : null;
+
   if (!odoo_login || !password) {
     return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
   }
+  if (requestedInstanceId != null && (!Number.isFinite(requestedInstanceId) || requestedInstanceId < 1)) {
+    return res.status(400).json({ error: 'instanceId inválido' });
+  }
 
   try {
-    // Find user and instance
-    const userResult = await pool.query(
-      `SELECT cpu.id, cpu.odoo_login, oi.id AS instance_id, oi.odoo_url, oi.odoo_db, oi.client_name
+    const canPickInstances = canPickPortalInstances(odoo_login);
+
+    const linkedRes = await pool.query(
+      `SELECT cpu.id, cpu.odoo_login, oi.id AS instance_id, oi.odoo_url, oi.public_url, oi.odoo_db,
+              oi.client_name, oi.service_code
        FROM client_portal_users cpu
        JOIN odoo_instances oi ON oi.id = cpu.instance_id
        WHERE cpu.odoo_login = $1 AND cpu.active = TRUE AND oi.active = TRUE
-       LIMIT 1`,
+       ORDER BY oi.id ASC`,
       [odoo_login]
     );
+    const linked = linkedRes.rows;
 
-    let user = userResult.rows[0];
-    let customServiceToken = null;
+    let targetInstance = null;
 
-    // If user not in portal DB, try to auto-wrap from primary Odoo instance
-    if (!user) {
-      const defaultInstanceResult = await pool.query(
-        `SELECT id AS instance_id, odoo_url, odoo_db, client_name 
-         FROM odoo_instances 
-         WHERE active = TRUE 
-         ORDER BY id ASC LIMIT 1`
+    if (requestedInstanceId) {
+      const instRes = await pool.query(
+        `SELECT id AS instance_id, odoo_url, public_url, odoo_db, client_name, service_code
+         FROM odoo_instances WHERE id = $1 AND active = TRUE LIMIT 1`,
+        [requestedInstanceId]
       );
-      
-      if (!defaultInstanceResult.rows.length) {
-        return res.status(401).json({ error: 'No hay instancias configuradas en el portal' });
+      if (!instRes.rows.length) {
+        return res.status(404).json({ error: 'Instancia no encontrada' });
       }
-      
-      const defaultInstance = defaultInstanceResult.rows[0];
-      
-      try {
-        const authCheck = await validateServiceCredentials(defaultInstance.odoo_url, defaultInstance.odoo_db, odoo_login, password);
-        if (!authCheck.valid) {
-          return res.status(401).json({ error: 'Credenciales incorrectas en el servicio' });
-        }
-        if (authCheck.customService) customServiceToken = authCheck.sessionId;
-      } catch (e) {
-        console.warn('[sso generate] Auth check error:', e.message);
-        return res.status(503).json({ error: 'Error verificando credenciales maestras' });
+      targetInstance = instRes.rows[0];
+      const allowed = canPickInstances || linked.some((r) => r.instance_id === requestedInstanceId);
+      if (!allowed) {
+        return res.status(403).json({ error: 'No tienes acceso a esta instancia' });
       }
-      
-      // Auto-insert user
-      const insertResult = await pool.query(
-        `INSERT INTO client_portal_users (odoo_login, instance_id, active) 
-         VALUES ($1, $2, TRUE) RETURNING id`,
-        [odoo_login, defaultInstance.instance_id]
+    } else if (serviceCode) {
+      const instRes = await pool.query(
+        `SELECT id AS instance_id, odoo_url, public_url, odoo_db, client_name, service_code
+         FROM odoo_instances
+         WHERE LOWER(service_code) = $1 AND active = TRUE
+         LIMIT 1`,
+        [serviceCode]
       );
-      
-      user = {
-        id: insertResult.rows[0].id,
-        odoo_login,
-        instance_id: defaultInstance.instance_id,
-        odoo_url: defaultInstance.odoo_url,
-        odoo_db: defaultInstance.odoo_db,
-        client_name: defaultInstance.client_name
-      };
+      if (!instRes.rows.length) {
+        return res.status(401).json({ error: 'Código de empresa incorrecto o empresa no registrada' });
+      }
+      targetInstance = instRes.rows[0];
+    } else if (linked.length === 1 && !canPickInstances) {
+      targetInstance = linked[0];
+    } else if (linked.length >= 1) {
+      // Auth against first linked instance, then may ask for selection
+      targetInstance = linked[0];
     } else {
-      // Validate existing user credentials
-      try {
-        const authResult = await validateServiceCredentials(user.odoo_url, user.odoo_db, odoo_login, password);
-        if (!authResult.valid) {
-          return res.status(401).json({ error: 'Credenciales incorrectas' });
-        }
-        if (authResult.customService) customServiceToken = authResult.sessionId;
-      } catch (e) {
-        console.warn('[sso generate] Auth error:', e.message);
-        return res.status(503).json({ error: 'No se pudo conectar con el servicio. Intenta más tarde.' });
+      return res.status(400).json({
+        error: 'Código de empresa requerido',
+        code: 'service_code_required',
+        needs_service_code: true,
+      });
+    }
+
+    let customServiceToken = null;
+    let authResult;
+    try {
+      authResult = await validateServiceCredentials(
+        targetInstance.odoo_url,
+        targetInstance.odoo_db,
+        odoo_login,
+        password
+      );
+      if (!authResult.valid) {
+        return res.status(401).json({ error: 'Credenciales incorrectas' });
+      }
+      if (authResult.customService) customServiceToken = authResult.sessionId;
+    } catch (e) {
+      console.warn('[sso generate] Auth error:', e.message);
+      return res.status(503).json({ error: 'No se pudo conectar con el servicio. Intenta más tarde.' });
+    }
+
+    // Bind / upsert portal user for this instance
+    let portalUserId = linked.find((r) => r.instance_id === targetInstance.instance_id)?.id || null;
+    try {
+      const bindRes = await pool.query(
+        `INSERT INTO client_portal_users (odoo_login, instance_id, active)
+         VALUES ($1, $2, TRUE)
+         ON CONFLICT (odoo_login, instance_id) DO UPDATE SET active = TRUE
+         RETURNING id`,
+        [odoo_login, targetInstance.instance_id]
+      );
+      portalUserId = bindRes.rows[0]?.id || portalUserId;
+    } catch (bindErr) {
+      console.warn('[sso generate] auto-bind warn:', bindErr.message);
+      if (!portalUserId) {
+        const existing = await pool.query(
+          `SELECT id FROM client_portal_users WHERE odoo_login = $1 AND instance_id = $2 LIMIT 1`,
+          [odoo_login, targetInstance.instance_id]
+        );
+        portalUserId = existing.rows[0]?.id || null;
       }
     }
 
-    // Store encrypted password for Google OAuth (requires PORTAL_ENCRYPTION_KEY)
+    if (!portalUserId) {
+      return res.status(500).json({ error: 'No se pudo vincular el usuario del portal' });
+    }
+
     if (PORTAL_ENCRYPTION_KEY) {
       try {
         const encryptedPassword = portalEncrypt(password);
         await pool.query(
           `UPDATE client_portal_users SET odoo_password_enc = $1 WHERE id = $2`,
-          [encryptedPassword, user.id]
+          [encryptedPassword, portalUserId]
         );
       } catch (e) {
         console.warn('[sso generate] Could not encrypt password:', e.message);
       }
     }
 
-    // If it's a custom service like RNV Manager, it handles its own JWT.
-    // We just return it directly so the frontend can redirect with it.
+    // Instance selection: multi-access emails see all active; multi-link users see their links
+    const needsExplicitPick = !requestedInstanceId;
+    if (needsExplicitPick) {
+      let selectable = [];
+      if (canPickInstances) {
+        const allRes = await pool.query(
+          `SELECT id, client_name, service_code FROM odoo_instances WHERE active = TRUE ORDER BY client_name ASC`
+        );
+        selectable = allRes.rows;
+      } else {
+        const refreshed = await pool.query(
+          `SELECT oi.id, oi.client_name, oi.service_code
+           FROM client_portal_users cpu
+           JOIN odoo_instances oi ON oi.id = cpu.instance_id
+           WHERE cpu.odoo_login = $1 AND cpu.active = TRUE AND oi.active = TRUE
+           ORDER BY oi.client_name ASC`,
+          [odoo_login]
+        );
+        selectable = refreshed.rows;
+      }
+
+      if (selectable.length > 1) {
+        return res.json({
+          success: false,
+          needs_instance_selection: true,
+          instances: selectable.map((r) => ({
+            id: r.id,
+            client_name: r.client_name,
+            service_code: r.service_code,
+          })),
+          message: 'Selecciona la instancia a la que deseas acceder',
+        });
+      }
+    }
+
     if (customServiceToken) {
-      const redirectUrl = `${user.odoo_url.replace(/\/admin\/?$/, '')}/admin?token=${customServiceToken}`;
+      const publicBase = portalAuth.toPublicOdooUrl(targetInstance.odoo_url, targetInstance.public_url);
+      const redirectUrl = `${publicBase.replace(/\/admin\/?$/, '')}/admin?token=${customServiceToken}`;
       return res.json({
         success: true,
         token: customServiceToken,
         redirect_url: redirectUrl,
-        client_name: user.client_name,
-        expires_at: new Date(Date.now() + 24 * 3600 * 1000).toISOString()
+        client_name: targetInstance.client_name,
+        expires_at: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
       });
     }
 
-    // Generate Odoo SSO token
     const token = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     await pool.query(
       `INSERT INTO sso_tokens (token, user_id, instance_id, odoo_login, expires_at, ip_address, user_agent)
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [token, user.id, user.instance_id, odoo_login, expiresAt, req.ip, req.get('user-agent')]
+      [token, portalUserId, targetInstance.instance_id, odoo_login, expiresAt, req.ip, req.get('user-agent')]
     );
 
-    // Return redirect URL with Odoo token
-    const redirectUrl = `${user.odoo_url}/renace/sso?token=${token}`;
-    
+    const publicBase = portalAuth.toPublicOdooUrl(targetInstance.odoo_url, targetInstance.public_url);
+    const redirectUrl = `${publicBase}/renace/sso?token=${token}`;
+
     res.json({
       success: true,
       token,
       redirect_url: redirectUrl,
-      client_name: user.client_name,
-      expires_at: expiresAt.toISOString()
+      client_name: targetInstance.client_name,
+      expires_at: expiresAt.toISOString(),
     });
-
   } catch (e) {
     console.error('[sso generate]', e.message);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -2388,6 +2568,9 @@ async function initDB() {
       DO $$ BEGIN
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='odoo_instances' AND column_name='service_code') THEN
           ALTER TABLE odoo_instances ADD COLUMN service_code VARCHAR(32) UNIQUE;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='odoo_instances' AND column_name='public_url') THEN
+          ALTER TABLE odoo_instances ADD COLUMN public_url VARCHAR(500);
         END IF;
       END $$;
       CREATE TABLE IF NOT EXISTS client_portal_users (

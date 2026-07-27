@@ -1287,8 +1287,14 @@
             <input id="inst-name" type="text" placeholder="Empresa ABC">
           </div>
           <div>
-            <label>URL de Odoo</label>
-            <input id="inst-url" type="text" placeholder="https://empresa.renace.tech">
+            <label>URL interna Odoo</label>
+            <input id="inst-url" type="text" placeholder="http://IP:puerto (API / XML-RPC)">
+            <p class="muted" style="margin:6px 0 0;font-size:11px;line-height:1.4;">Endpoint interno para autenticar. No se usa en el redirect del navegador.</p>
+          </div>
+          <div>
+            <label>URL pública SSO</label>
+            <input id="inst-public-url" type="text" placeholder="https://cliente.tudominio.com">
+            <p class="muted" style="margin:6px 0 0;font-size:11px;line-height:1.4;">Dirección real del cliente. El portal redirige aquí (ej. <code>https://app.renace.tech</code> solo para la instancia principal).</p>
           </div>
           <div>
             <label>Base de datos</label>
@@ -1305,14 +1311,15 @@
               <tr>
                 <th>ID Empresa</th>
                 <th>Cliente</th>
-                <th>URL</th>
+                <th>URL interna</th>
+                <th>URL pública SSO</th>
                 <th>Base de datos</th>
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
             </thead>
             <tbody id="instances-tbody">
-              <tr><td colspan="6" class="muted" style="padding:16px 8px;">Cargando…</td></tr>
+              <tr><td colspan="7" class="muted" style="padding:16px 8px;">Cargando…</td></tr>
             </tbody>
           </table>
         </div>
