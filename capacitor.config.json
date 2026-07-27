@@ -1,10 +1,15 @@
 {
-  "appId": "tech.renace.app",
-  "appName": "RENACE",
+  "appId": "tech.renace.portal",
+  "appName": "RENACE Portal",
   "webDir": "www",
   "bundledWebRuntime": false,
   "server": {
-    "url": "https://sistema.renace.tech",
-    "cleartext": false
+    "androidScheme": "https",
+    "allowNavigation": [
+      "renace.tech",
+      "*.renace.tech",
+      "https://renace.tech/*",
+      "https://*.renace.tech/*"
+    ]
   }
 }

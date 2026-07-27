@@ -25,6 +25,11 @@ if [ -f .env.bak ] && ! grep -q '^POSTGRES_USER=renace' .env 2>/dev/null; then
   sed -i 's/@insforge_postgres:/@db:/' .env
 fi
 
+# Generar secretos de seguridad si faltan (no pisa valores reales)
+if [ -x ./scripts/ensure-secrets.sh ]; then
+  ./scripts/ensure-secrets.sh
+fi
+
 # Load .env safely (supports quoted values with < > @)
 eval "$(python3 - <<'PY'
 from pathlib import Path
@@ -106,6 +111,7 @@ add_env() {
 add_env DATABASE_URL "${DATABASE_URL:-}"
 add_env NEXT_PUBLIC_BASE_URL "${NEXT_PUBLIC_BASE_URL:-https://renace.tech}"
 add_env ADMIN_ACCESS_PASSWORD "${ADMIN_ACCESS_PASSWORD:-}"
+add_env ADMIN_TOKEN "${ADMIN_TOKEN:-}"
 add_env ADMIN_SESSION_SECRET "${ADMIN_SESSION_SECRET:-}"
 add_env PARTICIPANT_SESSION_SECRET "${PARTICIPANT_SESSION_SECRET:-}"
 add_env SMTP_HOST "${SMTP_HOST:-}"

@@ -31,10 +31,14 @@ fi
 if [ ! -f "$PROJECT_DIR/.env" ]; then
     echo "⚠️  No .env file found. Creating from .env.example..."
     cp .env.example .env
-    echo "❌ ACTION REQUIRED: Please edit $PROJECT_DIR/.env with your production secrets."
-    echo "You can edit it via: nano $PROJECT_DIR/.env"
-    echo "Then re-run this script: ./deploy.sh"
-    exit 1
+fi
+
+# 2.1 Auto-generate security secrets (ADMIN_TOKEN, PORTAL_ENCRYPTION_KEY, etc.)
+#     Does NOT regenerate existing real values. SMTP/Odoo/DB stay as you set them.
+if [ -x "$PROJECT_DIR/scripts/ensure-secrets.sh" ]; then
+  bash "$PROJECT_DIR/scripts/ensure-secrets.sh"
+else
+  echo "⚠️  scripts/ensure-secrets.sh no encontrado — los secretos se generarán al arrancar Node."
 fi
 
 # 2.5 Cleanup duplicates and temp files

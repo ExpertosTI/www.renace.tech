@@ -36,6 +36,7 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL}
       ADMIN_ACCESS_PASSWORD: ${ADMIN_ACCESS_PASSWORD}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
       ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET}
       PARTICIPANT_SESSION_SECRET: ${PARTICIPANT_SESSION_SECRET}
       SMTP_HOST: ${SMTP_HOST}
@@ -90,16 +91,16 @@ services:
       labels:
         - "traefik.enable=true"
         - "traefik.docker.network=RenaceNet"
-        - "traefik.http.routers.renace-tech-http.rule=Host(`renace.tech`) || Host(`www.renace.tech`)"
+        - "traefik.http.routers.renace-tech-http.rule=Host(`renace.tech`) || Host(`www.renace.tech`) || Host(`sistema.renace.tech`)"
         - "traefik.http.routers.renace-tech-http.entrypoints=web"
         - "traefik.http.routers.renace-tech-http.middlewares=renace-tech-redirect-https"
         - "traefik.http.routers.renace-tech-http.service=renace-tech-svc"
-        - "traefik.http.routers.renace-tech-https.rule=Host(`renace.tech`) || Host(`www.renace.tech`)"
+        - "traefik.http.routers.renace-tech-https.rule=Host(`renace.tech`) || Host(`www.renace.tech`) || Host(`sistema.renace.tech`)"
         - "traefik.http.routers.renace-tech-https.entrypoints=websecure"
         - "traefik.http.routers.renace-tech-https.tls=true"
         - "traefik.http.routers.renace-tech-https.tls.certresolver=letsencryptresolver"
         - "traefik.http.routers.renace-tech-https.tls.domains[0].main=renace.tech"
-        - "traefik.http.routers.renace-tech-https.tls.domains[0].sans=www.renace.tech"
+        - "traefik.http.routers.renace-tech-https.tls.domains[0].sans=www.renace.tech,sistema.renace.tech"
         - "traefik.http.routers.renace-tech-https.middlewares=renace-tech-canonical"
         - "traefik.http.routers.renace-tech-https.service=renace-tech-svc"
         - "traefik.http.middlewares.renace-tech-redirect-https.redirectscheme.scheme=https"

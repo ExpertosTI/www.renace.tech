@@ -232,6 +232,21 @@
       desc: 'WhatsApp directo',
       gradient: 'linear-gradient(135deg, #03045e, #0077b6)',
       action: () => { window.open('https://wa.me/18093487921?text=Hola%2C%20necesito%20soporte%20tecnico', '_blank'); }
+    },
+    {
+      id: 'secrets',
+      icon: 'fas fa-key',
+      label: 'Secretos',
+      desc: 'Enviar claves al correo admin',
+      gradient: 'linear-gradient(135deg, #422006, #f59e0b)',
+      action: () => {
+        const el = document.getElementById('secrets-config');
+        if (el) {
+          el.style.display = 'block';
+          el.scrollIntoView({ behavior: 'smooth' });
+        }
+        closeAction();
+      }
     }
   ];
 
@@ -859,6 +874,7 @@
       startAutoRefresh();
       loadCampaigns();
       loadWhatsAppConfig();
+      showSecretsPanel();
     } catch (e) {
       setMessage(e.message, 'error');
       token = '';
@@ -1731,6 +1747,7 @@
     startAutoRefresh();
     loadCampaigns();
     loadWhatsAppConfig();
+    showSecretsPanel();
   }
 
   // ── WhatsApp Evolution config ──
@@ -1739,6 +1756,46 @@
     if (!el) return;
     el.textContent = text;
     el.className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'muted';
+  }
+
+  function secretsMsg(text, type = 'muted') {
+    const el = document.getElementById('secrets-config-msg');
+    if (!el) return;
+    el.textContent = text;
+    el.className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'muted';
+  }
+
+  function showSecretsPanel() {
+    const section = document.getElementById('secrets-config');
+    if (section && token) section.style.display = 'block';
+  }
+
+  async function emailSecretsToAdmin() {
+    if (!token) {
+      secretsMsg('Inicia sesión primero.', 'error');
+      return;
+    }
+    const btn = document.getElementById('btn-secrets-email');
+    if (btn) btn.disabled = true;
+    secretsMsg('Enviando secretos a tu correo…');
+    try {
+      const res = await fetch('/api/admin/secrets/email', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: '{}'
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'No se pudo enviar');
+      secretsMsg(data.message || 'Correo enviado.', 'success');
+    } catch (e) {
+      secretsMsg(e.message, 'error');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
 
   async function loadWhatsAppConfig() {
@@ -1823,6 +1880,7 @@
 
   document.getElementById('btn-wa-save')?.addEventListener('click', saveWhatsAppConfig);
   document.getElementById('btn-wa-test')?.addEventListener('click', testWhatsAppConfig);
+  document.getElementById('btn-secrets-email')?.addEventListener('click', emailSecretsToAdmin);
 
   // ── Campaign Management ──
   async function loadCampaigns() {

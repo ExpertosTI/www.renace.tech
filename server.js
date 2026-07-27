@@ -15,6 +15,9 @@ const multer = require('multer');
 const { Pool } = require('pg');
 const nodemailer = require('nodemailer');
 const waNotify = require('./lib/whatsapp-notify');
+const security = require('./lib/security');
+const portalAuth = require('./lib/portal-auth');
+const { bootstrapSecrets } = require('./lib/secrets-bootstrap');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -24,12 +27,21 @@ const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const isProd = process.env.NODE_ENV === 'production';
+const isProd = security.isProd();
 const FORM_DATA_PATH = path.join(__dirname, 'form', 'data.json');
 const QUOTE_DATA_PATH = path.join(__dirname, 'data', 'quotes.json');
 const DOWNLOADS_DIR = path.join(__dirname, 'downloads');
 const DOCS_DIR = path.join(__dirname, 'docs');
 const DATA_DIR = path.join(__dirname, 'data');
+
+// Auto-generate missing security secrets (persisted under /app/data)
+try {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  bootstrapSecrets({ dataDir: DATA_DIR });
+} catch (e) {
+  console.error('[SECRETS] bootstrap failed:', e.message);
+  if (isProd && process.env.SECURITY_STRICT === '1') process.exit(1);
+}
 const BUNDLED_DOWNLOADS = [
   {
     filename: 'EnviosRH.apk',
@@ -511,15 +523,26 @@ async function deliverAdminCode(email, code, channel) {
   return result;
 }
 
+// ── CORS (allowlist only — no wildcard *.renace.tech with credentials) ──
+app.use((req, res, next) => {
+  const rid = req.headers['x-request-id'] || security.requestId();
+  req.requestId = rid;
+  res.setHeader('X-Request-Id', rid);
+  security.applyCorsHeaders(req, res);
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  next();
+});
+
 // ── Middleware ──
 // Skip body parsing for Odoo proxy routes (stream must be unparsed)
 app.use((req, res, next) => {
   if (req.path.startsWith('/odoo')) return next();
-  express.json({ limit: '1mb' })(req, res, next);
+  // Attachments from the portal app may be base64 photos (~1.5MB)
+  express.json({ limit: '2mb' })(req, res, next);
 });
 app.use((req, res, next) => {
   if (req.path.startsWith('/odoo')) return next();
-  express.urlencoded({ extended: true, limit: '1mb' })(req, res, next);
+  express.urlencoded({ extended: true, limit: '2mb' })(req, res, next);
 });
 app.use((req, res, next) => {
   if (!shouldTrackVisit(req)) return next();
@@ -567,6 +590,7 @@ app.use((req, res, next) => {
       },
     },
     crossOriginEmbedderPolicy: false,
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
     hsts: isProd ? { maxAge: 63072000, includeSubDomains: true, preload: true } : false,
   })(req, res, next);
 });
@@ -603,10 +627,18 @@ const chatLimiter = rateLimit({
 
 const portalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Demasiados intentos de acceso, intenta más tarde.' },
+});
+
+const portalApiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 80,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiadas solicitudes del portal, intenta más tarde.' },
 });
 
 const gateLimiter = rateLimit({
@@ -674,11 +706,7 @@ app.post('/api/admin/login/verify-code', apiLimiter, (req, res) => {
 });
 
 function securePinMatch(pin, expected) {
-  if (!expected || typeof pin !== 'string') return false;
-  const a = Buffer.from(pin);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(a, b);
+  return security.timingSafeEqualString(pin, expected);
 }
 
 app.post('/api/admin/gate', gateLimiter, (req, res) => {
@@ -699,6 +727,7 @@ function requireAdminToken(req, res) {
     res.status(401).json({ error: 'Token inválido o expirado' });
     return false;
   }
+  req.adminSession = adminTokens.get(token);
   return true;
 }
 
@@ -757,6 +786,83 @@ app.post('/api/admin/whatsapp-test', apiLimiter, async (req, res) => {
     { app: 'renace.tech', event: 'admin-test' }
   );
   res.status(result.ok ? 200 : 502).json({ ...result, status: waNotify.getStatus() });
+});
+
+// Email security secrets to the authenticated admin (never to arbitrary addresses)
+const secretsEmailLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, error: 'Límite de envíos alcanzado (máx. 3/hora).' },
+});
+
+app.post('/api/admin/secrets/email', secretsEmailLimiter, async (req, res) => {
+  if (!requireAdminToken(req, res)) return;
+  const to = String(req.adminSession?.email || '').toLowerCase().trim();
+  if (!to || !ADMIN_EMAILS.includes(to)) {
+    return res.status(403).json({ ok: false, error: 'Solo identidades admin pueden solicitar secretos' });
+  }
+  if (!transporter) {
+    return res.status(503).json({ ok: false, error: 'SMTP no configurado en el servidor' });
+  }
+
+  const keys = [
+    'ADMIN_ACCESS_PASSWORD',
+    'ADMIN_TOKEN',
+    'PORTAL_ENCRYPTION_KEY',
+    'NOTIFY_API_KEY',
+    'ADMIN_SESSION_SECRET',
+    'PARTICIPANT_SESSION_SECRET',
+  ];
+  const lines = keys.map((k) => {
+    const v = process.env[k];
+    return `${k}=${v && String(v).trim() ? String(v).trim() : '(no definido)'}`;
+  });
+
+  const when = new Date().toISOString();
+  const ip = getRequestClientIp(req);
+  try {
+    await transporter.sendMail(getMailOptions({
+      to,
+      subject: `🔐 Secretos RENACE.TECH — solicitud ${when.slice(0, 19)}Z`,
+      text: [
+        'Solicitud de secretos desde Command Center',
+        `Para: ${to}`,
+        `Fecha: ${when}`,
+        `IP: ${ip}`,
+        '',
+        'Guarda estos valores en un lugar seguro. No los reenvíes.',
+        '',
+        ...lines,
+        '',
+        'Si no solicitaste este correo, rota los secretos en el servidor.',
+      ].join('\n'),
+      html: `<div style="font-family:system-ui,sans-serif;max-width:640px">
+        <h2>🔐 Secretos RENACE.TECH</h2>
+        <p>Solicitud desde Command Center para <strong>${to}</strong>.</p>
+        <p style="color:#64748b;font-size:13px">Fecha: ${when}<br>IP: ${ip}</p>
+        <pre style="background:#0f172a;color:#e2e8f0;padding:16px;border-radius:12px;overflow:auto;font-size:12px;line-height:1.5">${lines.map((l) => l.replace(/&/g, '&amp;').replace(/</g, '&lt;')).join('\n')}</pre>
+        <p style="color:#64748b;font-size:12px">Si no solicitaste este correo, rota los secretos en el servidor.</p>
+      </div>`,
+    }));
+
+    if (waNotify.isConfigured()) {
+      waNotify.notifyAdmins(
+        `🔐 *Secretos RENACE*\nEnviados por correo a *${to}*\nIP: ${ip}`,
+        { app: 'renace.tech', event: 'secrets_email' }
+      ).catch(() => {});
+    }
+
+    return res.json({
+      ok: true,
+      message: `Secretos enviados a ${to}. Revisa tu bandeja (y spam).`,
+      to,
+    });
+  } catch (e) {
+    console.error('[admin secrets email]', e.message);
+    return res.status(502).json({ ok: false, error: 'No se pudo enviar el correo SMTP' });
+  }
 });
 
 app.get('/api/admin/visit-details', apiLimiter, async (req, res) => {
@@ -1001,21 +1107,47 @@ app.post('/api/portal/login', portalLimiter, async (req, res) => {
     }
 
     // Auto-vincular usuario del portal en la base de datos local al primer acceso exitoso
+    let portalUserId = null;
     try {
-      await pool.query(
+      const bindRes = await pool.query(
         `INSERT INTO client_portal_users (odoo_login, instance_id, active)
          VALUES ($1, $2, TRUE)
-         ON CONFLICT (odoo_login, instance_id) DO NOTHING`,
+         ON CONFLICT (odoo_login, instance_id) DO UPDATE SET active = TRUE
+         RETURNING id`,
         [login, instance_id]
       );
+      portalUserId = bindRes.rows[0]?.id || null;
     } catch (bindErr) {
       console.warn('[portal login] auto-bind warn:', bindErr.message);
+      try {
+        const existing = await pool.query(
+          `SELECT id FROM client_portal_users WHERE odoo_login = $1 AND instance_id = $2 LIMIT 1`,
+          [login, instance_id]
+        );
+        portalUserId = existing.rows[0]?.id || null;
+      } catch (_) {}
     }
 
     const safeUrl  = odoo_url.replace(/"/g, '');
     const safeName = escAttr(client_name);
+    let ssoRedirectUrl = `${safeUrl.replace(/\/$/, '')}/web/login`;
 
-    if (authResult.sessionId) {
+    try {
+      const sso = await portalAuth.issueSsoRedirect(pool, {
+        portalUserId,
+        instanceId: instance_id,
+        odooLogin: login,
+        odooUrl: safeUrl,
+        ip: getRequestClientIp(req),
+        userAgent: req.get('user-agent') || '',
+      });
+      ssoRedirectUrl = sso.ssoRedirectUrl;
+    } catch (ssoErr) {
+      console.warn('[portal login] SSO token warn:', ssoErr.message);
+    }
+
+    // Browser HTML login may set Odoo session cookie; JSON/native clients use SSO only (no sessionId leak)
+    if (!acceptsJson && authResult.sessionId) {
       try {
         const cookieDomain = '.' + (new URL(safeUrl).hostname.split('.').slice(-2).join('.'));
         res.setHeader('Set-Cookie',
@@ -1024,6 +1156,18 @@ app.post('/api/portal/login', portalLimiter, async (req, res) => {
     }
 
     if (acceptsJson) {
+      const issued = await portalAuth.issueSession(pool, {
+        email: login,
+        serviceCode: resolvedServiceCode || serviceCode || null,
+        instanceId: instance_id,
+        clientName: client_name,
+        odooUrl: safeUrl,
+        odooDb: odoo_db,
+        portalUserId,
+      }, {
+        ip: getRequestClientIp(req),
+        userAgent: req.get('user-agent') || '',
+      });
       return res.json({
         ok: true,
         clientName: client_name,
@@ -1031,7 +1175,9 @@ app.post('/api/portal/login', portalLimiter, async (req, res) => {
         odooDb: odoo_db,
         serviceCode: resolvedServiceCode || serviceCode || null,
         uid: authResult.uid || 1,
-        sessionId: authResult.sessionId || null
+        portalToken: issued.portalToken,
+        portalTokenExpiresAt: issued.expiresAt,
+        ssoRedirectUrl,
       });
     }
 
@@ -1041,6 +1187,134 @@ app.post('/api/portal/login', portalLimiter, async (req, res) => {
     if (acceptsJson) return res.status(500).json({ ok: false, error: 'Error interno del servidor' });
     res.status(500).json({ error: 'Error interno del servidor' });
   }
+});
+
+// Revoke portal session (native logout)
+app.post('/api/portal/logout', portalApiLimiter, async (req, res) => {
+  await portalAuth.revokeSession(pool, req);
+  return res.json({ ok: true });
+});
+
+// Mint a fresh short-lived SSO link (requires portal session)
+app.post('/api/portal/sso-link', portalApiLimiter, async (req, res) => {
+  const session = await portalAuth.resolveSession(pool, req);
+  if (!session) {
+    return res.status(401).json({ ok: false, error: 'Sesión expirada. Vuelve a iniciar sesión.' });
+  }
+  try {
+    const sso = await portalAuth.issueSsoRedirect(pool, {
+      portalUserId: session.portalUserId,
+      instanceId: session.instanceId,
+      odooLogin: session.email,
+      odooUrl: session.odooUrl,
+      ip: getRequestClientIp(req),
+      userAgent: req.get('user-agent') || '',
+    });
+    return res.json({ ok: true, ssoRedirectUrl: sso.ssoRedirectUrl, expiresAt: sso.expiresAt });
+  } catch (e) {
+    console.error('[portal sso-link]', e.message);
+    return res.status(500).json({ ok: false, error: 'No se pudo generar el enlace SSO' });
+  }
+});
+
+// Portal support requests — authenticated only
+app.post('/api/portal/requests', portalApiLimiter, async (req, res) => {
+  const session = await portalAuth.resolveSession(pool, req);
+  if (!session) {
+    return res.status(401).json({ ok: false, error: 'Sesión de portal requerida. Vuelve a iniciar sesión.' });
+  }
+
+  const serviceCode = String(session.serviceCode || '').trim().toLowerCase().slice(0, 32);
+  const subject = String(req.body?.subject || '').replace(/[<>\"]/g, '').trim().slice(0, 200);
+  const category = String(req.body?.category || 'soporte').replace(/[<>\"]/g, '').trim().slice(0, 80);
+  const priority = String(req.body?.priority || 'media').replace(/[<>\"]/g, '').trim().slice(0, 40);
+  const description = String(req.body?.description || '').replace(/[<>\"]/g, '').trim().slice(0, 5000);
+  const contactEmail = String(session.email || '').trim().slice(0, 254);
+  const clientName = String(session.clientName || '').replace(/[<>\"]/g, '').trim().slice(0, 255);
+  const attachment = typeof req.body?.attachment === 'string' ? req.body.attachment : null;
+  const hasAttachment = security.isSafeImageDataUrl(attachment);
+
+  if (!subject || !description) {
+    return res.status(400).json({ ok: false, error: 'Asunto y descripción son requeridos' });
+  }
+  if (attachment && !hasAttachment) {
+    return res.status(400).json({ ok: false, error: 'Adjunto inválido (solo imagen JPEG/PNG/WebP/GIF ≤ 1.5MB)' });
+  }
+
+  let requestId = null;
+  try {
+    const inserted = await pool.query(
+      `INSERT INTO portal_requests
+        (service_code, client_name, contact_email, subject, category, priority, description, has_attachment, ip_address)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id`,
+      [
+        serviceCode || null,
+        clientName || null,
+        contactEmail || null,
+        subject,
+        category,
+        priority,
+        description,
+        hasAttachment,
+        getRequestClientIp(req),
+      ]
+    );
+    requestId = inserted.rows[0]?.id || null;
+  } catch (e) {
+    console.warn('[portal requests] DB insert warn:', e.message);
+  }
+
+  const ticketRef = requestId ? `PR-${requestId}` : `PR-${Date.now()}`;
+  const summary =
+    `🛠️ *Solicitud Portal App*\n` +
+    `*Ref:* ${ticketRef}\n` +
+    `*Empresa:* ${clientName || 'N/D'} (${serviceCode || 'sin código'})\n` +
+    `*Contacto:* ${contactEmail || 'N/D'}\n` +
+    `*Prioridad:* ${priority}\n` +
+    `*Categoría:* ${category}\n` +
+    `*Asunto:* ${subject}\n\n${description}` +
+    (hasAttachment ? '\n\n(Adjunto imagen incluido en el correo)' : '');
+
+  if (transporter) {
+    try {
+      const mail = {
+        to: ADMIN_EMAILS.join(', '),
+        subject: `[Portal] ${priority.toUpperCase()} · ${subject} · ${serviceCode || 'app'}`,
+        text: summary.replace(/\*/g, ''),
+        html: `<h3>Nueva solicitud — Portal App</h3>
+          <p><strong>Ref:</strong> ${ticketRef}</p>
+          <p><strong>Empresa:</strong> ${clientName || 'N/D'} (${serviceCode || 'sin código'})</p>
+          <p><strong>Contacto:</strong> ${contactEmail || 'N/D'}</p>
+          <p><strong>Prioridad:</strong> ${priority} · <strong>Categoría:</strong> ${category}</p>
+          <p><strong>Asunto:</strong> ${subject}</p>
+          <p>${description.replace(/\n/g, '<br>')}</p>`,
+      };
+      const parsed = hasAttachment ? security.parseImageDataUrl(attachment) : null;
+      if (parsed) {
+        mail.attachments = [{
+          filename: `adjunto-${ticketRef}.${parsed.ext}`,
+          content: parsed.buffer,
+          contentType: parsed.contentType,
+        }];
+      }
+      await transporter.sendMail(getMailOptions(mail));
+    } catch (err) {
+      console.warn('[portal requests] email warn:', err.message);
+    }
+  }
+
+  if (waNotify.isConfigured()) {
+    waNotify.notifyAdmins(summary.slice(0, 900), { app: 'renace-portal-app', event: 'portal_request' })
+      .catch((e) => console.warn('[portal requests] WhatsApp warn:', e.message));
+  }
+
+  return res.json({
+    ok: true,
+    id: requestId,
+    ref: ticketRef,
+    message: 'Solicitud recibida. El equipo RENACE te contactará pronto.',
+  });
 });
 
 // ── Google OAuth for Portal ──
@@ -1229,10 +1503,17 @@ app.delete('/api/admin/odoo-instances/:id', apiLimiter, async (req, res) => {
 
 // ── RNV Manager Integration: Auto Sync Instances & Tokens ──
 app.post('/api/rnv/sync', apiLimiter, async (req, res) => {
-  const apiKey = req.headers['x-rnv-api-key'] || req.body?.apiKey;
-  const adminSecret = process.env.ADMIN_TOKEN || 'renace-admin-secret-2026';
-  
-  if (apiKey !== adminSecret && req.headers['authorization'] !== `Bearer ${adminSecret}`) {
+  const apiKey = String(req.headers['x-rnv-api-key'] || req.body?.apiKey || '');
+  const adminSecret = process.env.ADMIN_TOKEN || '';
+  const authHeader = req.headers.authorization || '';
+  const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+
+  // Never accept a hardcoded fallback secret in production
+  const secretOk = Boolean(adminSecret) && (
+    security.timingSafeEqualString(apiKey, adminSecret) ||
+    security.timingSafeEqualString(bearer, adminSecret)
+  );
+  if (!secretOk) {
     if (!requireAdminToken(req, res)) return;
   }
 
@@ -1280,9 +1561,13 @@ app.post('/api/rnv/sync', apiLimiter, async (req, res) => {
 });
 
 // ── Gemini AI Copilot Engine (Replicando comportamiento RNV Manager) ──
-app.post('/api/ai/copilot', apiLimiter, async (req, res) => {
-  const { question, action, serviceCode, clientName, history } = req.body || {};
-  const queryText = (question || action || '').trim();
+app.post('/api/ai/copilot', portalApiLimiter, async (req, res) => {
+  const session = await portalAuth.resolveSession(pool, req);
+  // Anonymous: only generic help. Authenticated: bind identity from session (ignore spoofed body fields)
+  const { question, action, history } = req.body || {};
+  const serviceCode = session?.serviceCode || null;
+  const clientName = session?.clientName || null;
+  const queryText = (question || action || '').trim().slice(0, 2000);
 
   if (!queryText) {
     return res.status(400).json({ ok: false, error: 'Pregunta o comando no especificado' });
@@ -1290,20 +1575,22 @@ app.post('/api/ai/copilot', apiLimiter, async (req, res) => {
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
-  // Si no hay API key de Gemini configurada, usar motor conversacional RNV inteligente
+  // Sin GEMINI_API_KEY: guía honesta (sin métricas inventadas ni acciones falsas en Odoo)
   if (!geminiApiKey) {
     const qLower = queryText.toLowerCase();
-    let reply = `🤖 **Copilot RENACE (Impulsado por Gemini)**:\n¡Hola ${clientName || 'Cliente'}! Estoy conectado a tu empresa [ID: **${serviceCode || '101'}**].`;
+    let reply = `🤖 **Copilot RENACE**: Hola ${clientName || 'Cliente'}. Estoy listo para orientarte con tu empresa [ID: **${serviceCode || 'N/D'}**].`;
     let card = null;
 
     if (qLower.includes('producto') || action === 'create_product_prompt') {
-      reply = `📦 **Gestión e Inventario de Productos (Odoo)**:\nPuedes crear productos escribiendo por ejemplo:\n*"Crea un producto 'Camiseta Polo' a $25 dólares con stock de 50 unidades"*.`;
-      card = { type: 'action', title: 'Crear Producto en Odoo', icon: '📦', action: 'create_product' };
-    } else if (qLower.includes('venta') || qLower.includes('factura') || action === 'view_sales_prompt') {
-      reply = `📊 **Reporte Ejecutivo de Ventas (Odoo)**:\nTu instancia registra operaciones activas para **${clientName || 'tu empresa'}**.\n- Ventas del período: **$1,250.00 USD**\n- Facturas emitidas: **12**\n- Estado de servidor: **Óptimo (100% Uptime)**`;
-      card = { type: 'metrics', title: 'Resumen de Ventas', value: '$1,250.00 USD', change: '+12.5%' };
+      reply = `📦 **Productos en Odoo**: abre **Acceder a Odoo ERP** → Inventario / Productos para crear o editar artículos reales. Desde esta app también puedes abrir una **Nueva Solicitud** si necesitas que el equipo RENACE lo configure por ti.`;
+      card = { type: 'action', title: 'Abrir Odoo para productos', icon: '📦', action: 'open_odoo' };
+    } else if (qLower.includes('venta') || qLower.includes('factura') || action === 'view_sales_prompt' || action === 'view_invoices_prompt') {
+      reply = `📊 **Ventas y facturas**: las cifras reales viven en tu Odoo (Ventas / Contabilidad). Ábrelo con **Acceder a Odoo ERP**. Si el módulo no está activo en tu plan, crea una **Nueva Solicitud** y te ayudamos.`;
+      card = { type: 'action', title: 'Consultar en Odoo', icon: '📊', action: 'open_odoo' };
     } else if (qLower.includes('ticket') || qLower.includes('soporte') || action === 'create_ticket_prompt') {
-      reply = `🛠️ **Centro de Solicitudes y Soporte**:\nPuedes redactar una nueva solicitud haciendo clic en **[Nueva Solicitud]**. Si estás fuera de línea, la guardaremos localmente en tu dispositivo y se enviará al reconectarte.`;
+      reply = `🛠️ **Soporte**: usa **Nueva Solicitud**. Sin internet se guarda en el dispositivo y se sincroniza con renace.tech al reconectar.`;
+    } else if (qLower.includes('summary') || qLower.includes('help') || action === 'summary' || action === 'help') {
+      reply = `Puedo ayudarte a: (1) abrir tu Odoo con SSO, (2) crear solicitudes de soporte offline, (3) orientarte sobre módulos. Para datos en vivo usa Odoo.`;
     }
 
     return res.json({
@@ -1311,9 +1598,9 @@ app.post('/api/ai/copilot', apiLimiter, async (req, res) => {
       reply,
       card,
       suggestedPills: [
-        { label: '📦 Crear Producto en Odoo', action: 'create_product_prompt' },
-        { label: '📊 Ver Ventas', action: 'view_sales_prompt' },
-        { label: '📄 Facturas Pendientes', action: 'view_invoices_prompt' }
+        { label: '🛠️ Crear Solicitud de Soporte', action: 'create_ticket_prompt' },
+        { label: '📊 Cómo ver ventas', action: 'view_sales_prompt' },
+        { label: '📦 Cómo crear productos', action: 'create_product_prompt' }
       ]
     });
   }
@@ -1399,19 +1686,19 @@ app.post('/api/ai/copilot', apiLimiter, async (req, res) => {
           const args = call.args || {};
           executedCard = {
             type: 'action',
-            title: `Producto Creado: ${args.name}`,
-            detail: `Precio: $${args.price || 0} USD | Stock: ${args.qty || 1} unidades`,
+            title: `Borrador de producto: ${args.name || 'Sin nombre'}`,
+            detail: `Precio sugerido: $${args.price || 0} USD | Stock: ${args.qty || 1}`,
             icon: '📦'
           };
-          textReply += `\n\n✅ **Acción Ejecutada en Odoo**: Se ha creado el producto **${args.name}** a $${args.price} USD correctamente.`;
+          textReply += `\n\n📝 **Borrador listo** (no se escribió en Odoo desde aquí): **${args.name || 'producto'}** a $${args.price || 0} USD. Ábrelo en Odoo Inventory para crearlo de forma real, o envía una **Nueva Solicitud**.`;
         } else if (call.name === 'odoo_query_sales') {
           executedCard = {
-            type: 'metrics',
-            title: 'Métricas de Ventas Odoo',
-            value: '$1,850.00 USD',
-            change: '+15.2%'
+            type: 'action',
+            title: 'Consultar ventas en Odoo',
+            detail: `Período: ${call.args?.period || 'mes'}`,
+            icon: '📊'
           };
-          textReply += `\n\n📊 **Métricas de Odoo**: Las ventas registradas alcanzan **$1,850.00 USD** con rendimiento positivo.`;
+          textReply += `\n\n📊 No invento cifras. Abre **Acceder a Odoo ERP** → Ventas / Informes para ver el período **${call.args?.period || 'mes'}** con datos reales.`;
         }
       }
     }
@@ -2146,7 +2433,23 @@ async function initDB() {
         user_agent TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      CREATE TABLE IF NOT EXISTS portal_requests (
+        id SERIAL PRIMARY KEY,
+        service_code VARCHAR(32),
+        client_name VARCHAR(255),
+        contact_email VARCHAR(255),
+        subject VARCHAR(255) NOT NULL,
+        category VARCHAR(80),
+        priority VARCHAR(40),
+        description TEXT NOT NULL,
+        has_attachment BOOLEAN DEFAULT FALSE,
+        status VARCHAR(40) DEFAULT 'open',
+        ip_address VARCHAR(45),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
     `);
+    await portalAuth.ensureSchema(pool);
+    await portalAuth.purgeExpired(pool);
     console.log('✓ Database tables ready');
   } catch (err) {
     console.warn('⚠ Database not available, running in static mode');
@@ -2735,11 +3038,11 @@ app.get('/api/public-config', (req, res) => {
 });
 
 app.post('/api/notify/whatsapp', apiLimiter, async (req, res) => {
-  const expected = process.env.NOTIFY_API_KEY || process.env.ADMIN_ACCESS_PASSWORD;
+  const expected = process.env.NOTIFY_API_KEY || process.env.ADMIN_ACCESS_PASSWORD || '';
   const key = typeof req.headers['x-notify-key'] === 'string'
     ? req.headers['x-notify-key']
     : (typeof req.body?.key === 'string' ? req.body.key : '');
-  if (!expected || key !== expected) {
+  if (!expected || !security.timingSafeEqualString(key, expected)) {
     return res.status(401).json({ ok: false, error: 'unauthorized' });
   }
 
@@ -3581,7 +3884,17 @@ async function initOdooSSOKey() {
 
 rawServer.listen(PORT, async () => {
   console.log(`🚀 RENACE.TECH running on port ${PORT} (${isProd ? 'production' : 'development'})`);
+  try {
+    security.assertProductionSecrets();
+  } catch (e) {
+    console.error(e.message);
+    process.exit(1);
+  }
   await initDB();
   await seedBundledDownloads();
   await initOdooSSOKey();
+  // Periodic cleanup of expired portal/SSO tokens
+  setInterval(() => {
+    portalAuth.purgeExpired(pool).catch(() => {});
+  }, 60 * 60 * 1000);
 });
