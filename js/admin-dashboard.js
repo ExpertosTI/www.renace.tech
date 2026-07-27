@@ -1188,7 +1188,7 @@
           <td><span style="font-family:monospace;font-weight:700;color:var(--accent);">${escapeHtml(inst.service_code || '—')}</span></td>
           <td><strong>${escapeHtml(inst.client_name)}</strong></td>
           <td><a href="${escapeHtml(inst.odoo_url)}" target="_blank" rel="noopener" style="color:var(--accent);font-size:11px;">${escapeHtml(inst.odoo_url)}</a></td>
-          <td>${inst.public_url ? `<a href="${escapeHtml(inst.public_url)}" target="_blank" rel="noopener" style="color:var(--accent);font-size:11px;">${escapeHtml(inst.public_url)}</a>` : '<span class="muted" style="font-size:11px;">— (fallback principal)</span>'}</td>
+          <td>${inst.public_url ? `<a href="${escapeHtml(inst.public_url)}" target="_blank" rel="noopener" style="color:var(--accent);font-size:11px;">${escapeHtml(inst.public_url)}</a>` : '<span class="muted" style="font-size:11px;">— sin URL pública</span>'}</td>
           <td>${escapeHtml(inst.odoo_db)}</td>
           <td><span class="${inst.active ? 'pill-active' : 'pill-inactive'}">${inst.active ? 'Activa' : 'Inactiva'}</span></td>
           <td style="white-space:nowrap;">
@@ -1292,6 +1292,21 @@
       document.getElementById('inst-url').value = '';
       if (document.getElementById('inst-public-url')) document.getElementById('inst-public-url').value = '';
       document.getElementById('inst-db').value = '';
+      await loadInstances();
+    } catch (e) { odooMsg(instancesMsg, e.message, 'error'); }
+  });
+
+  document.getElementById('btn-purge-public-urls')?.addEventListener('click', async () => {
+    if (!confirm('¿Depurar URL pública SSO de cada instancia usando el catálogo RNV (cada cliente a su dominio)?')) return;
+    try {
+      const res = await adminFetch('/api/admin/odoo-instances/purge-public-urls', { method: 'POST', body: JSON.stringify({}) });
+      const data = await res.json();
+      if (!res.ok) { odooMsg(instancesMsg, data.error || 'Error al depurar', 'error'); return; }
+      odooMsg(
+        instancesMsg,
+        `URLs depuradas: ${data.updatedPublicUrls || 0} actualizadas, ${data.clearedAppFallback || 0} quitaron app.renace.tech, RNV pull=${data.pulledFromRnv || 0}.`,
+        'success'
+      );
       await loadInstances();
     } catch (e) { odooMsg(instancesMsg, e.message, 'error'); }
   });

@@ -1294,14 +1294,15 @@
           <div>
             <label>URL pública SSO</label>
             <input id="inst-public-url" type="text" placeholder="https://cliente.tudominio.com">
-            <p class="muted" style="margin:6px 0 0;font-size:11px;line-height:1.4;">Dirección real del cliente. El portal redirige aquí (ej. <code>https://app.renace.tech</code> solo para la instancia principal).</p>
+            <p class="muted" style="margin:6px 0 0;font-size:11px;line-height:1.4;">Dominio real del cliente (ej. <code>https://thiagosmart.renace.tech</code>). Solo tu empresa usa <code>https://app.renace.tech</code>.</p>
           </div>
           <div>
             <label>Base de datos</label>
             <input id="inst-db" type="text" placeholder="empresa_db">
           </div>
-          <div style="align-self:end;">
+          <div style="align-self:end;display:flex;gap:8px;flex-wrap:wrap;">
             <button id="btn-add-instance" class="secondary"><i class="fa-solid fa-plus"></i> Agregar</button>
+            <button id="btn-purge-public-urls" class="secondary" type="button" title="Rellena public_url desde catálogo RNV"><i class="fa-solid fa-broom"></i> Depurar URLs RNV</button>
           </div>
         </div>
         <div id="instances-msg" class="muted" style="margin-bottom:8px;min-height:16px;"></div>

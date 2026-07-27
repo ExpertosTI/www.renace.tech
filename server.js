@@ -17,6 +17,7 @@ const nodemailer = require('nodemailer');
 const waNotify = require('./lib/whatsapp-notify');
 const security = require('./lib/security');
 const portalAuth = require('./lib/portal-auth');
+const rnvCatalog = require('./lib/rnv-odoo-catalog');
 const { bootstrapSecrets } = require('./lib/secrets-bootstrap');
 const path = require('path');
 const fs = require('fs');
@@ -1235,9 +1236,32 @@ app.post('/api/portal/login', portalLimiter, async (req, res) => {
       }
     }
 
+    if (!instanceRow.public_url) {
+      const inferred = rnvCatalog.resolvePublicUrlForInstance({
+        ...instanceRow,
+        odoo_url,
+        service_code: resolvedServiceCode,
+        client_name,
+      });
+      if (inferred) {
+        instanceRow.public_url = inferred;
+        await pool.query(`UPDATE odoo_instances SET public_url = $1 WHERE id = $2`, [inferred, instance_id]);
+      }
+    }
+
     const safeUrl = odoo_url.replace(/"/g, '');
     const safeName = escAttr(client_name);
     const publicBase = portalAuth.toPublicOdooUrl(safeUrl, instanceRow.public_url);
+    if (!publicBase) {
+      if (acceptsJson) {
+        return res.status(503).json({
+          ok: false,
+          error: 'Esta empresa no tiene URL pública SSO configurada. Contacta a RENACE.TECH.',
+          code: 'missing_public_url',
+        });
+      }
+      return res.status(503).json({ error: 'Esta empresa no tiene URL pública SSO configurada.' });
+    }
     let ssoRedirectUrl = `${publicBase}/web/login`;
 
     try {
@@ -1625,7 +1649,6 @@ app.post('/api/rnv/sync', apiLimiter, async (req, res) => {
   const authHeader = req.headers.authorization || '';
   const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
 
-  // Never accept a hardcoded fallback secret in production
   const secretOk = Boolean(adminSecret) && (
     security.timingSafeEqualString(apiKey, adminSecret) ||
     security.timingSafeEqualString(bearer, adminSecret)
@@ -1635,37 +1658,40 @@ app.post('/api/rnv/sync', apiLimiter, async (req, res) => {
   }
 
   const items = Array.isArray(req.body?.instances) ? req.body.instances : [req.body];
-  if (!items.length || (!items[0]?.client_name && !items[0]?.name)) {
+  if (!items.length || (!items[0]?.client_name && !items[0]?.name && !items[0]?.url && !items[0]?.odoo_url)) {
     return res.status(400).json({ ok: false, error: 'Lista o datos de instancias requeridos de RNV Manager' });
   }
 
   try {
     const synced = [];
-    for (const item of items) {
-      const client_name  = String(item.client_name || item.name || '').replace(/[<>]/g, '').trim().slice(0, 255);
-      const odoo_url     = String(item.odoo_url || item.url || '').trim().slice(0, 500);
-      const odoo_db      = String(item.odoo_db || item.db || 'db').replace(/[<>]/g, '').trim().slice(0, 255);
-      const service_code = String(item.service_code || item.serviceCode || item.code || '').trim().slice(0, 32);
-      const active       = item.active !== undefined ? !!item.active : true;
+    for (const raw of items) {
+      const item = rnvCatalog.normalizeRnvItem(raw);
+      if (!item.client_name || (!item.odoo_url && !item.public_url)) continue;
 
-      if (!client_name || !odoo_url) continue;
-
-      let finalCode = service_code;
+      let finalCode = item.service_code;
       if (!finalCode) {
         const countRes = await pool.query('SELECT COUNT(*) FROM odoo_instances');
         finalCode = String(parseInt(countRes.rows[0].count, 10) + 101);
       }
 
+      const odooUrl = item.odoo_url || item.public_url;
+      const publicUrl = item.public_url || rnvCatalog.resolvePublicUrlForInstance({
+        ...item,
+        odoo_url: odooUrl,
+        service_code: finalCode,
+      });
+
       const r = await pool.query(
-        `INSERT INTO odoo_instances (client_name, odoo_url, odoo_db, service_code, active)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO odoo_instances (client_name, odoo_url, public_url, odoo_db, service_code, active)
+         VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT (service_code) DO UPDATE
          SET client_name = EXCLUDED.client_name,
              odoo_url = EXCLUDED.odoo_url,
+             public_url = COALESCE(EXCLUDED.public_url, odoo_instances.public_url),
              odoo_db = EXCLUDED.odoo_db,
              active = EXCLUDED.active
          RETURNING *`,
-        [client_name, odoo_url, odoo_db, finalCode, active]
+        [item.client_name, odooUrl, publicUrl, item.odoo_db, finalCode, item.active]
       );
       if (r.rows[0]) synced.push(r.rows[0]);
     }
@@ -1674,6 +1700,117 @@ app.post('/api/rnv/sync', apiLimiter, async (req, res) => {
   } catch (e) {
     console.error('[rnv sync error]', e.message);
     res.status(500).json({ ok: false, error: 'Error al sincronizar desde RNV Manager' });
+  }
+});
+
+// Purge/fix public SSO URLs from RNV catalog (+ optional live RNV API pull)
+app.post('/api/admin/odoo-instances/purge-public-urls', apiLimiter, async (req, res) => {
+  if (!requireAdminToken(req, res)) return;
+  try {
+    const pulled = [];
+    const rnvBase = String(process.env.RNV_API_URL || 'https://rnv.renace.tech').replace(/\/$/, '');
+    const rnvKey = String(process.env.RNV_API_KEY || process.env.ADMIN_TOKEN || '').trim();
+    if (rnvKey) {
+      for (const pathSuffix of ['/api/odoo', '/api/clients']) {
+        try {
+          const rr = await fetch(rnvBase + pathSuffix, {
+            headers: {
+              Accept: 'application/json',
+              Authorization: `Bearer ${rnvKey}`,
+              'X-API-Key': rnvKey,
+            },
+          });
+          if (!rr.ok) continue;
+          const body = await rr.json();
+          const list = Array.isArray(body) ? body
+            : Array.isArray(body?.instances) ? body.instances
+            : Array.isArray(body?.data) ? body.data
+            : Array.isArray(body?.clients) ? body.clients
+            : Array.isArray(body?.odoo) ? body.odoo
+            : [];
+          for (const row of list) pulled.push(row);
+          if (list.length) break;
+        } catch (e) {
+          console.warn('[purge-public-urls] RNV pull warn:', pathSuffix, e.message);
+        }
+      }
+    }
+
+    // Upsert anything pulled from RNV
+    let upserted = 0;
+    for (const raw of pulled) {
+      const item = rnvCatalog.normalizeRnvItem(raw);
+      if (!item.client_name || (!item.odoo_url && !item.public_url)) continue;
+      let finalCode = item.service_code;
+      if (!finalCode) {
+        const slug = String(raw.slug || raw.code || '').trim().slice(0, 32);
+        finalCode = slug || null;
+      }
+      if (!finalCode) continue;
+      const odooUrl = item.odoo_url || item.public_url;
+      await pool.query(
+        `INSERT INTO odoo_instances (client_name, odoo_url, public_url, odoo_db, service_code, active)
+         VALUES ($1,$2,$3,$4,$5,TRUE)
+         ON CONFLICT (service_code) DO UPDATE
+         SET client_name = EXCLUDED.client_name,
+             odoo_url = COALESCE(NULLIF(EXCLUDED.odoo_url, ''), odoo_instances.odoo_url),
+             public_url = COALESCE(EXCLUDED.public_url, odoo_instances.public_url),
+             odoo_db = EXCLUDED.odoo_db,
+             active = TRUE`,
+        [item.client_name, odooUrl, item.public_url, item.odoo_db, finalCode]
+      );
+      upserted += 1;
+    }
+
+    const existing = await pool.query(
+      `SELECT id, client_name, odoo_url, public_url, odoo_db, service_code, active FROM odoo_instances ORDER BY id ASC`
+    );
+    const updated = [];
+    for (const row of existing.rows) {
+      const resolved = rnvCatalog.resolvePublicUrlForInstance(row);
+      if (!resolved) continue;
+      if (String(row.public_url || '').replace(/\/$/, '') === resolved.replace(/\/$/, '')) continue;
+      const r = await pool.query(
+        `UPDATE odoo_instances SET public_url = $1 WHERE id = $2 RETURNING id, client_name, service_code, odoo_url, public_url`,
+        [resolved, row.id]
+      );
+      if (r.rows[0]) updated.push(r.rows[0]);
+    }
+
+    // Clear bogus public_url that point every tenant at app.renace.tech unless it is the main instance
+    const cleared = await pool.query(
+      `UPDATE odoo_instances
+       SET public_url = NULL
+       WHERE public_url ILIKE '%app.renace.tech%'
+         AND COALESCE(LOWER(service_code), '') NOT IN ('app', 'odoo', 'principal', 'renace')
+         AND LOWER(client_name) NOT LIKE '%renace%'
+       RETURNING id, client_name, service_code`
+    );
+
+    // Re-resolve after clear
+    for (const row of cleared.rows) {
+      const full = existing.rows.find((x) => x.id === row.id) || row;
+      const resolved = rnvCatalog.resolvePublicUrlForInstance({ ...full, public_url: null });
+      if (!resolved || resolved.includes('app.renace.tech')) continue;
+      await pool.query(`UPDATE odoo_instances SET public_url = $1 WHERE id = $2`, [resolved, row.id]);
+      updated.push({ id: row.id, client_name: row.client_name, service_code: row.service_code, public_url: resolved });
+    }
+
+    const finalRows = await pool.query(
+      `SELECT id, service_code, client_name, odoo_url, public_url, active FROM odoo_instances ORDER BY client_name ASC`
+    );
+
+    res.json({
+      ok: true,
+      pulledFromRnv: pulled.length,
+      upsertedFromRnv: upserted,
+      updatedPublicUrls: updated.length,
+      clearedAppFallback: cleared.rowCount || 0,
+      instances: finalRows.rows,
+    });
+  } catch (e) {
+    console.error('[purge-public-urls]', e.message);
+    res.status(500).json({ ok: false, error: e.message });
   }
 });
 
@@ -2110,8 +2247,24 @@ app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
       }
     }
 
+    // Ensure each instance has its own public SSO URL (never invent app.renace.tech for clients)
+    if (!targetInstance.public_url) {
+      const inferred = rnvCatalog.resolvePublicUrlForInstance(targetInstance);
+      if (inferred) {
+        targetInstance.public_url = inferred;
+        await pool.query(`UPDATE odoo_instances SET public_url = $1 WHERE id = $2`, [inferred, targetInstance.instance_id]);
+      }
+    }
+
+    const publicBase = portalAuth.toPublicOdooUrl(targetInstance.odoo_url, targetInstance.public_url);
+    if (!publicBase) {
+      return res.status(503).json({
+        error: 'Esta empresa no tiene URL pública SSO configurada. Contacta a RENACE.TECH.',
+        code: 'missing_public_url',
+      });
+    }
+
     if (customServiceToken) {
-      const publicBase = portalAuth.toPublicOdooUrl(targetInstance.odoo_url, targetInstance.public_url);
       const redirectUrl = `${publicBase.replace(/\/admin\/?$/, '')}/admin?token=${customServiceToken}`;
       return res.json({
         success: true,
@@ -2131,7 +2284,6 @@ app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
       [token, portalUserId, targetInstance.instance_id, odoo_login, expiresAt, req.ip, req.get('user-agent')]
     );
 
-    const publicBase = portalAuth.toPublicOdooUrl(targetInstance.odoo_url, targetInstance.public_url);
     const redirectUrl = `${publicBase}/renace/sso?token=${token}`;
 
     res.json({
