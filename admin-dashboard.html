@@ -1261,6 +1261,10 @@
       <div class="odoo-panel active" id="panel-instances">
         <div class="odoo-form">
           <div>
+            <label>ID / Código Empresa</label>
+            <input id="inst-code" type="text" placeholder="101">
+          </div>
+          <div>
             <label>Nombre del cliente</label>
             <input id="inst-name" type="text" placeholder="Empresa ABC">
           </div>
@@ -1281,6 +1285,7 @@
           <table class="odoo-table">
             <thead>
               <tr>
+                <th>ID Empresa</th>
                 <th>Cliente</th>
                 <th>URL</th>
                 <th>Base de datos</th>
@@ -1289,7 +1294,7 @@
               </tr>
             </thead>
             <tbody id="instances-tbody">
-              <tr><td colspan="5" class="muted" style="padding:16px 8px;">Cargando…</td></tr>
+              <tr><td colspan="6" class="muted" style="padding:16px 8px;">Cargando…</td></tr>
             </tbody>
           </table>
         </div>
