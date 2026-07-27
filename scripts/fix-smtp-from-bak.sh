@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Restaura SMTP que YA funcionaba (.env.bak / Swarm) sin tocar DB/Odoo ni pedir nano.
+# Restaura SMTP de producción: info@renace.tech + password guardado.
+# NO usa renace.space. NO pide nano.
 # Uso: ./scripts/fix-smtp-from-bak.sh
 set -euo pipefail
 cd /opt/www.renace.tech
@@ -59,55 +60,47 @@ for line in sys.stdin:
 }
 
 echo "═══════════════════════════════════════════"
-echo " RENACE — restaurar SMTP (sin romper nada)"
+echo " RENACE — SMTP info@renace.tech"
 echo "═══════════════════════════════════════════"
 
-# Prefer .env.bak pair (known-working mailbox + password), then current .env, then Swarm
-SMTP_USER_VAL="$(env_get .env.bak SMTP_USER)"
-SMTP_PASS_VAL="$(env_get .env.bak SMTP_PASSWORD)"
-SMTP_HOST_VAL="$(env_get .env.bak SMTP_HOST)"
-SMTP_PORT_VAL="$(env_get .env.bak SMTP_PORT)"
-SMTP_SECURE_VAL="$(env_get .env.bak SMTP_SECURE)"
-SMTP_FROM_VAL="$(env_get .env.bak SMTP_FROM)"
-MAIL_REPLY_VAL="$(env_get .env.bak MAIL_REPLY_TO)"
-
+# Password: Swarm (actual) → .env → .env.bak (solo el secreto, no el usuario viejo)
+SMTP_PASS_VAL="$(swarm_get SMTP_PASSWORD)"
 if [ -z "$SMTP_PASS_VAL" ]; then SMTP_PASS_VAL="$(env_get .env SMTP_PASSWORD)"; fi
-if [ -z "$SMTP_PASS_VAL" ]; then SMTP_PASS_VAL="$(swarm_get SMTP_PASSWORD)"; fi
-if [ -z "$SMTP_USER_VAL" ]; then SMTP_USER_VAL="$(env_get .env SMTP_USER)"; fi
-if [ -z "$SMTP_USER_VAL" ]; then SMTP_USER_VAL="$(swarm_get SMTP_USER)"; fi
+if [ -z "$SMTP_PASS_VAL" ]; then SMTP_PASS_VAL="$(env_get .env.bak SMTP_PASSWORD)"; fi
+
+SMTP_HOST_VAL="$(swarm_get SMTP_HOST)"
 if [ -z "$SMTP_HOST_VAL" ]; then SMTP_HOST_VAL="$(env_get .env SMTP_HOST)"; fi
-if [ -z "$SMTP_HOST_VAL" ]; then SMTP_HOST_VAL="$(swarm_get SMTP_HOST)"; fi
+if [ -z "$SMTP_HOST_VAL" ]; then SMTP_HOST_VAL="$(env_get .env.bak SMTP_HOST)"; fi
 if [ -z "$SMTP_HOST_VAL" ]; then SMTP_HOST_VAL="smtp.hostinger.com"; fi
+
+SMTP_PORT_VAL="$(swarm_get SMTP_PORT)"
 if [ -z "$SMTP_PORT_VAL" ]; then SMTP_PORT_VAL="$(env_get .env SMTP_PORT)"; fi
-if [ -z "$SMTP_PORT_VAL" ]; then SMTP_PORT_VAL="$(swarm_get SMTP_PORT)"; fi
+if [ -z "$SMTP_PORT_VAL" ]; then SMTP_PORT_VAL="$(env_get .env.bak SMTP_PORT)"; fi
 if [ -z "$SMTP_PORT_VAL" ]; then SMTP_PORT_VAL="465"; fi
+
+SMTP_SECURE_VAL="$(swarm_get SMTP_SECURE)"
 if [ -z "$SMTP_SECURE_VAL" ]; then SMTP_SECURE_VAL="$(env_get .env SMTP_SECURE)"; fi
-if [ -z "$SMTP_SECURE_VAL" ]; then SMTP_SECURE_VAL="$(swarm_get SMTP_SECURE)"; fi
 if [ -z "$SMTP_SECURE_VAL" ]; then
   if [ "$SMTP_PORT_VAL" = "465" ]; then SMTP_SECURE_VAL="1"; else SMTP_SECURE_VAL="0"; fi
 fi
 
-# Hostinger exige From == usuario autenticado — NO forzar otro buzón
-if [ -z "$SMTP_FROM_VAL" ]; then
-  SMTP_FROM_VAL="RENACE.TECH <${SMTP_USER_VAL}>"
-fi
-if [ -z "$MAIL_REPLY_VAL" ]; then
-  MAIL_REPLY_VAL="${SMTP_USER_VAL}"
-fi
+# Canonical mailbox — never renace.space
+SMTP_USER_VAL="info@renace.tech"
+SMTP_FROM_VAL="RENACE.TECH <info@renace.tech>"
+MAIL_REPLY_VAL="info@renace.tech"
 
-if [ -z "$SMTP_USER_VAL" ] || [ -z "$SMTP_PASS_VAL" ]; then
-  echo "❌ No hay SMTP_USER/SMTP_PASSWORD en .env.bak / .env / Swarm"
+if [ -z "$SMTP_PASS_VAL" ]; then
+  echo "❌ No hay SMTP_PASSWORD en Swarm/.env/.env.bak"
   exit 1
 fi
 
-echo "→ Restaurando par SMTP que ya existía:"
+echo "→ Aplicando:"
 echo "   SMTP_HOST=$SMTP_HOST_VAL"
 echo "   SMTP_PORT=$SMTP_PORT_VAL"
 echo "   SMTP_USER=$SMTP_USER_VAL"
 echo "   SMTP_FROM=$SMTP_FROM_VAL"
 echo "   SMTP_PASSWORD=set"
 
-# Persist in .env without wiping other secrets
 env_set SMTP_HOST "$SMTP_HOST_VAL"
 env_set SMTP_PORT "$SMTP_PORT_VAL"
 env_set SMTP_SECURE "$SMTP_SECURE_VAL"
@@ -116,7 +109,7 @@ env_set SMTP_PASSWORD "$SMTP_PASS_VAL"
 env_set SMTP_FROM "$SMTP_FROM_VAL"
 env_set MAIL_REPLY_TO "$MAIL_REPLY_VAL"
 
-echo "→ Aplicando solo SMTP a renace_app (sin rebuild)..."
+echo "→ Actualizando renace_app (solo SMTP)..."
 docker service update \
   --env-add "SMTP_HOST=${SMTP_HOST_VAL}" \
   --env-add "SMTP_PORT=${SMTP_PORT_VAL}" \
@@ -128,10 +121,9 @@ docker service update \
   --force \
   renace_app
 
-echo "⏳ Esperando 35s..."
-sleep 35
+echo "⏳ Esperando 40s..."
+sleep 40
 
-# mail-test needs gate PIN if configured — use ADMIN_ACCESS_PASSWORD from env
 PIN="$(env_get .env ADMIN_ACCESS_PASSWORD)"
 if [ -z "$PIN" ]; then PIN="$(swarm_get ADMIN_ACCESS_PASSWORD)"; fi
 
@@ -144,7 +136,8 @@ echo "   HTTP $CODE  $(head -c 220 "$BODY")"
 rm -f "$BODY"
 
 if [ "$CODE" = "200" ]; then
-  echo "✅ SMTP restaurado."
+  echo "✅ SMTP OK con info@renace.tech"
 else
-  echo "⚠️  Aún falla. Revisa que .env.bak tenga el password del buzón $SMTP_USER_VAL"
+  echo "⚠️  Auth falló: el password guardado no autentica info@renace.tech en Hostinger."
+  echo "   Hay que actualizar SMTP_PASSWORD en el panel Hostinger → .env (sin tocar el resto)."
 fi
