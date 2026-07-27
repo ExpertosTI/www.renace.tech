@@ -58,20 +58,51 @@ if [ -n "${DATABASE_URL:-}" ]; then
   export DATABASE_URL
 fi
 
-# Correo oficial: info@renace.tech (nunca renace.space)
-if echo "${SMTP_USER:-}${SMTP_FROM:-}" | grep -qi 'renace\.space'; then
-  echo "⚠️  Detectado renace.space — corrigiendo a info@renace.tech"
-  export SMTP_USER="info@renace.tech"
-  export SMTP_FROM="RENACE.TECH <info@renace.tech>"
+# ── SMTP: NUNCA separar usuario y password ──
+# Si hay .env.bak, usar ese par (el que ya autenticaba en Hostinger).
+# Hostinger exige From == SMTP_USER; NO forzar info@renace.tech si el password es de otro buzón.
+if [ -f .env.bak ]; then
+  BAK_USER=$(python3 -c '
+from pathlib import Path
+for line in Path(".env.bak").read_text(encoding="utf-8", errors="replace").splitlines():
+  if line.startswith("SMTP_USER="):
+    v=line.split("=",1)[1].strip().strip("\"").strip("'\''")
+    print(v); break
+' 2>/dev/null || true)
+  BAK_PASS=$(python3 -c '
+from pathlib import Path
+for line in Path(".env.bak").read_text(encoding="utf-8", errors="replace").splitlines():
+  if line.startswith("SMTP_PASSWORD="):
+    v=line.split("=",1)[1].strip().strip("\"").strip("'\''")
+    print(v); break
+' 2>/dev/null || true)
+  BAK_FROM=$(python3 -c '
+from pathlib import Path
+for line in Path(".env.bak").read_text(encoding="utf-8", errors="replace").splitlines():
+  if line.startswith("SMTP_FROM="):
+    v=line.split("=",1)[1].strip().strip("\"").strip("'\''")
+    print(v); break
+' 2>/dev/null || true)
+  if [ -n "${BAK_USER:-}" ] && [ -n "${BAK_PASS:-}" ]; then
+    export SMTP_USER="$BAK_USER"
+    export SMTP_PASSWORD="$BAK_PASS"
+    if [ -n "${BAK_FROM:-}" ]; then
+      export SMTP_FROM="$BAK_FROM"
+    else
+      export SMTP_FROM="RENACE.TECH <${BAK_USER}>"
+    fi
+    export MAIL_REPLY_TO="${MAIL_REPLY_TO:-$BAK_USER}"
+    echo "✓ SMTP restaurado desde .env.bak ($SMTP_USER) — sin forzar otro buzón"
+  fi
 fi
 if [ -z "${SMTP_USER:-}" ]; then
   export SMTP_USER="info@renace.tech"
 fi
 if [ -z "${SMTP_FROM:-}" ]; then
-  export SMTP_FROM="RENACE.TECH <info@renace.tech>"
+  export SMTP_FROM="RENACE.TECH <${SMTP_USER}>"
 fi
 if [ -z "${MAIL_REPLY_TO:-}" ]; then
-  export MAIL_REPLY_TO="info@renace.tech"
+  export MAIL_REPLY_TO="${SMTP_USER}"
 fi
 
 echo "📋 Pre-check env (sin secretos):"
