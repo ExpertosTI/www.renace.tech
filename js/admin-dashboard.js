@@ -1297,14 +1297,14 @@
   });
 
   document.getElementById('btn-purge-public-urls')?.addEventListener('click', async () => {
-    if (!confirm('¿Depurar URL pública SSO de cada instancia usando el catálogo RNV (cada cliente a su dominio)?')) return;
+    if (!confirm('¿Depurar URLs y códigos de empresa desde el catálogo RNV?')) return;
     try {
       const res = await adminFetch('/api/admin/odoo-instances/purge-public-urls', { method: 'POST', body: JSON.stringify({}) });
       const data = await res.json();
       if (!res.ok) { odooMsg(instancesMsg, data.error || 'Error al depurar', 'error'); return; }
       odooMsg(
         instancesMsg,
-        `URLs depuradas: ${data.updatedPublicUrls || 0} actualizadas, ${data.clearedAppFallback || 0} quitaron app.renace.tech, RNV pull=${data.pulledFromRnv || 0}.`,
+        `Depurado: ${data.assignedServiceCodes || 0} códigos, ${data.updatedPublicUrls || 0} URLs, ${data.seededFromCatalog || 0} del catálogo.`,
         'success'
       );
       await loadInstances();

@@ -1913,15 +1913,62 @@ app.post('/api/admin/odoo-instances/purge-public-urls', apiLimiter, async (req, 
       `SELECT id, client_name, odoo_url, public_url, odoo_db, service_code, active FROM odoo_instances ORDER BY id ASC`
     );
     const updated = [];
+    const coded = [];
+    const usedCodes = new Set(
+      existing.rows.map((r) => String(r.service_code || '').trim().toLowerCase()).filter(Boolean)
+    );
+
     for (const row of existing.rows) {
-      const resolved = rnvCatalog.resolvePublicUrlForInstance(row);
-      if (!resolved) continue;
-      if (String(row.public_url || '').replace(/\/$/, '') === resolved.replace(/\/$/, '')) continue;
+      const patch = {};
+      const resolvedPublic = rnvCatalog.resolvePublicUrlForInstance(row);
+      if (resolvedPublic && String(row.public_url || '').replace(/\/$/, '') !== resolvedPublic.replace(/\/$/, '')) {
+        patch.public_url = resolvedPublic;
+      }
+
+      let nextCode = String(row.service_code || '').trim().toLowerCase();
+      if (!nextCode) {
+        const inferred = rnvCatalog.resolveServiceCodeForInstance({
+          ...row,
+          public_url: patch.public_url || row.public_url,
+        });
+        if (inferred && !usedCodes.has(inferred)) {
+          nextCode = inferred;
+          patch.service_code = inferred;
+          usedCodes.add(inferred);
+        }
+      }
+
+      if (!Object.keys(patch).length) continue;
       const r = await pool.query(
-        `UPDATE odoo_instances SET public_url = $1 WHERE id = $2 RETURNING id, client_name, service_code, odoo_url, public_url`,
-        [resolved, row.id]
+        `UPDATE odoo_instances
+         SET public_url = COALESCE($1, public_url),
+             service_code = COALESCE($2, service_code)
+         WHERE id = $3
+         RETURNING id, client_name, service_code, odoo_url, public_url`,
+        [patch.public_url || null, patch.service_code || null, row.id]
       );
-      if (r.rows[0]) updated.push(r.rows[0]);
+      if (r.rows[0]) {
+        updated.push(r.rows[0]);
+        if (patch.service_code) coded.push(r.rows[0]);
+      }
+    }
+
+    // Ensure catalog clients exist (code + public URL) even if never created manually
+    let seeded = 0;
+    for (const entry of rnvCatalog.RNV_ODOO_PUBLIC) {
+      if (entry.slug === 'odoo') continue; // prefer app as main RENACE
+      if (usedCodes.has(entry.slug)) continue;
+      const nameGuess = entry.slug === 'app' ? 'renace.tech' : entry.slug;
+      await pool.query(
+        `INSERT INTO odoo_instances (client_name, odoo_url, public_url, odoo_db, service_code, active)
+         VALUES ($1, $2, $2, 'db', $3, TRUE)
+         ON CONFLICT (service_code) DO UPDATE
+         SET public_url = COALESCE(odoo_instances.public_url, EXCLUDED.public_url),
+             active = TRUE`,
+        [nameGuess, entry.publicUrl, entry.slug]
+      );
+      usedCodes.add(entry.slug);
+      seeded += 1;
     }
 
     // Clear bogus public_url that point every tenant at app.renace.tech unless it is the main instance
@@ -1952,6 +1999,8 @@ app.post('/api/admin/odoo-instances/purge-public-urls', apiLimiter, async (req, 
       pulledFromRnv: pulled.length,
       upsertedFromRnv: upserted,
       updatedPublicUrls: updated.length,
+      assignedServiceCodes: coded.length,
+      seededFromCatalog: seeded,
       clearedAppFallback: cleared.rowCount || 0,
       instances: finalRows.rows,
     });
