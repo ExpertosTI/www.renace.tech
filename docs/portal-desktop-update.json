@@ -1,7 +1,7 @@
 {
-  "version": "3.0.1",
-  "releasedAt": "2026-07-28T23:41:12.024Z",
-  "notes": "RENACE Portal 3.0.1",
+  "version": "3.0.2",
+  "releasedAt": "2026-07-28T23:45:21.824Z",
+  "notes": "RENACE Portal 3.0.2",
   "platforms": {
     "win32-x64": {
       "url": "https://renace.tech/docs/RENACE-Portal-win-x64.exe",

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Modo técnico</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: #0a0f1a;
+      color: #e8edf5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .card { width: 100%; max-width: 320px; }
+    h1 { font-size: 16px; margin: 0 0 6px; font-weight: 650; }
+    p { margin: 0 0 16px; font-size: 12px; opacity: .72; line-height: 1.4; }
+    label { display: block; font-size: 12px; margin-bottom: 6px; opacity: .85; }
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid #243044;
+      background: #121a28;
+      color: #e8edf5;
+      font-size: 15px;
+      letter-spacing: 0.12em;
+      outline: none;
+    }
+    input:focus { border-color: #00b4d8; }
+    .err { color: #f87171; font-size: 12px; min-height: 16px; margin: 8px 0 0; }
+    .actions { display: flex; gap: 8px; margin-top: 14px; }
+    button {
+      flex: 1;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 0;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .ok { background: #00b4d8; color: #041018; }
+    .cancel { background: #243044; color: #e8edf5; }
+  </style>
+</head>
+<body>
+  <form class="card" id="form" autocomplete="off">
+    <h1>Modo técnico</h1>
+    <p>Introduce la contraseña de técnico para continuar.</p>
+    <label for="pin">Contraseña</label>
+    <input id="pin" type="password" inputmode="numeric" maxlength="32" autofocus />
+    <div class="err" id="err"></div>
+    <div class="actions">
+      <button type="button" class="cancel" id="cancel">Cancelar</button>
+      <button type="submit" class="ok">Activar</button>
+    </div>
+  </form>
+  <script>
+    const pin = document.getElementById('pin');
+    const err = document.getElementById('err');
+    document.getElementById('cancel').onclick = () => {
+      window.renaceDesktop?.cancelTechUnlock?.();
+    };
+    document.getElementById('form').onsubmit = (e) => {
+      e.preventDefault();
+      const value = String(pin.value || '');
+      if (!value) {
+        err.textContent = 'Escribe la contraseña.';
+        return;
+      }
+      window.renaceDesktop?.submitTechUnlock?.(value);
+    };
+  </script>
+</body>
+</html>

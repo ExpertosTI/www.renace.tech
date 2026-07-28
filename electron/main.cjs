@@ -29,9 +29,12 @@ const HOME_URL = process.env.RENACE_HOME_URL || 'https://renace.tech';
 const PARTITION = 'persist:renace-portal';
 const PRELOAD = path.join(__dirname, 'preload.cjs');
 const SETUP_HTML = path.join(__dirname, 'setup.html');
+const TECH_UNLOCK_HTML = path.join(__dirname, 'tech-unlock.html');
+const TECH_PIN = String(process.env.RENACE_TECH_PIN || '101284');
 
 /** Solo modo técnico (o actualización forzada) puede cerrar la app */
 let allowQuit = false;
+let techPromptOpen = false;
 
 function requestQuitForUpdate() {
   allowQuit = true;
@@ -173,6 +176,16 @@ function openSetup(win) {
   w.loadFile(SETUP_HTML).catch((e) => log.error('setup load', e.message));
 }
 
+async function hasOdooSessionCookie(inst) {
+  if (!inst?.url) return false;
+  try {
+    const cookies = await portalSession().cookies.get({ url: inst.url });
+    return cookies.some((c) => c.name === 'session_id' && String(c.value || '').length > 8);
+  } catch {
+    return false;
+  }
+}
+
 async function openHome(win) {
   const w = win || currentWin();
   if (!w) return;
@@ -183,8 +196,22 @@ async function openHome(win) {
     return;
   }
   await applyInstanceCidsCookie(inst);
-  const start = store.getStartUrl(PORTAL_URL);
-  log.info('openHome', { start, instance: inst.url, companyId: inst.companyId || null });
+  const loggedIn = await hasOdooSessionCookie(inst);
+  let start;
+  if (loggedIn) {
+    // Restaurar sesión guardada (partition persist) — no forzar /web/login
+    start = inst.companyId
+      ? `${inst.url}/web?cids=${encodeURIComponent(String(inst.companyId))}`
+      : `${inst.url}/web`;
+  } else {
+    start = store.getStartUrl(PORTAL_URL);
+  }
+  log.info('openHome', {
+    start,
+    instance: inst.url,
+    companyId: inst.companyId || null,
+    sessionRestored: loggedIn,
+  });
   w.setTitle(`${inst.name} — RENACE`);
   w.loadURL(start).catch((e) => {
     log.error('openHome failed', e.message);
@@ -286,8 +313,12 @@ function registerIpc() {
     brand: process.platform === 'win32' ? 'POS Agent PRO (bundled)' : 'RENACE POS',
   }));
   ipcMain.handle('renace:mode-get', () => store.getAppMode());
-  ipcMain.handle('renace:mode-set', (_e, mode) => {
-    const m = store.setAppMode(mode);
+  ipcMain.handle('renace:mode-set', async (_e, mode) => {
+    if (mode === 'admin') {
+      const ok = await unlockAdmin();
+      return ok ? store.getAppMode() : store.getAppMode();
+    }
+    const m = store.setAppMode('user');
     buildMenu();
     BrowserWindow.getAllWindows().forEach((w) => {
       applyUserModeGuards(w);
@@ -559,14 +590,15 @@ async function checkBlankPage(win) {
   const looksBlank =
     info.bodyLen < 30 ||
     (/^odoo$/i.test(info.title) && !info.hasOdoo && info.bodyLen < 80);
-  if (looksBlank) {
-    log.warn('BLANK PAGE DETECTED', info);
-    injectBlankDiagnostic(wc, { ...info, logPath: log.path() });
-    try {
-      wc.openDevTools({ mode: 'bottom' });
-      log.info('DevTools opened');
-    } catch (_) {}
-  }
+  if (!looksBlank) return;
+  log.warn('BLANK PAGE DETECTED', info);
+  // Solo modo técnico ve diagnóstico / DevTools en pantalla
+  if (store.getAppMode() !== 'admin') return;
+  injectBlankDiagnostic(wc, { ...info, logPath: log.path() });
+  try {
+    wc.openDevTools({ mode: 'bottom' });
+    log.info('DevTools opened');
+  } catch (_) {}
 }
 
 function hardenSession(ses) {
@@ -662,6 +694,8 @@ function attachWindowGuards(win) {
   wc.on('did-fail-load', (_e, code, desc, url, isMainFrame) => {
     if (!isMainFrame || code === -3) return;
     log.error('did-fail-load', { code, desc, url });
+    // Usuarios: sin popups de error/log. Solo modo técnico.
+    if (store.getAppMode() !== 'admin') return;
     dialog
       .showMessageBox(win, {
         type: 'error',
@@ -698,28 +732,84 @@ async function promptOpenSetup() {
   openSetup(currentWin());
 }
 
-async function unlockAdmin() {
-  const { response, checkboxChecked } = await dialog.showMessageBox(currentWin() || undefined, {
-    type: 'question',
-    title: 'Modo técnico',
-    message: '¿Activar modo técnico (admin)?',
-    detail: 'Permite configurar instancia, actualizar y herramientas. Los cajeros deben usar modo Usuario.',
-    buttons: ['Cancelar', 'Activar técnico'],
-    defaultId: 0,
-    cancelId: 0,
-    checkboxLabel: 'Recordar en este PC',
-    checkboxChecked: false,
+function promptTechPassword() {
+  if (techPromptOpen) return Promise.resolve(null);
+  techPromptOpen = true;
+  return new Promise((resolve) => {
+    const parent = currentWin();
+    const box = new BrowserWindow({
+      width: 400,
+      height: 260,
+      modal: Boolean(parent),
+      parent: parent || undefined,
+      resizable: false,
+      minimizable: false,
+      maximizable: false,
+      fullscreenable: false,
+      show: false,
+      backgroundColor: '#0a0f1a',
+      autoHideMenuBar: true,
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+        preload: PRELOAD,
+      },
+    });
+    try {
+      box.setMenuBarVisibility(false);
+    } catch (_) {}
+
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      techPromptOpen = false;
+      ipcMain.removeListener('renace:tech-password', onSubmit);
+      ipcMain.removeListener('renace:tech-password-cancel', onCancel);
+      try {
+        if (!box.isDestroyed()) box.close();
+      } catch (_) {}
+      resolve(value);
+    };
+    const onSubmit = (_e, password) => finish(String(password || ''));
+    const onCancel = () => finish(null);
+
+    ipcMain.on('renace:tech-password', onSubmit);
+    ipcMain.on('renace:tech-password-cancel', onCancel);
+    box.on('closed', () => finish(null));
+    box.loadFile(TECH_UNLOCK_HTML).catch((e) => {
+      log.warn('tech unlock load', e.message);
+      finish(null);
+    });
+    box.once('ready-to-show', () => {
+      try {
+        box.show();
+        box.focus();
+      } catch (_) {}
+    });
   });
-  if (response !== 1) return false;
+}
+
+async function unlockAdmin() {
+  const password = await promptTechPassword();
+  if (password == null) return false;
+  if (String(password) !== TECH_PIN) {
+    dialog.showMessageBox(currentWin() || undefined, {
+      type: 'error',
+      title: 'Modo técnico',
+      message: 'Contraseña incorrecta.',
+      buttons: ['OK'],
+    });
+    return false;
+  }
   store.setAppMode('admin');
   buildMenu();
   BrowserWindow.getAllWindows().forEach((w) => {
     applyUserModeGuards(w);
     injectUserShell(w.webContents);
   });
-  if (!checkboxChecked) {
-    // one-shot session: still saved; user can switch back from menu
-  }
+  log.info('tech mode unlocked');
   return true;
 }
 
@@ -1025,12 +1115,7 @@ app.whenReady().then(async () => {
 
   const ses = portalSession();
   hardenSession(ses);
-  try {
-    await ses.clearCache();
-    log.info('cache cleared');
-  } catch (e) {
-    log.warn('clearCache', e.message);
-  }
+  // No borrar caché al arrancar: preserva sesión Odoo / recursos del usuario
   app.on('web-contents-created', (_e, wc) => {
     wc.on('dom-ready', () => {
       const u = wc.getURL();

@@ -85,6 +85,8 @@ try {
     setMode: (mode) => ipcRenderer.invoke('renace:mode-set', mode),
     getKeymap: () => ipcRenderer.invoke('renace:keymap-get'),
     setKeymap: (partial) => ipcRenderer.invoke('renace:keymap-set', partial),
+    submitTechUnlock: (password) => ipcRenderer.send('renace:tech-password', String(password || '')),
+    cancelTechUnlock: () => ipcRenderer.send('renace:tech-password-cancel'),
   });
 } catch (_) {
   // reload: ya expuesto
