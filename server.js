@@ -1059,6 +1059,100 @@ function buildSsoEnterUrl(req, token) {
   return `${portalPublicBase(req)}/api/sso/enter?token=${encodeURIComponent(token)}`;
 }
 
+async function fetchUrlText(url, opts = {}) {
+  const target = new URL(url);
+  const lib = target.protocol === 'https:' ? https : http;
+  const headers = Object.assign({
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  }, opts.headers || {});
+  return new Promise((resolve, reject) => {
+    const req = lib.request({
+      hostname: target.hostname,
+      port: parseInt(target.port) || (target.protocol === 'https:' ? 443 : 80),
+      path: target.pathname + target.search,
+      method: opts.method || 'GET',
+      headers,
+    }, (proxyRes) => {
+      let data = '';
+      const setCookies = [].concat(proxyRes.headers['set-cookie'] || []);
+      proxyRes.on('data', (c) => { data += c; });
+      proxyRes.on('end', () => {
+        resolve({
+          status: proxyRes.statusCode || 0,
+          headers: proxyRes.headers,
+          setCookies,
+          body: data,
+        });
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(12000, () => { req.destroy(); reject(new Error('Timeout Odoo login')); });
+    if (opts.body) req.write(opts.body);
+    req.end();
+  });
+}
+
+function extractOdooCsrf(html) {
+  const raw = String(html || '');
+  let m = raw.match(/name=["']csrf_token["']\s+value=["']([^"']+)["']/i)
+    || raw.match(/value=["']([^"']+)["']\s+name=["']csrf_token["']/i)
+    || raw.match(/csrf_token["']?\s*:\s*["']([^"']+)["']/i);
+  return m ? m[1] : null;
+}
+
+function extractSessionIdFromCookies(setCookies) {
+  for (const cookie of setCookies || []) {
+    const m = String(cookie).match(/(?:^|;\s*)session_id=([^;]+)/);
+    if (m && m[1]) return m[1];
+  }
+  return null;
+}
+
+function buildOdooAutoLoginHtml({ clientName, publicBase, login, password, csrfToken, db }) {
+  const action = escAttr(`${String(publicBase).replace(/\/$/, '')}/web/login`);
+  const safeName = escAttr(clientName || 'Odoo');
+  const safeLogin = escAttr(login);
+  const safePass = escAttr(password);
+  const safeCsrf = escAttr(csrfToken);
+  const safeDb = escAttr(db || '');
+  const dbField = safeDb
+    ? `<input type="hidden" name="db" value="${safeDb}">`
+    : '';
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Accediendo a ${safeName}…</title>
+  <style>
+    body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+      background:#070d18;color:#e8edf5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+    .card{text-align:center;padding:2rem 2.4rem;border-radius:16px;background:#0f1923;border:1px solid rgba(148,163,184,.12)}
+    .spinner{width:28px;height:28px;border:2.5px solid #1e293b;border-top-color:#2dd4bf;border-radius:50%;
+      animation:spin .7s linear infinite;margin:1rem auto 0}
+    @keyframes spin{to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2 style="margin:0 0 .4rem;font-size:1.1rem">Accediendo a ${safeName}</h2>
+    <p style="margin:0;color:#64748b;font-size:.85rem">Iniciando sesión automáticamente…</p>
+    <div class="spinner"></div>
+  </div>
+  <form id="odoo-sso" method="POST" action="${action}" style="display:none">
+    <input type="hidden" name="csrf_token" value="${safeCsrf}">
+    <input type="hidden" name="login" value="${safeLogin}">
+    <input type="hidden" name="password" value="${safePass}">
+    <input type="hidden" name="redirect" value="/web">
+    ${dbField}
+  </form>
+  <script>document.getElementById('odoo-sso').submit();</script>
+</body>
+</html>`;
+}
+
+
 async function odooValidateCredentials(odooUrl, db, login, password) {
   const target = new URL(odooUrl);
   const lib = target.protocol === 'https:' ? https : http;
@@ -2325,12 +2419,19 @@ app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
       });
     }
 
-    const odooSessionId = authResult.sessionId || null;
-    if (!odooSessionId) {
-      return res.status(503).json({
-        error: 'Odoo no devolvió sesión. Verifica la instancia y vuelve a intentar.',
-        code: 'missing_odoo_session',
-      });
+    // Prefer a session created against the PUBLIC host (same path the browser will use)
+    let odooSessionId = authResult.sessionId || null;
+    try {
+      const publicAuth = await odooValidateCredentials(publicBase, targetInstance.odoo_db, odoo_login, password);
+      if (publicAuth.valid && publicAuth.sessionId) odooSessionId = publicAuth.sessionId;
+    } catch (e) {
+      console.warn('[sso generate] public auth warn:', e.message);
+    }
+
+    let authSecretEnc = null;
+    if (PORTAL_ENCRYPTION_KEY) {
+      try { authSecretEnc = portalEncrypt(password); }
+      catch (e) { console.warn('[sso generate] auth secret enc warn:', e.message); }
     }
 
     const token = crypto.randomBytes(32).toString('hex');
@@ -2338,8 +2439,8 @@ app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
 
     await pool.query(
       `INSERT INTO sso_tokens
-        (token, user_id, instance_id, odoo_login, expires_at, ip_address, user_agent, session_id, public_redirect_url)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        (token, user_id, instance_id, odoo_login, expires_at, ip_address, user_agent, session_id, public_redirect_url, auth_secret_enc)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
       [
         token,
         portalUserId,
@@ -2350,6 +2451,7 @@ app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
         req.get('user-agent'),
         odooSessionId,
         publicBase,
+        authSecretEnc,
       ]
     );
 
@@ -2463,7 +2565,7 @@ app.post('/api/sso/admin-generate', apiLimiter, async (req, res) => {
   }
 });
 
-// ── SSO: Enter — set Odoo session cookie for the chosen public instance, then open /web ──
+// ── SSO: Enter — auto-login on the chosen public Odoo host ──
 app.get('/api/sso/enter', portalLimiter, async (req, res) => {
   const token = String(req.query.token || '').trim();
   if (!token || token.length < 32) {
@@ -2472,7 +2574,7 @@ app.get('/api/sso/enter', portalLimiter, async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT st.id, st.odoo_login, st.used, st.expires_at, st.session_id, st.public_redirect_url,
+      `SELECT st.id, st.odoo_login, st.used, st.expires_at, st.session_id, st.public_redirect_url, st.auth_secret_enc,
               oi.odoo_url, oi.public_url, oi.odoo_db, oi.client_name,
               cpu.odoo_password_enc
        FROM sso_tokens st
@@ -2495,19 +2597,79 @@ app.get('/api/sso/enter', portalLimiter, async (req, res) => {
       return res.status(403).type('html').send('<h1>Enlace expirado</h1><p><a href="/portal">Volver al portal</a></p>');
     }
 
-    let sessionId = row.session_id || null;
     const publicBase = portalAuth.toPublicOdooUrl(row.odoo_url, row.public_redirect_url || row.public_url);
     if (!publicBase) {
       return res.status(503).type('html').send('<h1>Instancia sin URL pública</h1><p><a href="/portal">Volver al portal</a></p>');
     }
 
-    if (!sessionId && row.odoo_password_enc && PORTAL_ENCRYPTION_KEY) {
+    let password = null;
+    if (PORTAL_ENCRYPTION_KEY) {
+      const enc = row.auth_secret_enc || row.odoo_password_enc;
+      if (enc) {
+        try { password = portalDecrypt(enc); }
+        catch (e) { console.warn('[sso enter] decrypt warn:', e.message); }
+      }
+    }
+
+    // Preferred path: browser POSTs login form to the PUBLIC host (sets cookie on that host).
+    if (password) {
       try {
-        const plain = portalDecrypt(row.odoo_password_enc);
-        const auth = await odooValidateCredentials(row.odoo_url, row.odoo_db, row.odoo_login, plain);
+        const loginPage = await fetchUrlText(`${publicBase.replace(/\/$/, '')}/web/login`);
+        const csrfToken = extractOdooCsrf(loginPage.body);
+        const bootstrapSession = extractSessionIdFromCookies(loginPage.setCookies);
+        if (!csrfToken) {
+          throw new Error('No se pudo obtener csrf_token de Odoo');
+        }
+
+        await pool.query(
+          `UPDATE sso_tokens SET used = TRUE, used_at = NOW(), auth_secret_enc = NULL WHERE id = $1`,
+          [row.id]
+        );
+
+        const cookieDomain = cookieDomainForPublicUrl(publicBase);
+        if (bootstrapSession) {
+          const cookieParts = [
+            `session_id=${bootstrapSession}`,
+            'Path=/',
+            'HttpOnly',
+            'Secure',
+            'SameSite=Lax',
+            'Max-Age=86400',
+          ];
+          if (cookieDomain) cookieParts.push(`Domain=${cookieDomain}`);
+          res.setHeader('Set-Cookie', cookieParts.join('; '));
+        }
+        res.setHeader('Cache-Control', 'no-store');
+        return res.type('html').send(buildOdooAutoLoginHtml({
+          clientName: row.client_name,
+          publicBase,
+          login: row.odoo_login,
+          password,
+          csrfToken,
+          // Let Odoo dbfilter pick DB from hostname; wrong explicit db breaks login.
+          db: null,
+        }));
+      } catch (e) {
+        console.warn('[sso enter] auto-form warn:', e.message);
+      }
+    }
+
+    // Fallback: session cookie handoff (may fail across reverse proxies)
+    let sessionId = row.session_id || null;
+    if (!sessionId && password) {
+      try {
+        const auth = await odooValidateCredentials(publicBase, row.odoo_db, row.odoo_login, password);
         if (auth.valid && auth.sessionId) sessionId = auth.sessionId;
       } catch (e) {
-        console.warn('[sso enter] re-auth warn:', e.message);
+        console.warn('[sso enter] public re-auth warn:', e.message);
+      }
+    }
+    if (!sessionId && password) {
+      try {
+        const auth = await odooValidateCredentials(row.odoo_url, row.odoo_db, row.odoo_login, password);
+        if (auth.valid && auth.sessionId) sessionId = auth.sessionId;
+      } catch (e) {
+        console.warn('[sso enter] internal re-auth warn:', e.message);
       }
     }
 
@@ -2516,7 +2678,7 @@ app.get('/api/sso/enter', portalLimiter, async (req, res) => {
     }
 
     await pool.query(
-      `UPDATE sso_tokens SET used = TRUE, used_at = NOW() WHERE id = $1`,
+      `UPDATE sso_tokens SET used = TRUE, used_at = NOW(), auth_secret_enc = NULL WHERE id = $1`,
       [row.id]
     );
 
@@ -2532,9 +2694,7 @@ app.get('/api/sso/enter', portalLimiter, async (req, res) => {
     if (cookieDomain) cookieParts.push(`Domain=${cookieDomain}`);
     res.setHeader('Set-Cookie', cookieParts.join('; '));
     res.setHeader('Cache-Control', 'no-store');
-
-    const safeName = escAttr(row.client_name || 'Odoo');
-    res.type('html').send(buildRedirectPage(safeName, publicBase));
+    return res.type('html').send(buildRedirectPage(escAttr(row.client_name || 'Odoo'), publicBase));
   } catch (e) {
     console.error('[sso enter]', e.message);
     res.status(500).type('html').send('<h1>Error interno</h1><p><a href="/portal">Volver al portal</a></p>');
@@ -2933,6 +3093,9 @@ async function initDB() {
         END IF;
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sso_tokens' AND column_name='public_redirect_url') THEN
           ALTER TABLE sso_tokens ADD COLUMN public_redirect_url VARCHAR(500);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sso_tokens' AND column_name='auth_secret_enc') THEN
+          ALTER TABLE sso_tokens ADD COLUMN auth_secret_enc TEXT;
         END IF;
       END $$;
       CREATE TABLE IF NOT EXISTS portal_requests (
