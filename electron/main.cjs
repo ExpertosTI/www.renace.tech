@@ -336,6 +336,12 @@ function injectUserShell(wc) {
 
 function applyUserModeGuards(win) {
   if (!win || win.isDestroyed()) return;
+  if (process.platform === 'win32') {
+    try {
+      win.setAutoHideMenuBar(true);
+      win.setMenuBarVisibility(false);
+    } catch (_) {}
+  }
   const wc = win.webContents;
   wc.removeAllListeners('before-input-event');
   wc.on('before-input-event', (event, input) => {
@@ -357,19 +363,73 @@ function applyUserModeGuards(win) {
 
 function injectDrag(wc) {
   if (!wc || wc.isDestroyed()) return;
+  const isWin = process.platform === 'win32';
+  // Windows: barra fina bajo titleBarOverlay (32px) y hueco a la derecha para min/max/cerrar.
+  // Mac: zona de arrastre junto a traffic lights.
+  const height = isWin ? 32 : 28;
+  const rightGap = isWin ? 140 : 0;
   wc.executeJavaScript(
     `(() => {
-      if (document.getElementById('renace-drag-region')) return;
-      const s = document.createElement('style');
-      s.id = 'renace-drag-style';
-      s.textContent = '#renace-drag-region{position:fixed;top:0;left:0;right:0;height:48px;z-index:2147483645;-webkit-app-region:drag}a,button,input,select,textarea,[role=button]{-webkit-app-region:no-drag!important}';
-      const el = document.createElement('div');
-      el.id = 'renace-drag-region';
-      document.documentElement.appendChild(s);
-      document.documentElement.appendChild(el);
+      const height = ${height};
+      const rightGap = ${rightGap};
+      let s = document.getElementById('renace-drag-style');
+      if (!s) {
+        s = document.createElement('style');
+        s.id = 'renace-drag-style';
+        document.documentElement.appendChild(s);
+      }
+      s.textContent =
+        '#renace-drag-region{position:fixed;top:0;left:0;right:' + rightGap + 'px;height:' + height + 'px;z-index:2147483645;-webkit-app-region:drag}' +
+        'a,button,input,select,textarea,[role=button],.o_main_navbar,.o_menu_systray{-webkit-app-region:no-drag!important}';
+      let el = document.getElementById('renace-drag-region');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'renace-drag-region';
+        document.documentElement.appendChild(el);
+      }
     })()`,
     true
   ).catch(() => {});
+}
+
+function windowChromeOptions() {
+  if (process.platform === 'win32') {
+    return {
+      autoHideMenuBar: true,
+      titleBarStyle: 'hidden',
+      titleBarOverlay: {
+        color: '#0a0f1a',
+        symbolColor: '#e8edf5',
+        height: 32,
+      },
+    };
+  }
+  if (process.platform === 'darwin') {
+    return {
+      titleBarStyle: 'hiddenInset',
+      trafficLightPosition: { x: 14, y: 10 },
+    };
+  }
+  return { autoHideMenuBar: true };
+}
+
+function attachWindowChrome(win) {
+  if (!win || win.isDestroyed()) return;
+  if (process.platform === 'win32') {
+    try {
+      win.setAutoHideMenuBar(true);
+      win.setMenuBarVisibility(false);
+    } catch (_) {}
+    // Maximizar = área de trabajo (encima del dock/taskbar), no fullscreen exclusiv.
+    win.on('enter-full-screen', () => {
+      // Si el usuario pide fullscreen (F11), ok; al salir de maximize no forzar FS.
+    });
+    win.on('maximize', () => {
+      try {
+        if (win.isFullScreen()) win.setFullScreen(false);
+      } catch (_) {}
+    });
+  }
 }
 
 /** Banner de diagnóstico si Odoo/portal queda vacío */
@@ -823,7 +883,7 @@ function createWindow() {
     show: true,
     backgroundColor: '#0a0f1a',
     title: 'RENACE Portal',
-    titleBarStyle: 'default',
+    ...windowChromeOptions(),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -834,6 +894,7 @@ function createWindow() {
     },
   });
 
+  attachWindowChrome(win);
   attachWindowGuards(win);
   applyUserModeGuards(win);
   win.focus();
