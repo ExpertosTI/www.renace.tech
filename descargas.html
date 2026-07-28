@@ -295,7 +295,7 @@
         android: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.6 9.48 19.2 6.7a.45.45 0 0 0-.18-.61.46.46 0 0 0-.61.18l-1.64 2.84A8.1 8.1 0 0 0 12 8.2a8.1 8.1 0 0 0-4.77.91L5.59 6.27a.46.46 0 1 0-.79.43L6.4 9.48A7.8 7.8 0 0 0 4.2 15.2v.8c0 .44.36.8.8.8h14c.44 0 .8-.36.8-.8v-.8a7.8 7.8 0 0 0-2.2-5.72M8.5 13.4a.9.9 0 1 1 0-1.8.9.9 0 0 1 0 1.8m7 0a.9.9 0 1 1 0-1.8.9.9 0 0 1 0 1.8"/></svg>',
       };
 
-      /* Catálogo fijo del Portal — no documentos generales */
+      /* Catálogo fijo del Portal — sin demos ni “próximamente” */
       var CATALOG = [
         {
           id: 'windows',
@@ -322,14 +322,6 @@
             { href: '/docs/RENACE-Portal-ios.ipa', label: 'IPA', chip: 'IPA', primary: true },
           ],
         },
-        {
-          id: 'android',
-          title: 'Android',
-          hint: 'APK',
-          builds: [
-            { href: '/docs/RENACE-Portal-android.apk', label: 'APK', chip: 'APK', primary: true },
-          ],
-        },
       ];
 
       var ua = navigator.userAgent || '';
@@ -338,75 +330,43 @@
       var isAndroid = /Android/i.test(ua);
       var isWin = /Windows/i.test(ua);
       var isMac = (/Mac/i.test(platform) || /Macintosh/i.test(ua)) && !isIOS;
-      var preferred = isWin ? 'windows' : isAndroid ? 'android' : isIOS ? 'ios' : isMac ? 'macos' : 'windows';
+      var preferred = isWin ? 'windows' : isIOS ? 'ios' : isMac ? 'macos' : 'windows';
 
-      function probe(href) {
-        return fetch(href, { method: 'HEAD', credentials: 'same-origin' })
-          .then(function (r) { return r.ok; })
-          .catch(function () { return false; });
-      }
-
-      function render(availability) {
+      function render() {
         var root = document.getElementById('platforms');
         var empty = document.getElementById('empty');
         root.innerHTML = '';
-
-        var cols = CATALOG.map(function (os) {
-          var builds = os.builds
-            .map(function (b) { return Object.assign({}, b, { ok: !!availability[b.href] }); })
-            .filter(function (b) { return b.ok; });
-          return Object.assign({}, os, { builds: builds });
-        }).filter(function (os) { return os.builds.length > 0; });
-
-        /* Si aún no hay instaladores en el servidor, mostrar las 3 columnas principales deshabilitadas */
-        if (!cols.length) {
-          cols = CATALOG.filter(function (os) { return os.id !== 'android'; }).map(function (os) {
-            return Object.assign({}, os, { builds: [], soon: true });
-          });
-        }
-
-        root.setAttribute('data-cols', String(Math.min(3, cols.length)));
         empty.hidden = true;
+
+        var cols = CATALOG.slice();
+        root.setAttribute('data-cols', String(Math.min(3, cols.length)));
 
         cols.forEach(function (os) {
           var primary = os.builds.find(function (b) { return b.primary; }) || os.builds[0];
-          var rest = primary ? os.builds.filter(function (b) { return b !== primary; }) : [];
+          var rest = os.builds.filter(function (b) { return b !== primary; });
           var col = document.createElement('div');
-          col.className = 'col' + (os.id === preferred && primary ? ' active' : '');
-
-          if (primary) {
-            col.innerHTML =
-              '<div class="os-ico">' + (ICONS[os.id] || ICONS.macos) + '</div>' +
-              '<div class="os-name">' + os.title + '</div>' +
-              '<a class="btn-dl" href="' + primary.href + '">' +
-                '<span class="btn-title">' + DL + '<span></span></span>' +
-                '<span class="btn-sub"></span>' +
-              '</a>' +
-              '<div class="alts"></div>';
-            col.querySelector('.btn-title span').textContent = os.title;
-            col.querySelector('.btn-sub').textContent = primary.label + ' · ' + primary.chip;
-            var alts = col.querySelector('.alts');
-            rest.forEach(function (b) {
-              var row = document.createElement('div');
-              row.className = 'alt';
-              row.innerHTML = '<span></span><a></a>';
-              row.querySelector('span').textContent = b.label;
-              var a = row.querySelector('a');
-              a.href = b.href;
-              a.textContent = b.chip;
-              alts.appendChild(row);
-            });
-          } else {
-            col.innerHTML =
-              '<div class="os-ico">' + (ICONS[os.id] || ICONS.macos) + '</div>' +
-              '<div class="os-name">' + os.title + '</div>' +
-              '<span class="btn-dl" style="opacity:.45;cursor:default;pointer-events:none">' +
-                '<span class="btn-title"><span>Próximamente</span></span>' +
-                '<span class="btn-sub"></span>' +
-              '</span>';
-            col.querySelector('.btn-sub').textContent = os.hint;
-          }
-
+          col.className = 'col' + (os.id === preferred ? ' active' : '');
+          col.innerHTML =
+            '<div class="os-ico">' + (ICONS[os.id] || ICONS.macos) + '</div>' +
+            '<div class="os-name">' + os.title + '</div>' +
+            '<a class="btn-dl" href="' + primary.href + '">' +
+              '<span class="btn-title">' + DL + '<span></span></span>' +
+              '<span class="btn-sub"></span>' +
+            '</a>' +
+            '<div class="alts"></div>';
+          col.querySelector('.btn-title span').textContent = os.title;
+          col.querySelector('.btn-sub').textContent = primary.label + ' · ' + primary.chip;
+          var alts = col.querySelector('.alts');
+          rest.forEach(function (b) {
+            var row = document.createElement('div');
+            row.className = 'alt';
+            row.innerHTML = '<span></span><a></a>';
+            row.querySelector('span').textContent = b.label;
+            var a = row.querySelector('a');
+            a.href = b.href;
+            a.textContent = b.chip;
+            alts.appendChild(row);
+          });
           root.appendChild(col);
         });
 
@@ -478,13 +438,7 @@
       });
 
       function boot() {
-        Promise.all(hrefs.map(function (h) {
-          return probe(h).then(function (ok) { return [h, ok]; });
-        })).then(function (pairs) {
-          var map = {};
-          pairs.forEach(function (p) { map[p[0]] = p[1]; });
-          render(map);
-        });
+        render();
       }
 
       if (document.readyState === 'loading') {
