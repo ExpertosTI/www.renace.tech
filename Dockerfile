@@ -2,7 +2,8 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --omit=dev
+# Web image: no Electron/Capacitor scripts (postinstall es solo para desktop local)
+RUN npm ci --omit=dev --ignore-scripts
 
 COPY server.js ./
 COPY lib/ ./lib/
