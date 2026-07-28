@@ -54,5 +54,22 @@ cp images/apple-touch-icon-180.png "$BUILD/apple-touch-icon-180.png" 2>/dev/null
 
 python3 scripts/generate-dmg-background.py
 
+# Windows .ico para electron-builder NSIS
+python3 - <<'PY'
+from pathlib import Path
+try:
+    from PIL import Image
+except ImportError:
+    import subprocess, sys
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "pillow", "-q"])
+    from PIL import Image
+img = Image.open("images/icon-512.png").convert("RGBA")
+sizes = [(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
+imgs = [img.resize(s, Image.Resampling.LANCZOS) for s in sizes]
+Path("build").mkdir(exist_ok=True)
+imgs[-1].save("build/icon.ico", format="ICO", sizes=[(i.width, i.height) for i in imgs])
+print("✓ build/icon.ico")
+PY
+
 echo "✓ build/icon.icns (RENACE — images/icon-512.png)"
 echo "✓ Sin assets de carpetas externas (ALTAMAR, etc.)"

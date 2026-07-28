@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RENACE Portal</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: #060b14;
+      overflow: hidden;
+      -webkit-app-region: drag;
+      user-select: none;
+    }
+    .wrap {
+      min-height: 100%;
+      display: grid;
+      place-items: center;
+      padding: 40px 24px;
+      background:
+        radial-gradient(700px 360px at 50% 42%, rgba(0, 135, 255, 0.1) 0%, transparent 70%),
+        #060b14;
+    }
+    .card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 28px;
+      -webkit-app-region: no-drag;
+      max-width: 380px;
+      width: 100%;
+    }
+
+    /* Wordmark se forma letra a letra */
+    .wordmark {
+      width: min(300px, 74vw);
+      height: auto;
+      display: block;
+      overflow: visible;
+    }
+    .wordmark path {
+      opacity: 0;
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: letterForm 2.4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+    }
+    .wordmark path:nth-child(1) { animation-delay: 0.05s; }
+    .wordmark path:nth-child(2) { animation-delay: 0.2s; }
+    .wordmark path:nth-child(3) { animation-delay: 0.35s; }
+    .wordmark path:nth-child(4) { animation-delay: 0.5s; }
+    .wordmark path:nth-child(5) { animation-delay: 0.65s; }
+    .wordmark path:nth-child(6) { animation-delay: 0.8s; }
+    .wordmark path:nth-child(7) { animation-delay: 0.95s; }
+
+    @keyframes letterForm {
+      0%   { opacity: 0; transform: translateY(10px) scale(0.92); filter: blur(4px); }
+      18%  { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+      72%  { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+      88%  { opacity: 0.15; transform: translateY(-4px) scale(0.98); filter: blur(1px); }
+      100% { opacity: 0; transform: translateY(8px) scale(0.94); filter: blur(3px); }
+    }
+
+    /* Marca “a” que late / se llena */
+    .mark-wrap {
+      width: 56px;
+      height: 56px;
+      position: relative;
+      display: grid;
+      place-items: center;
+    }
+    .mark-wrap svg {
+      width: 48px;
+      height: 48px;
+      animation: markPulse 2.4s ease-in-out infinite;
+    }
+    .mark-ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 1px solid rgba(0, 135, 255, 0.25);
+      animation: ringExpand 2.4s ease-out infinite;
+    }
+    @keyframes markPulse {
+      0%, 100% { opacity: 0.35; transform: scale(0.88); }
+      40% { opacity: 1; transform: scale(1); }
+      70% { opacity: 0.85; transform: scale(1.02); }
+    }
+    @keyframes ringExpand {
+      0% { transform: scale(0.6); opacity: 0.5; }
+      70% { transform: scale(1.25); opacity: 0; }
+      100% { transform: scale(1.25); opacity: 0; }
+    }
+
+    /* Barra que se llena */
+    .fill-track {
+      width: min(220px, 55vw);
+      height: 2px;
+      border-radius: 99px;
+      background: rgba(0, 135, 255, 0.12);
+      overflow: hidden;
+      position: relative;
+    }
+    .fill-bar {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 0%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #0087ff, #5eb8ff, #0087ff);
+      background-size: 200% 100%;
+      animation: barFill 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite,
+                 barShimmer 1.2s linear infinite;
+    }
+    @keyframes barFill {
+      0% { width: 0%; opacity: 0.6; }
+      70% { width: 100%; opacity: 1; }
+      85% { width: 100%; opacity: 0.4; }
+      100% { width: 0%; opacity: 0; }
+    }
+    @keyframes barShimmer {
+      0% { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
+    }
+
+    /* Puntos de progreso */
+    .dots {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .dots i {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #0087ff;
+      opacity: 0.2;
+      animation: dotFill 1.5s ease-in-out infinite;
+    }
+    .dots i:nth-child(1) { animation-delay: 0s; }
+    .dots i:nth-child(2) { animation-delay: 0.2s; }
+    .dots i:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes dotFill {
+      0%, 100% { opacity: 0.15; transform: scale(0.85); }
+      40% { opacity: 1; transform: scale(1.15); }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="mark-wrap">
+        <span class="mark-ring" aria-hidden="true"></span>
+        <!-- BRAND_MARK -->
+      </div>
+      <!-- BRAND_WORDMARK -->
+      <div class="fill-track" aria-hidden="true"><div class="fill-bar"></div></div>
+      <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+    </div>
+  </div>
+</body>
+</html>

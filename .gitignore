@@ -41,6 +41,24 @@ migrations/
 *.log
 logs/
 
+# Native builds (generados localmente en este repo)
+ios/
+dist-electron/
+build/AppIcon.iconset/
+vendor/posagent/*.exe
+vendor/posagent/app/
+!vendor/posagent/README.md
+www/
+downloads/*.exe
+downloads/*.ipa
+docs/*.exe
+docs/*.ipa
+docs/*.dmg
+docs/*.zip
+*.exe
+*.ipa
+!vendor/posagent/README.md
+
 # --- EXTERNAL PROJECTS (IGNORE) ---
 android/
 android-app/

@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RENACE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* Misma identidad visual que portal.html */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0f1a;
+      --surface: #111827;
+      --border: rgba(148, 163, 184, 0.12);
+      --border-focus: rgba(0, 180, 216, 0.6);
+      --text: #e8edf5;
+      --muted: #7b8faa;
+      --accent: #00b4d8;
+      --accent-2: #0077b6;
+      --accent-glow: rgba(0, 180, 216, 0.15);
+      --bad: #f87171;
+      --ok: #2dd4bf;
+    }
+
+    html { height: 100%; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 15% 10%, rgba(45, 212, 191, 0.08), transparent 50%),
+        radial-gradient(ellipse at 85% 85%, rgba(139, 92, 246, 0.06), transparent 50%),
+        radial-gradient(ellipse at 50% 50%, rgba(45, 212, 191, 0.03), transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .portal-nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 32px;
+      background: rgba(10, 15, 26, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text);
+    }
+
+    .nav-logo svg { height: 26px; width: auto; }
+    .nav-logo .wordmark { height: 18px; opacity: 0.9; }
+
+    .stage {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 90px 20px 40px;
+    }
+
+    .login-container { width: 100%; max-width: 420px; }
+
+    .login-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .login-header-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #111827, #1e293b);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .login-header-icon svg { width: 22px; height: 22px; }
+
+    .login-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .login-subtitle {
+      color: var(--muted);
+      font-size: 0.875rem;
+      margin-bottom: 28px;
+      line-height: 1.5;
+    }
+
+    .card {
+      background: linear-gradient(160deg, rgba(17, 24, 39, 0.92), rgba(15, 20, 32, 0.90));
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    }
+
+    .field { margin-bottom: 16px; }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 6px;
+      letter-spacing: 0.02em;
+    }
+
+    .input-wrap { position: relative; }
+
+    .input-wrap .input-icon {
+      position: absolute;
+      left: 13px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #4a5e78;
+      pointer-events: none;
+      display: flex;
+    }
+
+    .input-wrap .input-icon svg { width: 16px; height: 16px; }
+
+    input[type="text"],
+    input[type="url"],
+    input[type="number"] {
+      width: 100%;
+      background: rgba(8, 12, 24, 0.7);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 11px 14px 11px 38px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    input:focus {
+      border-color: var(--border-focus) !important;
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    input::placeholder { color: #3d4f66; }
+
+    .lock {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 4px 0 18px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .lock input {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, var(--accent-2), var(--accent));
+      border: none;
+      border-radius: 10px;
+      color: #0a0f1a;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 4px;
+      transition: opacity 0.2s, transform 0.15s;
+      letter-spacing: -0.01em;
+    }
+
+    .btn-submit:hover { opacity: 0.92; transform: translateY(-1px); }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .divider span {
+      font-size: 11px;
+      font-weight: 600;
+      color: #4a5e78;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .btn-ghost {
+      width: 100%;
+      padding: 11px;
+      background: rgba(8, 12, 24, 0.5);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .btn-ghost:hover {
+      border-color: rgba(148, 163, 184, 0.28);
+      background: rgba(17, 24, 39, 0.8);
+    }
+
+    .msg {
+      margin-top: 14px;
+      min-height: 1.1em;
+      font-size: 13px;
+      color: var(--bad);
+      text-align: center;
+    }
+
+    .msg.ok { color: var(--ok); }
+  </style>
+</head>
+<body>
+  <nav class="portal-nav">
+    <a class="nav-logo" href="#" id="nav-brand">
+      <svg viewBox="0 0 200 200" fill="none" aria-hidden="true">
+        <path d="M165.2,78.1v81.2h-37.5v-55.1L83,159.4H34.8l68.9-85H48.8V40.6h82.7c14,0,26,8.5,31.1,20.6c0,0,0,0,0,0.1c1.7,4,2.6,8.4,2.6,13C165.2,74.3,165.2,76.9,165.2,78.1z" fill="#2dd4bf"/>
+      </svg>
+      <img class="wordmark" src="./brand/renacelogo.svg" alt="RENACE" />
+    </a>
+  </nav>
+
+  <div class="stage">
+    <div class="login-container">
+      <div class="login-header">
+        <div class="login-header-icon">
+          <svg viewBox="0 0 200 200" fill="none" aria-hidden="true">
+            <path d="M165.2,78.1v81.2h-37.5v-55.1L83,159.4H34.8l68.9-85H48.8V40.6h82.7c14,0,26,8.5,31.1,20.6c0,0,0,0,0,0.1c1.7,4,2.6,8.4,2.6,13C165.2,74.3,165.2,76.9,165.2,78.1z" fill="#2dd4bf"/>
+          </svg>
+        </div>
+        <div class="login-title">Instancia de empresa</div>
+      </div>
+      <div class="login-subtitle">Conecta este equipo a la empresa.</div>
+
+      <div class="card">
+        <div class="field">
+          <label for="name">Empresa</label>
+          <div class="input-wrap">
+            <span class="input-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9v.01"/><path d="M9 12v.01"/><path d="M9 15v.01"/><path d="M9 18v.01"/></svg>
+            </span>
+            <input id="name" type="text" placeholder="Nombre de la empresa" autocomplete="organization" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="url">Odoo</label>
+          <div class="input-wrap">
+            <span class="input-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            </span>
+            <input id="url" type="url" placeholder="https://…" autocomplete="url" />
+          </div>
+        </div>
+
+        <label class="lock">
+          <input id="locked" type="checkbox" checked />
+          Bloquear en este PC
+        </label>
+
+        <label class="lock">
+          <input id="modeUser" type="checkbox" checked />
+          Modo Usuario (sin atrás / actualizar)
+        </label>
+
+        <button type="button" class="btn-submit" id="save">Continuar</button>
+
+        <div class="divider"><span>o</span></div>
+
+        <button type="button" class="btn-ghost" id="portal">Usar portal RENACE</button>
+      </div>
+
+      <div class="msg" id="msg"></div>
+    </div>
+  </div>
+
+  <script>
+    const msg = document.getElementById('msg');
+    const api = window.renaceDesktop;
+
+    if (!api) {
+      msg.textContent = 'Error: bridge de escritorio no disponible. Reinstala la app.';
+    }
+
+    (async () => {
+      try {
+        const inst = await api?.getInstance?.();
+        if (inst?.url) {
+          document.getElementById('url').value = inst.url;
+          document.getElementById('name').value = inst.name || '';
+          document.getElementById('locked').checked = inst.locked !== false;
+        }
+        const mode = await api?.getMode?.();
+        document.getElementById('modeUser').checked = mode !== 'admin';
+      } catch (_) {}
+    })();
+
+    document.getElementById('save').addEventListener('click', async () => {
+      msg.className = 'msg';
+      msg.textContent = '';
+      if (!api?.saveAndOpenInstance && !api?.setInstance) {
+        msg.textContent = 'Error: bridge no disponible';
+        return;
+      }
+      const url = (document.getElementById('url').value || '').trim();
+      const name = (document.getElementById('name').value || '').trim();
+      if (!url) {
+        msg.textContent = 'Indica la URL de Odoo';
+        document.getElementById('url').focus();
+        return;
+      }
+      try {
+        const payload = {
+          url,
+          name,
+          companyId: null,
+          locked: document.getElementById('locked').checked,
+          mode: document.getElementById('modeUser').checked ? 'user' : 'admin',
+        };
+        const res = api.saveAndOpenInstance
+          ? await api.saveAndOpenInstance(payload)
+          : await (async () => {
+              const r = await api.setInstance(payload);
+              if (r?.ok) await api.openInstance();
+              return r;
+            })();
+        if (!res?.ok) {
+          msg.textContent = res?.error || 'No se pudo guardar';
+          return;
+        }
+        msg.className = 'msg ok';
+        msg.textContent = 'Listo';
+      } catch (e) {
+        msg.textContent = e.message || String(e);
+      }
+    });
+
+    document.getElementById('portal').addEventListener('click', () => api?.openPortal?.());
+  </script>
+</body>
+</html>

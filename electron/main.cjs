@@ -1,3 +1,10 @@
+'use strict';
+
+/**
+ * RENACE Portal — Electron shell
+ * Portal + SSO Odoo + logs de diagnóstico (pantalla en blanco).
+ */
+const fs = require('fs');
 const path = require('path');
 const {
   app,
@@ -10,11 +17,32 @@ const {
   ipcMain,
 } = require('electron');
 const store = require('./secure-store.cjs');
+const log = require('./log.cjs');
+const { ensurePosAgent } = require('./posagent-win.cjs');
+const posProxy = require('./pos-proxy.cjs');
+
+app.commandLine.appendSwitch('disable-features', 'PushMessaging,Notifications');
 
 const PORTAL_URL = process.env.RENACE_PORTAL_URL || 'https://renace.tech/portal';
 const HOME_URL = process.env.RENACE_HOME_URL || 'https://renace.tech';
 const PARTITION = 'persist:renace-portal';
 const PRELOAD = path.join(__dirname, 'preload.cjs');
+const SETUP_HTML = path.join(__dirname, 'setup.html');
+
+let PUSH_STUB = '';
+let COMPANY_FOCUS = '';
+let USER_SHELL = '';
+try {
+  PUSH_STUB = fs.readFileSync(path.join(__dirname, 'push-stub.js'), 'utf8');
+} catch (_) {}
+try {
+  COMPANY_FOCUS = fs.readFileSync(path.join(__dirname, 'company-focus.js'), 'utf8');
+} catch (_) {}
+try {
+  USER_SHELL = fs.readFileSync(path.join(__dirname, 'user-shell.js'), 'utf8');
+} catch (_) {}
+
+
 const ALLOWED = [
   /^https:\/\/renace\.tech(\/|$)/i,
   /^https:\/\/www\.renace\.tech(\/|$)/i,
@@ -26,7 +54,104 @@ function portalSession() {
 }
 
 function isAllowed(url) {
-  return ALLOWED.some((re) => re.test(String(url || '')));
+  const u = String(url || '');
+  if (!u) return false;
+  if (u.startsWith('file://')) return true;
+  if (ALLOWED.some((re) => re.test(u))) return true;
+  const inst = store.getInstance();
+  if (inst?.url) {
+    try {
+      const origin = new URL(inst.url).origin;
+      if (u === origin || u.startsWith(`${origin}/`)) return true;
+    } catch (_) {}
+  }
+  return false;
+}
+
+function windowTitleFor(url) {
+  const inst = store.getInstance();
+  if (inst?.name && url && String(url).includes(inst.url)) {
+    return `${inst.name} — RENACE`;
+  }
+  if (url && String(url).includes('/web')) return 'RENACE — Odoo';
+  return 'RENACE Portal';
+}
+
+async function applyInstanceCidsCookie(inst) {
+  if (!inst?.url || !inst?.companyId) return;
+  try {
+    const ses = portalSession();
+    await ses.cookies.set({
+      url: inst.url,
+      name: 'cids',
+      value: String(inst.companyId),
+      path: '/',
+      secure: true,
+      httpOnly: false,
+      sameSite: 'no_restriction',
+      expirationDate: Math.floor(Date.now() / 1000) + 86400 * 365,
+    });
+    log.info('cids cookie set', { host: new URL(inst.url).host, companyId: inst.companyId });
+  } catch (e) {
+    log.warn('cids cookie failed', e.message);
+  }
+}
+
+function openSetup(win) {
+  const w = win || currentWin();
+  if (!w) return;
+  w.loadFile(SETUP_HTML).catch((e) => log.error('setup load', e.message));
+}
+
+async function openHome(win) {
+  const w = win || currentWin();
+  if (!w) return;
+  const inst = store.getInstance();
+  if (!inst) {
+    log.info('openHome: sin instancia → setup');
+    openSetup(w);
+    return;
+  }
+  await applyInstanceCidsCookie(inst);
+  const start = store.getStartUrl(PORTAL_URL);
+  log.info('openHome', { start, instance: inst.url, companyId: inst.companyId || null });
+  w.setTitle(`${inst.name} — RENACE`);
+  w.loadURL(start).catch((e) => {
+    log.error('openHome failed', e.message);
+    openSetup(w);
+  });
+}
+
+/**
+ * Actualiza la interfaz (caché HTTP) sin tocar instancia, cookies ni secretos.
+ */
+async function refreshUiSafe(win) {
+  const w = win || currentWin();
+  if (!w || w.isDestroyed()) return;
+  const wc = w.webContents;
+  const url = wc.getURL();
+  try {
+    await portalSession().clearCache();
+    log.info('ui refresh: cache cleared (instance preserved)');
+  } catch (e) {
+    log.warn('ui refresh cache', e.message);
+  }
+  try {
+    if (!url || url === 'about:blank') {
+      const inst = store.getInstance();
+      if (inst) await openHome(w);
+      else openSetup(w);
+      return;
+    }
+    if (url.startsWith('file://') && url.includes('setup.html')) {
+      openSetup(w);
+      return;
+    }
+    wc.reloadIgnoringCache();
+  } catch (e) {
+    log.warn('ui refresh reload', e.message);
+    try { wc.reload(); } catch (_) {}
+  }
 }
 
 function currentWin() {
@@ -43,6 +168,75 @@ function registerIpc() {
   });
   ipcMain.handle('renace:usage-record', (_e, url) => store.recordVisit(url));
   ipcMain.handle('renace:usage-top', (_e, limit) => store.topDestinations(limit));
+  ipcMain.handle('renace:instance-get', () => store.getInstance());
+  ipcMain.handle('renace:instance-set', (_e, payload) => {
+    const res = store.setInstance(payload || {});
+    log.info('instance-set', {
+      ok: res.ok,
+      error: res.error || null,
+      url: res.instance?.url || null,
+      companyId: res.instance?.companyId || null,
+    });
+    return res;
+  });
+  ipcMain.handle('renace:instance-clear', () => store.clearInstance());
+  ipcMain.handle('renace:instance-open', async () => {
+    await openHome(currentWin());
+    return true;
+  });
+  ipcMain.handle('renace:instance-save-open', async (_e, payload) => {
+    const res = store.setInstance(payload || {});
+    log.info('instance-save-open', {
+      ok: res.ok,
+      error: res.error || null,
+      url: res.instance?.url || null,
+      companyId: res.instance?.companyId || null,
+    });
+    if (!res.ok) return res;
+    // Tras vincular PC del cliente → modo Usuario por defecto
+    if (payload?.mode === 'admin') store.setAppMode('admin');
+    else store.setAppMode('user');
+    buildMenu();
+    BrowserWindow.getAllWindows().forEach((w) => applyUserModeGuards(w));
+    await openHome(currentWin());
+    return { ...res, mode: store.getAppMode() };
+  });
+  ipcMain.handle('renace:open-portal', () => {
+    currentWin()?.loadURL(PORTAL_URL);
+    return true;
+  });
+  ipcMain.handle('renace:open-setup', () => {
+    openSetup(currentWin());
+    return true;
+  });
+  ipcMain.handle('renace:pos-status', () => ({
+    platform: process.platform,
+    windowsAgent: process.platform === 'win32',
+    proxy: posProxy.getSettings(),
+    brand: process.platform === 'win32' ? 'POS Agent PRO (bundled)' : 'RENACE POS',
+  }));
+  ipcMain.handle('renace:mode-get', () => store.getAppMode());
+  ipcMain.handle('renace:mode-set', (_e, mode) => {
+    const m = store.setAppMode(mode);
+    buildMenu();
+    BrowserWindow.getAllWindows().forEach((w) => {
+      applyUserModeGuards(w);
+      injectUserShell(w.webContents);
+    });
+    log.info('app mode', m);
+    return m;
+  });
+  ipcMain.handle('renace:keymap-get', () => store.getKeymap());
+  ipcMain.handle('renace:keymap-set', (_e, partial) => {
+    const km = store.setKeymap(partial || {});
+    BrowserWindow.getAllWindows().forEach((w) => injectUserShell(w.webContents));
+    return km;
+  });
+  ipcMain.on('renace:open-devtools', (event) => {
+    if (store.getAppMode() === 'user') return;
+    const wc = event.sender;
+    if (wc && !wc.isDestroyed()) wc.openDevTools({ mode: 'bottom' });
+  });
 }
 
 async function clearRenaceCookies() {
@@ -53,10 +247,10 @@ async function clearRenaceCookies() {
       .filter((c) => String(c.domain || '').includes('renace.tech'))
       .map((c) => {
         const domain = c.domain.startsWith('.') ? c.domain.slice(1) : c.domain;
-        const url = `https://${domain}${c.path || '/'}`;
-        return ses.cookies.remove(url, c.name);
+        return ses.cookies.remove(`https://${domain}${c.path || '/'}`, c.name);
       })
   );
+  log.info('cookies cleared');
 }
 
 async function setOdooSessionCookie(publicUrl, sessionId) {
@@ -74,20 +268,11 @@ async function setOdooSessionCookie(publicUrl, sessionId) {
     sameSite: 'no_restriction',
     expirationDate,
   });
-  await ses.cookies.set({
-    url: 'https://renace.tech',
-    name: 'session_id',
-    value: String(sessionId),
-    domain: '.renace.tech',
-    path: '/',
-    secure: true,
-    httpOnly: true,
-    sameSite: 'no_restriction',
-    expirationDate,
-  }).catch(() => {});
+  log.info('odoo session cookie set', { host: new URL(base).host, sidLen: String(sessionId).length });
 }
 
 async function completeSsoEnter(win, enterUrl) {
+  log.info('sso enter start', enterUrl);
   try {
     const u = new URL(enterUrl);
     u.searchParams.set('format', 'json');
@@ -95,251 +280,195 @@ async function completeSsoEnter(win, enterUrl) {
       headers: { Accept: 'application/json' },
     });
     const data = await res.json().catch(() => null);
+    log.info('sso enter response', {
+      status: res.status,
+      ok: data?.ok,
+      publicUrl: data?.publicUrl,
+      redirectUrl: data?.redirectUrl,
+      hasSession: Boolean(data?.sessionId),
+      error: data?.error,
+    });
     if (!res.ok || !data?.ok || !data.sessionId || !data.publicUrl) {
       throw new Error(data?.error || `SSO HTTP ${res.status}`);
     }
     await setOdooSessionCookie(data.publicUrl, data.sessionId);
     const dest = data.redirectUrl || `${String(data.publicUrl).replace(/\/$/, '')}/web`;
     store.recordVisit(dest);
+    log.info('sso loadURL', dest);
     await win.loadURL(dest);
     return true;
   } catch (e) {
-    console.warn('[electron sso]', e.message);
+    log.error('sso enter failed', e.message);
     return false;
   }
 }
 
-/** Precarga DNS/TLS/caché de los destinos más usados (ventanas ocultas). */
-async function warmTopDestinations() {
-  const tops = store.topDestinations(3);
-  if (!tops.length) return;
-  const ses = portalSession();
-  for (const item of tops) {
-    try {
-      if (typeof ses.preconnect === 'function') {
-        ses.preconnect({ url: item.origin, numSockets: 2 });
-      }
-    } catch (_) {}
-  }
-  for (const item of tops.slice(0, 2)) {
-    try {
-      const warm = new BrowserWindow({
-        show: false,
-        width: 800,
-        height: 600,
-        webPreferences: {
-          contextIsolation: true,
-          nodeIntegration: false,
-          sandbox: true,
-          partition: PARTITION,
-          preload: PRELOAD,
-        },
-      });
-      await warm.loadURL(item.warmUrl).catch(() => {});
-      setTimeout(() => {
-        if (!warm.isDestroyed()) warm.destroy();
-      }, 12000);
-    } catch (e) {
-      console.warn('[electron warm]', item.origin, e.message);
+function injectPushStub(wc) {
+  if (!PUSH_STUB || !wc || wc.isDestroyed()) return;
+  wc.executeJavaScript(PUSH_STUB, true).catch(() => {});
+}
+
+function injectCompanyFocus(wc) {
+  if (!wc || wc.isDestroyed()) return;
+  const inst = store.getInstance();
+  if (!inst) return;
+  const cfg = JSON.stringify({
+    url: inst.url,
+    name: inst.name,
+    companyId: inst.companyId,
+    locked: inst.locked,
+  });
+  const boot = `window.__renaceCompanyCfg = ${cfg};`;
+  const script = COMPANY_FOCUS ? `${boot}\n${COMPANY_FOCUS}` : boot;
+  wc.executeJavaScript(script, true).catch((e) => log.warn('injectCompanyFocus', e.message));
+}
+
+function injectUserShell(wc) {
+  if (!wc || wc.isDestroyed() || !USER_SHELL) return;
+  const cfg = JSON.stringify({
+    mode: store.getAppMode(),
+    keymap: store.getKeymap(),
+  });
+  wc.executeJavaScript(`window.__renaceShellCfg = ${cfg};\n${USER_SHELL}`, true).catch((e) =>
+    log.warn('injectUserShell', e.message)
+  );
+}
+
+function applyUserModeGuards(win) {
+  if (!win || win.isDestroyed()) return;
+  const wc = win.webContents;
+  wc.removeAllListeners('before-input-event');
+  wc.on('before-input-event', (event, input) => {
+    if (store.getAppMode() !== 'user') return;
+    if (input.type !== 'keyDown') return;
+    const key = String(input.key || '');
+    const blocked =
+      (input.meta || input.control) &&
+      ['r', 'R', 'l', 'L', '[', ']', 'ArrowLeft', 'ArrowRight'].includes(key);
+    const blockedNav =
+      (input.alt && (key === 'ArrowLeft' || key === 'ArrowRight')) ||
+      key === 'F5' ||
+      ((input.meta || input.control) && input.shift && (key === 'r' || key === 'R' || key === 'i' || key === 'I'));
+    if (blocked || blockedNav) {
+      event.preventDefault();
     }
+  });
+}
+
+function injectDrag(wc) {
+  if (!wc || wc.isDestroyed()) return;
+  wc.executeJavaScript(
+    `(() => {
+      if (document.getElementById('renace-drag-region')) return;
+      const s = document.createElement('style');
+      s.id = 'renace-drag-style';
+      s.textContent = '#renace-drag-region{position:fixed;top:0;left:0;right:0;height:48px;z-index:2147483645;-webkit-app-region:drag}a,button,input,select,textarea,[role=button]{-webkit-app-region:no-drag!important}';
+      const el = document.createElement('div');
+      el.id = 'renace-drag-region';
+      document.documentElement.appendChild(s);
+      document.documentElement.appendChild(el);
+    })()`,
+    true
+  ).catch(() => {});
+}
+
+/** Banner de diagnóstico si Odoo/portal queda vacío */
+function injectBlankDiagnostic(wc, meta) {
+  if (!wc || wc.isDestroyed()) return;
+  const payload = JSON.stringify(meta || {});
+  wc.executeJavaScript(
+    `(() => {
+      const meta = ${payload};
+      const existing = document.getElementById('renace-debug-banner');
+      if (existing) existing.remove();
+      const el = document.createElement('div');
+      el.id = 'renace-debug-banner';
+      el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:2147483647;padding:14px 16px;border-radius:12px;background:#111827;color:#e5e7eb;font:13px/1.45 -apple-system,BlinkMacSystemFont,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.35);border:1px solid #374151;';
+      el.innerHTML = '<div style="font-weight:700;margin-bottom:6px;color:#fbbf24">RENACE debug — pantalla vacía detectada</div>' +
+        '<div><b>URL</b>: ' + (meta.url || '') + '</div>' +
+        '<div><b>title</b>: ' + (meta.title || '') + '</div>' +
+        '<div><b>bodyLen</b>: ' + (meta.bodyLen || 0) + '</div>' +
+        '<div style="margin-top:8px;opacity:.8">Log: ' + (meta.logPath || '') + '</div>' +
+        '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">' +
+        '<button id="renace-dbg-portal" style="padding:8px 12px;border-radius:8px;border:0;background:#0087ff;color:#fff;cursor:pointer">Volver al portal</button>' +
+        '<button id="renace-dbg-reload" style="padding:8px 12px;border-radius:8px;border:0;background:#374151;color:#fff;cursor:pointer">Recargar</button>' +
+        '<button id="renace-dbg-devtools" style="padding:8px 12px;border-radius:8px;border:0;background:#374151;color:#fff;cursor:pointer">DevTools</button>' +
+        '</div>';
+      document.documentElement.appendChild(el);
+      document.getElementById('renace-dbg-portal')?.addEventListener('click', () => { location.href = 'https://renace.tech/portal'; });
+      document.getElementById('renace-dbg-reload')?.addEventListener('click', () => location.reload());
+      document.getElementById('renace-dbg-devtools')?.addEventListener('click', () => {
+        window.renaceDesktop?.openDevTools?.();
+      });
+    })()`,
+    true
+  ).catch((e) => log.warn('injectBlankDiagnostic', e.message));
+}
+
+async function checkBlankPage(win) {
+  if (!win || win.isDestroyed()) return;
+  const wc = win.webContents;
+  const current = wc.getURL();
+  if (current.startsWith('file://') && current.includes('setup.html')) return;
+  let info = { url: current, title: '', bodyLen: 0, hasOdoo: false };
+  try {
+    info = await wc.executeJavaScript(`({
+      url: location.href,
+      title: document.title || '',
+      bodyLen: (document.body && document.body.innerText || '').trim().length,
+      hasOdoo: !!document.querySelector('.o_web_client, .o_main_navbar, .o_home_menu, .oe_login_form, .o_login_form'),
+      sample: (document.body && document.body.innerText || '').trim().slice(0, 120),
+    })`);
+  } catch (e) {
+    log.warn('checkBlankPage eval failed', e.message);
+    return;
+  }
+  log.info('page check', info);
+  const looksBlank =
+    info.bodyLen < 30 ||
+    (/^odoo$/i.test(info.title) && !info.hasOdoo && info.bodyLen < 80);
+  if (looksBlank) {
+    log.warn('BLANK PAGE DETECTED', info);
+    injectBlankDiagnostic(wc, { ...info, logPath: log.path() });
+    try {
+      wc.openDevTools({ mode: 'bottom' });
+      log.info('DevTools opened');
+    } catch (_) {}
   }
 }
 
-function buildMenu() {
-  const isMac = process.platform === 'darwin';
-  const template = [
-    ...(isMac
-      ? [{
-          label: app.name,
-          submenu: [
-            { role: 'about', label: 'Acerca de RENACE Portal' },
-            { type: 'separator' },
-            {
-              label: 'Ir al Portal',
-              accelerator: 'CmdOrCtrl+Shift+H',
-              click: () => currentWin()?.loadURL(PORTAL_URL),
-            },
-            {
-              label: 'Cerrar sesión / limpiar cookies',
-              click: async () => {
-                await clearRenaceCookies();
-                currentWin()?.loadURL(PORTAL_URL);
-              },
-            },
-            {
-              label: 'Borrar credenciales del Llavero',
-              click: async () => {
-                store.clearSecrets();
-                dialog.showMessageBox({
-                  type: 'info',
-                  title: 'Llavero',
-                  message: 'Credenciales de portal eliminadas del almacén seguro.',
-                });
-              },
-            },
-            { type: 'separator' },
-            { role: 'services' },
-            { type: 'separator' },
-            { role: 'hide' },
-            { role: 'hideOthers' },
-            { role: 'unhide' },
-            { type: 'separator' },
-            { role: 'quit', label: 'Salir de RENACE Portal' },
-          ],
-        }]
-      : []),
-    {
-      label: 'Archivo',
-      submenu: [
-        {
-          label: 'Portal de clientes',
-          accelerator: 'CmdOrCtrl+1',
-          click: () => currentWin()?.loadURL(PORTAL_URL),
-        },
-        {
-          label: 'Sitio RENACE.TECH',
-          accelerator: 'CmdOrCtrl+2',
-          click: () => currentWin()?.loadURL(HOME_URL),
-        },
-        { type: 'separator' },
-        ...store.topDestinations(5).map((d, i) => ({
-          label: `Abrir frecuente: ${d.origin.replace(/^https:\/\//, '')}`,
-          accelerator: i < 3 ? `CmdOrCtrl+${i + 3}` : undefined,
-          click: () => currentWin()?.loadURL(d.warmUrl),
-        })),
-        { type: 'separator' },
-        {
-          label: 'Abrir en el navegador',
-          accelerator: 'CmdOrCtrl+Shift+O',
-          click: () => {
-            const url = currentWin()?.webContents?.getURL();
-            if (url) shell.openExternal(url);
-          },
-        },
-        {
-          label: 'Copiar URL',
-          accelerator: 'CmdOrCtrl+Shift+C',
-          click: () => {
-            const url = currentWin()?.webContents?.getURL();
-            if (url) clipboard.writeText(url);
-          },
-        },
-        { type: 'separator' },
-        {
-          label: 'Cerrar sesión',
-          click: async () => {
-            await clearRenaceCookies();
-            currentWin()?.loadURL(PORTAL_URL);
-          },
-        },
-        ...(isMac ? [] : [{ role: 'quit', label: 'Salir' }]),
-      ],
-    },
-    {
-      label: 'Editar',
-      submenu: [
-        { role: 'undo', label: 'Deshacer' },
-        { role: 'redo', label: 'Rehacer' },
-        { type: 'separator' },
-        { role: 'cut', label: 'Cortar' },
-        { role: 'copy', label: 'Copiar' },
-        { role: 'paste', label: 'Pegar' },
-        { role: 'selectAll', label: 'Seleccionar todo' },
-      ],
-    },
-    {
-      label: 'Ver',
-      submenu: [
-        {
-          label: 'Recargar',
-          accelerator: 'CmdOrCtrl+R',
-          click: () => currentWin()?.webContents.reload(),
-        },
-        {
-          label: 'Forzar recarga',
-          accelerator: 'CmdOrCtrl+Shift+R',
-          click: () => currentWin()?.webContents.reloadIgnoringCache(),
-        },
-        { type: 'separator' },
-        {
-          label: 'Atrás',
-          accelerator: 'CmdOrCtrl+[',
-          click: () => {
-            const wc = currentWin()?.webContents;
-            if (wc?.navigationHistory?.canGoBack()) wc.navigationHistory.goBack();
-            else if (wc?.canGoBack()) wc.goBack();
-          },
-        },
-        {
-          label: 'Adelante',
-          accelerator: 'CmdOrCtrl+]',
-          click: () => {
-            const wc = currentWin()?.webContents;
-            if (wc?.navigationHistory?.canGoForward()) wc.navigationHistory.goForward();
-            else if (wc?.canGoForward()) wc.goForward();
-          },
-        },
-        { type: 'separator' },
-        { role: 'resetZoom', label: 'Zoom real' },
-        { role: 'zoomIn', label: 'Acercar' },
-        { role: 'zoomOut', label: 'Alejar' },
-        { type: 'separator' },
-        { role: 'togglefullscreen', label: 'Pantalla completa' },
-        {
-          label: 'Herramientas de desarrollo',
-          accelerator: isMac ? 'Alt+Command+I' : 'Ctrl+Shift+I',
-          click: () => currentWin()?.webContents.toggleDevTools(),
-        },
-      ],
-    },
-    {
-      label: 'Ventana',
-      submenu: [
-        { role: 'minimize', label: 'Minimizar' },
-        { role: 'zoom', label: 'Zoom' },
-        ...(isMac
-          ? [{ type: 'separator' }, { role: 'front', label: 'Traer todo al frente' }]
-          : [{ role: 'close', label: 'Cerrar' }]),
-      ],
-    },
-    {
-      label: 'Ayuda',
-      submenu: [
-        {
-          label: 'Abrir portal…',
-          click: () => currentWin()?.loadURL(PORTAL_URL),
-        },
-        {
-          label: 'Soporte RENACE',
-          click: () => shell.openExternal('https://renace.tech/contacto'),
-        },
-        { type: 'separator' },
-        {
-          label: 'Si ves pantalla negra / CSRF…',
-          click: async () => {
-            await clearRenaceCookies();
-            currentWin()?.loadURL(PORTAL_URL);
-            dialog.showMessageBox({
-              type: 'info',
-              title: 'Sesión reiniciada',
-              message: 'Se limpiaron cookies de RENACE y se abrió el portal.',
-            });
-          },
-        },
-      ],
-    },
-  ];
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+function hardenSession(ses) {
+  ses.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(permission !== 'notifications');
+  });
+  ses.webRequest.onCompleted({ urls: ['*://*.renace.tech/*', '*://renace.tech/*'] }, (details) => {
+    if (details.resourceType === 'mainFrame') {
+      log.info('mainFrame completed', { url: details.url, status: details.statusCode });
+    }
+  });
+  ses.webRequest.onErrorOccurred({ urls: ['*://*.renace.tech/*', '*://renace.tech/*'] }, (details) => {
+    if (details.resourceType === 'mainFrame' || details.resourceType === 'xhr' || details.resourceType === 'script') {
+      log.warn('request error', {
+        url: details.url,
+        type: details.resourceType,
+        error: details.error,
+      });
+    }
+  });
 }
 
 function attachWindowGuards(win) {
-  win.webContents.setWindowOpenHandler(({ url }) => {
+  const wc = win.webContents;
+
+  wc.setWindowOpenHandler(({ url }) => {
+    log.info('window open', url);
     if (isAllowed(url)) return { action: 'allow' };
     shell.openExternal(url);
     return { action: 'deny' };
   });
 
-  win.webContents.on('will-navigate', async (event, url) => {
+  wc.on('will-navigate', async (event, url) => {
+    log.info('will-navigate', url);
     if (!isAllowed(url)) {
       event.preventDefault();
       shell.openExternal(url);
@@ -348,11 +477,15 @@ function attachWindowGuards(win) {
     if (/\/api\/sso\/enter(\?|$)/i.test(url)) {
       event.preventDefault();
       const ok = await completeSsoEnter(win, url);
-      if (!ok) win.loadURL(url);
+      if (!ok) {
+        log.warn('sso fallback loadURL', url);
+        win.loadURL(url);
+      }
     }
   });
 
-  win.webContents.on('will-redirect', async (event, url) => {
+  wc.on('will-redirect', async (event, url) => {
+    log.info('will-redirect', url);
     if (/\/api\/sso\/enter(\?|$)/i.test(url)) {
       event.preventDefault();
       const ok = await completeSsoEnter(win, url);
@@ -360,86 +493,414 @@ function attachWindowGuards(win) {
     }
   });
 
-  win.webContents.on('did-navigate', (_e, url) => {
+  wc.on('did-navigate', (_e, url) => {
+    log.info('did-navigate', url);
     store.recordVisit(url);
+    win.setTitle(windowTitleFor(url));
   });
-  win.webContents.on('did-navigate-in-page', (_e, url) => {
-    store.recordVisit(url);
+  wc.on('did-navigate-in-page', (_e, url) => log.info('did-navigate-in-page', url));
+  wc.on('page-title-updated', (_e, title) => log.info('title', title));
+
+  wc.on('console-message', (_e, level, message, line, sourceId) => {
+    if (level >= 2) log.warn('renderer console', { level, message: String(message).slice(0, 300), sourceId, line });
   });
 
-  win.webContents.on('page-title-updated', (_e, title) => {
-    if (/400 Bad Request|Session expired|invalid CSRF/i.test(String(title || ''))) {
-      win.setTitle('RENACE Portal — error de sesión');
-    }
+  wc.on('dom-ready', () => {
+    log.info('dom-ready', wc.getURL());
+    const u = wc.getURL();
+    if (u.startsWith('file://')) return;
+    injectPushStub(wc);
+    injectCompanyFocus(wc);
+    injectUserShell(wc);
+    injectDrag(wc);
   });
 
-  win.webContents.on('did-finish-load', async () => {
-    try {
-      const bad = await win.webContents.executeJavaScript(`
-        (() => {
-          const t = document.title || '';
-          const b = (document.body && document.body.innerText) || '';
-          return /400 Bad Request|Session expired|invalid CSRF/i.test(t + ' ' + b);
-        })()
-      `);
-      if (bad) {
-        const { response } = await dialog.showMessageBox(win, {
-          type: 'warning',
-          title: 'Sesión Odoo inválida',
-          message: 'Odoo rechazó la sesión (CSRF).',
-          detail: '¿Volver al portal y limpiar cookies?',
-          buttons: ['Volver al portal', 'Quedarme aquí'],
-          defaultId: 0,
-          cancelId: 1,
-        });
-        if (response === 0) {
-          await clearRenaceCookies();
-          win.loadURL(PORTAL_URL);
-        }
-      }
-    } catch (_) {
-      /* ignore */
-    }
+  wc.on('did-finish-load', () => {
+    log.info('did-finish-load', wc.getURL());
+    const u = wc.getURL();
+    if (u.startsWith('file://')) return;
+    injectPushStub(wc);
+    injectCompanyFocus(wc);
+    injectUserShell(wc);
+    injectDrag(wc);
+    setTimeout(() => checkBlankPage(win), 2000);
+    setTimeout(() => checkBlankPage(win), 5000);
+  });
+
+  wc.on('did-fail-load', (_e, code, desc, url, isMainFrame) => {
+    if (!isMainFrame || code === -3) return;
+    log.error('did-fail-load', { code, desc, url });
+    dialog
+      .showMessageBox(win, {
+        type: 'error',
+        title: 'Error de carga',
+        message: 'No se pudo cargar la página.',
+        detail: `${desc}\n${url}\n\nLog: ${log.path()}`,
+        buttons: ['Reintentar portal', 'Abrir log', 'Cerrar'],
+      })
+      .then(({ response }) => {
+        if (response === 0) openHome(win);
+        if (response === 1) log.open();
+      });
   });
 }
 
+async function promptOpenSetup() {
+  if (store.getAppMode() === 'user') {
+    const ok = await unlockAdmin();
+    if (!ok) return;
+  }
+  const inst = store.getInstance();
+  if (inst?.locked) {
+    const { response } = await dialog.showMessageBox(currentWin() || undefined, {
+      type: 'warning',
+      title: 'Instancia bloqueada',
+      message: `Este PC está vinculado a «${inst.name}».`,
+      detail: `${inst.url}\n\n¿Cambiar la instancia de empresa de este equipo?`,
+      buttons: ['Cancelar', 'Cambiar instancia'],
+      defaultId: 0,
+      cancelId: 0,
+    });
+    if (response !== 1) return;
+  }
+  openSetup(currentWin());
+}
+
+async function unlockAdmin() {
+  const { response, checkboxChecked } = await dialog.showMessageBox(currentWin() || undefined, {
+    type: 'question',
+    title: 'Modo técnico',
+    message: '¿Activar modo técnico (admin)?',
+    detail: 'Permite configurar instancia, actualizar y herramientas. Los cajeros deben usar modo Usuario.',
+    buttons: ['Cancelar', 'Activar técnico'],
+    defaultId: 0,
+    cancelId: 0,
+    checkboxLabel: 'Recordar en este PC',
+    checkboxChecked: false,
+  });
+  if (response !== 1) return false;
+  store.setAppMode('admin');
+  buildMenu();
+  BrowserWindow.getAllWindows().forEach((w) => {
+    applyUserModeGuards(w);
+    injectUserShell(w.webContents);
+  });
+  if (!checkboxChecked) {
+    // one-shot session: still saved; user can switch back from menu
+  }
+  return true;
+}
+
+/** Configurar atajos tipo Eleventa (migraciones POS) */
+async function promptKeymapConfig() {
+  const km = store.getKeymap();
+  const win = currentWin();
+  const { response } = await dialog.showMessageBox(win || undefined, {
+    type: 'question',
+    title: 'Atajos POS (perfil Eleventa)',
+    message: 'Perfil actual de teclado para el POS',
+    detail:
+      `Pagar / cobro: ${km.pay}\n` +
+      `Cobrar e imprimir (pantalla pago): ${km.payPrint}\n` +
+      `Cobrar sin imprimir: ${km.payNoPrint}\n` +
+      `Cancelar / atrás: ${km.cancel}\n` +
+      `Ventas / foco: ${km.sales}\n` +
+      `Verificador precio: ${km.priceCheck}\n` +
+      `Mayoreo: ${km.wholesale}\n\n` +
+      'Restablecer deja el perfil Eleventa clásico (F12 / F1 / F2 / Esc).',
+    buttons: ['Cerrar', 'Restablecer Eleventa', km.enabled ? 'Desactivar atajos' : 'Activar atajos'],
+    defaultId: 0,
+    cancelId: 0,
+  });
+  if (response === 1) {
+    store.setKeymap(store.defaultKeymap());
+  } else if (response === 2) {
+    store.setKeymap({ enabled: !km.enabled });
+  } else {
+    return;
+  }
+  BrowserWindow.getAllWindows().forEach((w) => injectUserShell(w.webContents));
+  const next = store.getKeymap();
+  dialog.showMessageBox(win || undefined, {
+    type: 'info',
+    title: 'Atajos POS',
+    message: next.enabled ? 'Atajos activos (perfil Eleventa).' : 'Atajos desactivados.',
+    detail: `Pagar ${next.pay} · Imprimir ${next.payPrint} · Sin imprimir ${next.payNoPrint} · Cancelar ${next.cancel}`,
+  });
+}
+
+function buildMenu() {
+  const isMac = process.platform === 'darwin';
+  const isUser = store.getAppMode() === 'user';
+
+  if (isUser) {
+    // Menú mínimo: sin atrás/recargar/devtools/portal
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate([
+        ...(isMac
+          ? [{
+              label: app.name,
+              submenu: [
+                { role: 'about' },
+                { type: 'separator' },
+                {
+                  label: 'Modo técnico…',
+                  accelerator: 'CmdOrCtrl+Shift+Alt+T',
+                  click: () => unlockAdmin(),
+                },
+                { type: 'separator' },
+                { role: 'quit' },
+              ],
+            }]
+          : []),
+        {
+          label: 'Archivo',
+          submenu: [
+            {
+              label: 'Modo técnico…',
+              accelerator: 'CmdOrCtrl+Shift+Alt+T',
+              click: () => unlockAdmin(),
+            },
+            ...(!isMac ? [{ type: 'separator' }, { role: 'quit' }] : []),
+          ],
+        },
+        { label: 'Editar', submenu: [{ role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
+      ])
+    );
+    return;
+  }
+
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      ...(isMac
+        ? [{
+            label: app.name,
+            submenu: [
+              { role: 'about' },
+              { type: 'separator' },
+              {
+                label: 'Ir a la instancia',
+                accelerator: 'CmdOrCtrl+Shift+H',
+                click: () => openHome(currentWin()),
+              },
+              {
+                label: 'Configurar instancia de empresa…',
+                accelerator: 'CmdOrCtrl+,',
+                click: () => promptOpenSetup(),
+              },
+              {
+                label: 'Modo Usuario',
+                click: () => {
+                  store.setAppMode('user');
+                  buildMenu();
+                  BrowserWindow.getAllWindows().forEach((w) => {
+                    applyUserModeGuards(w);
+                    injectUserShell(w.webContents);
+                  });
+                },
+              },
+              {
+                label: 'Cerrar sesión / limpiar cookies',
+                click: async () => {
+                  await clearRenaceCookies();
+                  openHome(currentWin());
+                },
+              },
+              { type: 'separator' },
+              { role: 'quit' },
+            ],
+          }]
+        : []),
+      {
+        label: 'Archivo',
+        submenu: [
+          { label: 'Instancia / Odoo', accelerator: 'CmdOrCtrl+1', click: () => openHome(currentWin()) },
+          {
+            label: 'Configurar instancia de empresa…',
+            accelerator: isMac ? undefined : 'CmdOrCtrl+,',
+            click: () => promptOpenSetup(),
+          },
+          {
+            label: 'Actualizar interfaz',
+            accelerator: 'CmdOrCtrl+Shift+R',
+            click: () => refreshUiSafe(currentWin()),
+          },
+          {
+            label: 'Modo Usuario',
+            click: () => {
+              store.setAppMode('user');
+              buildMenu();
+              BrowserWindow.getAllWindows().forEach((w) => {
+                applyUserModeGuards(w);
+                injectUserShell(w.webContents);
+              });
+            },
+          },
+          { label: 'Portal RENACE', click: () => currentWin()?.loadURL(PORTAL_URL) },
+          { label: 'Sitio RENACE.TECH', click: () => currentWin()?.loadURL(HOME_URL) },
+          { type: 'separator' },
+          {
+            label: 'Abrir en el navegador',
+            click: () => {
+              const u = currentWin()?.webContents.getURL();
+              if (u) shell.openExternal(u);
+            },
+          },
+          {
+            label: 'Copiar URL',
+            click: () => {
+              const u = currentWin()?.webContents.getURL();
+              if (u) clipboard.writeText(u);
+            },
+          },
+          ...(!isMac ? [{ type: 'separator' }, { role: 'quit' }] : []),
+        ],
+      },
+      { label: 'Editar', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
+      {
+        label: 'Ver',
+        submenu: [
+          { role: 'reload' },
+          { role: 'forceReload' },
+          { role: 'toggleDevTools' },
+          { type: 'separator' },
+          {
+            label: 'Abrir archivo de log',
+            accelerator: 'CmdOrCtrl+Shift+L',
+            click: () => log.open(),
+          },
+          {
+            label: 'Estado RENACE POS',
+            click: async () => {
+              const st = posProxy.getSettings();
+              const km = store.getKeymap();
+              const printers = process.platform === 'darwin' || process.platform === 'linux'
+                ? await posProxy.listCupsPrinters()
+                : [];
+              dialog.showMessageBox(currentWin() || undefined, {
+                type: 'info',
+                title: 'RENACE POS',
+                message: process.platform === 'win32'
+                  ? 'En Windows se usa POS Agent PRO (incluido en el instalador).'
+                  : 'Proxy local RENACE POS (compatible IoT / hw_proxy).',
+                detail: `Puerto: ${st.port}\nImpresora: ${st.printer || 'predeterminada'}\nActivo: ${st.enabled ? 'sí' : 'no'}\nAtajos Eleventa: pagar ${km.pay}, cobrar+imprimir ${km.payPrint}, sin imprimir ${km.payNoPrint}, cancelar ${km.cancel}\n${printers.length ? `CUPS: ${printers.join(', ')}` : ''}`,
+              });
+            },
+          },
+          {
+            label: 'Atajos teclado POS (Eleventa)…',
+            click: () => promptKeymapConfig(),
+          },
+          { type: 'separator' },
+          { role: 'resetZoom' },
+          { role: 'zoomIn' },
+          { role: 'zoomOut' },
+          { type: 'separator' },
+          { role: 'togglefullscreen' },
+        ],
+      },
+      { label: 'Ventana', submenu: [{ role: 'minimize' }, { role: 'zoom' }, { type: 'separator' }, { role: 'front' }] },
+      {
+        label: 'Ayuda',
+        submenu: [
+          {
+            label: 'Soporte RENACE',
+            click: () => shell.openExternal('https://wa.me/8494577463'),
+          },
+        ],
+      },
+    ])
+  );
+}
+
 function createWindow() {
+  log.info('createWindow');
   const win = new BrowserWindow({
     width: 1280,
     height: 860,
     minWidth: 960,
     minHeight: 640,
-    backgroundColor: '#060b14',
+    show: true,
+    backgroundColor: '#0a0f1a',
     title: 'RENACE Portal',
-    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    titleBarStyle: 'default',
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
       partition: PARTITION,
       preload: PRELOAD,
+      backgroundThrottling: false,
     },
   });
 
   attachWindowGuards(win);
+  applyUserModeGuards(win);
+  win.focus();
 
-  // Abrir el destino más usado si hay historial; si no, portal
-  const top = store.topDestinations(1)[0];
-  const startUrl = top && top.count >= 2 ? top.warmUrl : PORTAL_URL;
-  win.loadURL(startUrl);
+  const inst = store.getInstance();
+  if (!inst) {
+    log.info('no instance — setup');
+    openSetup(win);
+  } else {
+    openHome(win);
+  }
+
   return win;
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  log.info('app ready', { version: app.getVersion(), log: log.path(), platform: process.platform });
+
+  if (process.platform === 'win32') {
+    try {
+      const pos = await ensurePosAgent();
+      log.info('posagent ensure', pos);
+    } catch (e) {
+      log.warn('posagent ensure failed', e.message);
+    }
+  } else {
+    // Mac / Linux: proxy propio con identidad RENACE (POS Agent PRO no tiene build Mac)
+    try {
+      const posCfg = store.getPosSettings();
+      const printers = await posProxy.listCupsPrinters();
+      if (!posCfg.printer && printers.length) {
+        store.setPosSettings({ printer: printers[0] });
+        posCfg.printer = printers[0];
+      }
+      const started = await posProxy.start(posCfg);
+      log.info('renace pos proxy', started);
+    } catch (e) {
+      log.warn('pos proxy failed', e.message);
+    }
+  }
+
+  const ses = portalSession();
+  hardenSession(ses);
+  try {
+    await ses.clearCache();
+    log.info('cache cleared');
+  } catch (e) {
+    log.warn('clearCache', e.message);
+  }
+  app.on('web-contents-created', (_e, wc) => {
+    wc.on('dom-ready', () => {
+      const u = wc.getURL();
+      if (u.startsWith('file://')) return;
+      injectPushStub(wc);
+      injectCompanyFocus(wc);
+    });
+  });
   registerIpc();
   buildMenu();
   createWindow();
-  setTimeout(() => {
-    warmTopDestinations().catch((e) => console.warn('[warm]', e.message));
-  }, 1500);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+});
+
+app.on('before-quit', () => {
+  posProxy.stop().catch(() => {});
 });
 
 app.on('window-all-closed', () => {

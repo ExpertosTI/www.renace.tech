@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Descargar RENACE Portal — RENACE.TECH</title>
+  <meta name="description" content="Descarga RENACE Portal para macOS, Windows, iOS y Android. Accede a tu Odoo con impresión POS local." />
+  <link rel="icon" href="/images/logo.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0f1a;
+      --surface: #111827;
+      --border: rgba(148, 163, 184, 0.12);
+      --text: #e8edf5;
+      --muted: #7b8faa;
+      --accent: #00b4d8;
+      --accent-2: #0077b6;
+      --teal: #2dd4bf;
+      --purple: #8b5cf6;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse at 15% 10%, rgba(45, 212, 191, 0.08), transparent 50%),
+        radial-gradient(ellipse at 85% 85%, rgba(139, 92, 246, 0.06), transparent 50%);
+      pointer-events: none; z-index: 0;
+    }
+    .nav {
+      position: relative; z-index: 2;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 28px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(10, 15, 26, 0.85);
+      backdrop-filter: blur(16px);
+    }
+    .nav a { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500; }
+    .nav a:hover { color: var(--text); }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); }
+    .brand svg { height: 26px; width: auto; }
+    .brand span {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700; letter-spacing: 0.04em; font-size: 15px;
+    }
+    .wrap {
+      position: relative; z-index: 1;
+      max-width: 920px; margin: 0 auto;
+      padding: 56px 24px 80px;
+    }
+    h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 700; letter-spacing: -0.03em;
+      line-height: 1.15; margin-bottom: 12px;
+    }
+    h1 .hl {
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .lead { color: var(--muted); font-size: 1.05rem; max-width: 36rem; line-height: 1.55; margin-bottom: 28px; }
+    .detect {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 14px; border-radius: 999px;
+      background: rgba(45, 212, 191, 0.08);
+      border: 1px solid rgba(45, 212, 191, 0.22);
+      color: var(--teal); font-size: 12px; font-weight: 600;
+      margin-bottom: 28px;
+    }
+    .cta {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 16px 28px; border-radius: 14px; border: none;
+      background: linear-gradient(135deg, var(--accent-2), var(--accent));
+      color: #0a0f1a; font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.05rem; font-weight: 700; text-decoration: none;
+      box-shadow: 0 4px 24px rgba(45, 212, 191, 0.28);
+      margin-bottom: 12px;
+    }
+    .cta:hover { filter: brightness(1.05); }
+    .cta-note { color: var(--muted); font-size: 13px; margin-bottom: 48px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+    }
+    .card {
+      background: linear-gradient(160deg, rgba(17, 24, 39, 0.92), rgba(15, 20, 32, 0.9));
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px;
+      text-decoration: none; color: inherit;
+      transition: border-color .2s, transform .15s;
+    }
+    .card:hover { border-color: rgba(0, 180, 216, 0.35); transform: translateY(-2px); }
+    .card.recommended { border-color: rgba(45, 212, 191, 0.4); box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.12); }
+    .card h3 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.05rem; font-weight: 700; margin-bottom: 6px;
+    }
+    .card p { color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .tag {
+      display: inline-block; margin-top: 12px;
+      font-size: 11px; font-weight: 700; letter-spacing: .04em;
+      text-transform: uppercase; color: var(--accent);
+    }
+    .foot {
+      margin-top: 48px; padding-top: 24px;
+      border-top: 1px solid var(--border);
+      color: var(--muted); font-size: 13px;
+    }
+    .foot a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <a class="brand" href="/">
+      <svg viewBox="0 0 200 200" fill="none" aria-hidden="true">
+        <path d="M165.2,78.1v81.2h-37.5v-55.1L83,159.4H34.8l68.9-85H48.8V40.6h82.7c14,0,26,8.5,31.1,20.6c1.7,4,2.6,8.4,2.6,13C165.2,74.3,165.2,76.9,165.2,78.1z" fill="#2dd4bf"/>
+      </svg>
+      <span>RENACE</span>
+    </a>
+    <a href="/portal">Portal</a>
+  </nav>
+
+  <main class="wrap">
+    <div class="detect" id="detect">Detectando tu dispositivo…</div>
+    <h1>RENACE <span class="hl">Portal</span></h1>
+    <p class="lead">La app de escritorio y móvil para tu instancia Odoo. En Mac incluye RENACE POS para impresoras térmicas.</p>
+
+    <a class="cta" id="primary" href="#todas">Descargar</a>
+    <p class="cta-note" id="primary-note">Elige tu plataforma abajo si la detección no coincide.</p>
+
+    <div class="grid" id="todas">
+      <a class="card" data-id="mac-arm" href="/docs/RENACE-Portal-mac-arm64.dmg">
+        <h3>macOS Apple Silicon</h3>
+        <p>M1 / M2 / M3 / M4 — DMG</p>
+        <span class="tag">Mac</span>
+      </a>
+      <a class="card" data-id="mac-intel" href="/docs/RENACE-Portal-mac-x64.dmg">
+        <h3>macOS Intel</h3>
+        <p>Mac con chip Intel — DMG</p>
+        <span class="tag">Mac</span>
+      </a>
+      <a class="card" data-id="win" href="/docs/RENACE-Portal-win-x64.exe">
+        <h3>Windows</h3>
+        <p>Instalador + POS Agent PRO</p>
+        <span class="tag">PC</span>
+      </a>
+      <a class="card" data-id="ios" href="https://apps.apple.com/app/renace-portal">
+        <h3>iPhone / iPad</h3>
+        <p>App Store</p>
+        <span class="tag">iOS</span>
+      </a>
+      <a class="card" data-id="android" href="https://play.google.com/store/apps/details?id=tech.renace.portal">
+        <h3>Android</h3>
+        <p>Google Play</p>
+        <span class="tag">Android</span>
+      </a>
+      <a class="card" data-id="msstore" href="https://apps.microsoft.com/detail/tech.renace.portal.desktop">
+        <h3>Microsoft Store</h3>
+        <p>Windows desde la tienda</p>
+        <span class="tag">Store</span>
+      </a>
+    </div>
+
+    <p class="foot">
+      También en <a href="/docs/">documentos</a>. Soporte:
+      <a href="https://wa.me/8494577463">WhatsApp</a>
+    </p>
+  </main>
+
+  <script>
+    (function () {
+      var ua = navigator.userAgent || '';
+      var platform = navigator.platform || '';
+      var isIOS = /iPhone|iPad|iPod/i.test(ua) || (platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      var isAndroid = /Android/i.test(ua);
+      var isWin = /Windows/i.test(ua);
+      var isMac = /Mac/i.test(platform) || /Macintosh/i.test(ua);
+      var isArmMac = isMac && (/arm64|aarch64/i.test(ua) || (navigator.userAgentData && (navigator.userAgentData.architecture || '').includes('arm')));
+
+      // Apple Silicon often reports MacIntel in Safari; prefer arm if available
+      try {
+        if (isMac && !isIOS && navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+          navigator.userAgentData.getHighEntropyValues(['architecture']).then(function (v) {
+            if ((v.architecture || '').toLowerCase().includes('arm')) pick('mac-arm', 'macOS Apple Silicon');
+          }).catch(function () {});
+        }
+      } catch (_) {}
+
+      var primary = document.getElementById('primary');
+      var note = document.getElementById('primary-note');
+      var detect = document.getElementById('detect');
+
+      function pick(id, label) {
+        var card = document.querySelector('[data-id="' + id + '"]');
+        if (!card) return;
+        document.querySelectorAll('.card').forEach(function (c) { c.classList.remove('recommended'); });
+        card.classList.add('recommended');
+        primary.href = card.getAttribute('href');
+        primary.textContent = 'Descargar para ' + label;
+        detect.textContent = 'Detectamos: ' + label;
+        note.textContent = 'También puedes elegir otra plataforma abajo.';
+      }
+
+      if (isIOS) pick('ios', 'iPhone / iPad');
+      else if (isAndroid) pick('android', 'Android');
+      else if (isWin) pick('win', 'Windows');
+      else if (isMac && isArmMac) pick('mac-arm', 'macOS Apple Silicon');
+      else if (isMac) pick('mac-intel', 'macOS Intel');
+      else {
+        detect.textContent = 'Elige tu plataforma';
+        primary.href = '#todas';
+        primary.textContent = 'Ver descargas';
+      }
+    })();
+  </script>
+</body>
+</html>

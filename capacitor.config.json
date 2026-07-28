@@ -5,11 +5,26 @@
   "bundledWebRuntime": false,
   "server": {
     "androidScheme": "https",
+    "hostname": "localhost",
     "allowNavigation": [
       "renace.tech",
       "*.renace.tech",
       "https://renace.tech/*",
       "https://*.renace.tech/*"
     ]
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1600,
+      "backgroundColor": "#060b14",
+      "showSpinner": false
+    }
+  },
+  "ios": {
+    "contentInset": "automatic",
+    "scheme": "RENACE Portal"
+  },
+  "android": {
+    "backgroundColor": "#060b14"
   }
 }

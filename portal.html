@@ -1044,7 +1044,7 @@
           return;
         }
 
-        if (!finishRedirect(data)) {
+        if (!finishRedirect(data, { login, password, serviceCode })) {
           showError('No se recibió URL de redirección.');
         }
       } catch (e) {

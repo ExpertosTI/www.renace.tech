@@ -1003,7 +1003,7 @@ function buildRedirectPage(safeName, safeUrl) {
     <div class="spinner"></div>
     <div class="brand">Impulsado por <span>RENACE.TECH</span></div>
   </div>
-  <script>setTimeout(function(){window.location.href='${dest}'},800)</script>
+  <script>window.location.replace('${dest}');</script>
 </body>
 </html>`;
 }
@@ -1303,6 +1303,12 @@ app.get('/portal', (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.sendFile('portal.html', { root: __dirname });
 });
+
+app.get('/descargas', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.sendFile('descargas.html', { root: __dirname });
+});
+app.get('/descargas.html', (req, res) => res.redirect(301, '/descargas'));
 
 app.post('/api/portal/lookup', portalLimiter, async (req, res) => {
   const serviceCode = String(req.body?.serviceCode || req.body?.service_code || '').trim().toLowerCase().slice(0, 32);

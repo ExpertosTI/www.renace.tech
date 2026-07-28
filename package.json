@@ -11,13 +11,27 @@
     "www:portal": "./scripts/build-portal-www.sh",
     "icons": "./scripts/generate-app-icons.sh",
     "cap:sync": "./scripts/build-portal-www.sh && npx cap sync",
-    "mac:pack": "npm run icons && electron-builder --mac dmg zip --publish never",
+    "mac:pack": "npm run icons && electron-builder --mac dmg zip --arm64 --publish never",
+    "mac:pack:intel": "npm run icons && electron-builder --mac dmg zip --x64 --publish never",
+    "mac:pack:all": "npm run icons && electron-builder --mac dmg zip --arm64 --x64 --publish never",
+    "win:pack": "./scripts/vendor-posagent.sh && npm run icons && electron-builder --win nsis zip --x64 --publish never",
+    "win:pack:zip": "./scripts/vendor-posagent.sh && npm run icons && electron-builder --win zip --x64 --publish never",
+    "win:store": "./scripts/vendor-posagent.sh && npm run icons && electron-builder --win appx --x64 --publish never",
     "electron:dev": "electron electron/main.cjs",
-    "postinstall": "./scripts/fix-electron-install.sh"
+    "postinstall": "./scripts/fix-electron-install.sh",
+    "mac:install": "./scripts/install-mac-app.sh",
+    "vendor:posagent": "./scripts/vendor-posagent.sh",
+    "android:sync": "npm run cap:sync && npx cap add android 2>/dev/null || true && npx cap sync android && ./scripts/apply-native-user-mode.sh",
+    "ios:sync": "npm run cap:sync && npx cap add ios 2>/dev/null || true && npx cap sync ios && ./scripts/apply-native-user-mode.sh",
+    "native:user-mode": "./scripts/apply-native-user-mode.sh",
+    "android:open": "npm run android:sync && npx cap open android",
+    "ios:open": "npm run ios:sync && npx cap open ios",
+    "stage:downloads": "./scripts/stage-portal-downloads.sh"
   },
   "dependencies": {
-    "@capacitor/android": "^8.2.0",
-    "@capacitor/core": "^8.2.0",
+    "@capacitor/android": "8.2.0",
+    "@capacitor/core": "8.2.0",
+    "@capacitor/ios": "8.2.0",
     "@capacitor/preferences": "^8.0.1",
     "dotenv": "^16.4.7",
     "express": "^5.1.0",
@@ -32,12 +46,12 @@
     "node": ">=20.0.0"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.2.0",
+    "@capacitor/cli": "8.2.0",
     "electron": "^37.10.3",
     "electron-builder": "^26.0.12"
   },
   "build": {
-    "appId": "tech.renace.portal",
+    "appId": "tech.renace.portal.desktop",
     "productName": "RENACE Portal",
     "directories": {
       "output": "dist-electron"
@@ -48,8 +62,58 @@
       "electron/**/*",
       "package.json"
     ],
+    "electronFuses": {
+      "enableEmbeddedAsarIntegrityValidation": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "RENACE Portal",
+      "include": "build/installer.nsh",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "RENACE-Portal-${version}-${os}-${arch}.${ext}",
+      "extraResources": [
+        {
+          "from": "vendor/posagent/app",
+          "to": "posagent",
+          "filter": [
+            "**/*"
+          ]
+        }
+      ]
+    },
+    "appx": {
+      "identityName": "RENACE.TECH.RENACEPortal",
+      "publisher": "CN=RENACE.TECH",
+      "publisherDisplayName": "RENACE.TECH",
+      "applicationId": "RENACEPortal",
+      "displayName": "RENACE Portal"
+    },
     "dmg": {
-      "background": "build/dmg-background.png",
+      "background": "build/dmg-background.tiff",
       "iconSize": 128,
       "iconTextSize": 14,
       "window": {
@@ -77,9 +141,32 @@
       "entitlements": "electron/entitlements.mac.plist",
       "entitlementsInherit": "electron/entitlements.mac.plist",
       "identity": "ADDERLY MARTE (M5LFB3VWUY)",
+      "extendInfo": {
+        "CFBundleDisplayName": "RENACE Portal",
+        "CFBundleName": "RENACE Portal",
+        "CFBundleSpokenName": "RENACE Portal",
+        "CFBundleIdentifier": "tech.renace.portal.desktop",
+        "LSApplicationCategoryType": "public.app-category.business",
+        "NSHumanReadableCopyright": "Copyright © RENACE.TECH",
+        "NSHighResolutionCapable": true,
+        "NSSupportsAutomaticTermination": false,
+        "NSSupportsSuddenTermination": false
+      },
       "target": [
-        "dmg",
-        "zip"
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
       ]
     }
   }
