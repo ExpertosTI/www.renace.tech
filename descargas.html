@@ -327,7 +327,6 @@
       var ua = navigator.userAgent || '';
       var platform = navigator.platform || '';
       var isIOS = /iPhone|iPad|iPod/i.test(ua) || (platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      var isAndroid = /Android/i.test(ua);
       var isWin = /Windows/i.test(ua);
       var isMac = (/Mac/i.test(platform) || /Macintosh/i.test(ua)) && !isIOS;
       var preferred = isWin ? 'windows' : isIOS ? 'ios' : isMac ? 'macos' : 'windows';
@@ -431,11 +430,6 @@
           );
         }
       }
-
-      var hrefs = [];
-      CATALOG.forEach(function (os) {
-        os.builds.forEach(function (b) { hrefs.push(b.href); });
-      });
 
       function boot() {
         render();
