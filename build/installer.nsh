@@ -1,6 +1,6 @@
 ; RENACE Portal — NSIS hooks
 ; 1) Detecta / instala Visual C++ Redistributable (x64) si falta
-; 2) Configura POS Agent PRO + inicio con Windows
+; 2) Pregunta si iniciar con Windows (Portal + POS Agent)
 ; Payload: resources/posagent y resources/vcredist
 
 !include "FileFunc.nsh"
@@ -52,26 +52,53 @@
     ${EndIf}
   ${EndIf}
 
+  ; --- Inicio con Windows (pregunta al usuario) ---
+  MessageBox MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON1 \
+    "¿Iniciar RENACE Portal automáticamente con Windows?$\r$\n$\r$\nRecomendado en PCs de caja. También iniciará POS Agent (impresoras)." \
+    IDYES renace_autostart_yes IDNO renace_autostart_no
+
+  renace_autostart_yes:
+    DetailPrint "Activando inicio con Windows..."
+    ; Portal
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "RENACE Portal" '"$INSTDIR\RENACE Portal.exe"'
+    ; Preferencia para Electron
+    WriteRegStr HKCU "Software\RENACE\Portal" "StartWithWindows" "1"
+    StrCpy $R7 1
+    Goto renace_autostart_done
+
+  renace_autostart_no:
+    DetailPrint "Inicio con Windows: no (puede activarse despues en modo tecnico)."
+    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "RENACE Portal"
+    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "RENACE POS Agent PRO"
+    WriteRegStr HKCU "Software\RENACE\Portal" "StartWithWindows" "0"
+    StrCpy $R7 0
+
+  renace_autostart_done:
+
   DetailPrint "Configurando POS Agent PRO (impresoras ESC/POS)..."
 
   StrCpy $0 "$INSTDIR\resources\posagent\posagent.exe"
   ${If} ${FileExists} "$0"
-    ; Autostart (usuario actual)
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "RENACE POS Agent PRO" '"$0"'
-    ; Marca para el helper de Electron
     WriteRegStr HKCU "Software\RENACE\Portal" "PosAgentPath" "$0"
     WriteRegStr HKCU "Software\RENACE\Portal" "PosAgentInstalled" "1"
     WriteRegStr HKCU "Software\RENACE\Portal" "VcRedistChecked" "1"
+    ${If} $R7 == 1
+      WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "RENACE POS Agent PRO" '"$0"'
+      DetailPrint "POS Agent: inicio automatico con Windows."
+    ${Else}
+      DetailPrint "POS Agent: sin inicio automatico."
+    ${EndIf}
     ; Arrancar ahora (cwd = carpeta del agente para DLLs Qt)
     SetOutPath "$INSTDIR\resources\posagent"
     Exec '"$0"'
-    DetailPrint "POS Agent PRO listo (inicio automatico con Windows)."
+    DetailPrint "POS Agent PRO listo."
   ${Else}
     DetailPrint "AVISO: no se encontro posagent.exe en resources — omite POS Agent."
   ${EndIf}
 !macroend
 
 !macro customUnInstall
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "RENACE Portal"
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "RENACE POS Agent PRO"
   DeleteRegKey HKCU "Software\RENACE\Portal"
   ; No matamos posagent.exe aqui por si el usuario lo usa fuera del Portal

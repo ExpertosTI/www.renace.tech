@@ -149,10 +149,38 @@ function startAgent(exe) {
   }
 }
 
+function regDeleteRun() {
+  return new Promise((resolve) => {
+    execFile(
+      'reg',
+      ['delete', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run', '/v', RUN_VALUE, '/f'],
+      { windowsHide: true },
+      () => resolve(true)
+    );
+  });
+}
+
+function readStartWithWindowsFlag() {
+  return new Promise((resolve) => {
+    execFile(
+      'reg',
+      ['query', 'HKCU\\Software\\RENACE\\Portal', '/v', 'StartWithWindows'],
+      { windowsHide: true },
+      (err, stdout) => {
+        if (err) return resolve(null);
+        const m = String(stdout || '').match(/StartWithWindows\s+REG_SZ\s+(\S+)/i);
+        if (!m) return resolve(null);
+        resolve(m[1] === '1' || /^true$/i.test(m[1]));
+      }
+    );
+  });
+}
+
 /**
  * Call once after app.whenReady on win32.
+ * @param {{ openAtLogin?: boolean }} opts
  */
-async function ensurePosAgent() {
+async function ensurePosAgent(opts = {}) {
   if (process.platform !== 'win32') return { ok: false, reason: 'not-windows' };
 
   const vc = await ensureVcRedist();
@@ -163,14 +191,32 @@ async function ensurePosAgent() {
     log.warn('posagent bundle missing');
     return { ok: false, reason: 'missing-bundle', vc };
   }
-  await regAddRun(exe);
+
+  let openAtLogin = opts.openAtLogin;
+  if (typeof openAtLogin !== 'boolean') {
+    const fromReg = await readStartWithWindowsFlag();
+    openAtLogin = fromReg == null ? true : fromReg;
+  }
+
+  if (openAtLogin) await regAddRun(exe);
+  else await regDeleteRun();
+
   const running = await isRunning();
   if (!running) startAgent(exe);
   try {
     const marker = path.join(app.getPath('userData'), 'posagent-ensured.json');
-    fs.writeFileSync(marker, JSON.stringify({ at: Date.now(), exe, vc }, null, 2));
+    fs.writeFileSync(marker, JSON.stringify({ at: Date.now(), exe, vc, openAtLogin }, null, 2));
   } catch (_) {}
-  return { ok: true, exe, running, vc };
+  return { ok: true, exe, running, vc, openAtLogin };
 }
 
-module.exports = { ensurePosAgent, exePath, bundledDir, ensureVcRedist, vcRedistPath };
+module.exports = {
+  ensurePosAgent,
+  exePath,
+  bundledDir,
+  ensureVcRedist,
+  vcRedistPath,
+  regAddRun,
+  regDeleteRun,
+  readStartWithWindowsFlag,
+};

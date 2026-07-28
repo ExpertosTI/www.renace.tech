@@ -18,7 +18,7 @@ const {
 } = require('electron');
 const store = require('./secure-store.cjs');
 const log = require('./log.cjs');
-const { ensurePosAgent } = require('./posagent-win.cjs');
+const { ensurePosAgent, readStartWithWindowsFlag } = require('./posagent-win.cjs');
 const posProxy = require('./pos-proxy.cjs');
 const updater = require('./updater.cjs');
 
@@ -791,6 +791,59 @@ function promptTechPassword() {
   });
 }
 
+async function applyOpenAtLogin(enabled) {
+  const on = !!enabled;
+  store.setOpenAtLogin(on);
+  try {
+    app.setLoginItemSettings({
+      openAtLogin: on,
+      openAsHidden: false,
+      path: process.execPath,
+      args: [],
+    });
+  } catch (e) {
+    log.warn('setLoginItemSettings', e.message);
+  }
+  if (process.platform === 'win32') {
+    try {
+      await ensurePosAgent({ openAtLogin: on });
+    } catch (e) {
+      log.warn('posagent autostart sync', e.message);
+    }
+  }
+  log.info('openAtLogin', on);
+  return on;
+}
+
+async function syncOpenAtLoginFromInstaller() {
+  let pref = store.getOpenAtLogin();
+  if (pref == null && process.platform === 'win32') {
+    const fromReg = await readStartWithWindowsFlag();
+    if (fromReg != null) pref = fromReg;
+  }
+  if (pref == null) pref = false;
+  await applyOpenAtLogin(pref);
+  return pref;
+}
+
+async function toggleOpenAtLogin() {
+  const cur = app.getLoginItemSettings?.().openAtLogin ?? store.getOpenAtLogin() ?? false;
+  const next = !cur;
+  await applyOpenAtLogin(next);
+  dialog.showMessageBox(currentWin() || undefined, {
+    type: 'info',
+    title: 'Inicio con Windows',
+    message: next
+      ? 'RENACE Portal se iniciará automáticamente con Windows.'
+      : 'Inicio automático desactivado.',
+    detail: next
+      ? 'También se mantendrá POS Agent en el arranque (impresoras).'
+      : 'Puedes volver a activarlo desde este menú.',
+  });
+  buildMenu();
+  return next;
+}
+
 async function unlockAdmin() {
   const password = await promptTechPassword();
   if (password == null) return false;
@@ -964,6 +1017,13 @@ function buildMenu() {
               });
             },
           },
+          {
+            label: (() => {
+              const on = store.getOpenAtLogin() ?? app.getLoginItemSettings?.().openAtLogin;
+              return on ? 'Inicio con Windows: activado' : 'Iniciar con Windows…';
+            })(),
+            click: () => toggleOpenAtLogin(),
+          },
           { label: 'Portal RENACE', click: () => currentWin()?.loadURL(PORTAL_URL) },
           { label: 'Sitio RENACE.TECH', click: () => currentWin()?.loadURL(HOME_URL) },
           { type: 'separator' },
@@ -1092,7 +1152,8 @@ app.whenReady().then(async () => {
 
   if (process.platform === 'win32') {
     try {
-      const pos = await ensurePosAgent();
+      await syncOpenAtLoginFromInstaller();
+      const pos = await ensurePosAgent({ openAtLogin: store.getOpenAtLogin() !== false });
       log.info('posagent ensure', pos);
     } catch (e) {
       log.warn('posagent ensure failed', e.message);

@@ -141,6 +141,20 @@ function setAppMode(mode) {
   return getAppMode();
 }
 
+/** Inicio con Windows / macOS Login Item */
+function getOpenAtLogin() {
+  const store = readStore();
+  if (typeof store.openAtLogin === 'boolean') return store.openAtLogin;
+  return null; // null = aún no definido (leer registro / default)
+}
+
+function setOpenAtLogin(enabled) {
+  const store = readStore();
+  store.openAtLogin = !!enabled;
+  writeStore(store);
+  return store.openAtLogin;
+}
+
 /** Atajos tipo Eleventa (migraciones POS) */
 function defaultKeymap() {
   return {
@@ -238,6 +252,8 @@ module.exports = {
   companyLogoUrl,
   getAppMode,
   setAppMode,
+  getOpenAtLogin,
+  setOpenAtLogin,
   getKeymap,
   setKeymap,
   defaultKeymap,
