@@ -1060,37 +1060,127 @@ function buildSsoEnterUrl(req, token) {
 }
 
 async function fetchUrlText(url, opts = {}) {
-  const target = new URL(url);
-  const lib = target.protocol === 'https:' ? https : http;
-  const headers = Object.assign({
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-  }, opts.headers || {});
-  return new Promise((resolve, reject) => {
-    const req = lib.request({
-      hostname: target.hostname,
-      port: parseInt(target.port) || (target.protocol === 'https:' ? 443 : 80),
-      path: target.pathname + target.search,
-      method: opts.method || 'GET',
-      headers,
-    }, (proxyRes) => {
-      let data = '';
-      const setCookies = [].concat(proxyRes.headers['set-cookie'] || []);
-      proxyRes.on('data', (c) => { data += c; });
-      proxyRes.on('end', () => {
-        resolve({
-          status: proxyRes.statusCode || 0,
-          headers: proxyRes.headers,
-          setCookies,
-          body: data,
+  const maxRedirects = opts.maxRedirects === undefined ? 5 : opts.maxRedirects;
+  let current = String(url);
+  let cookieJar = String(opts.cookie || '');
+  let last = null;
+
+  for (let hop = 0; hop <= maxRedirects; hop++) {
+    const target = new URL(current);
+    const lib = target.protocol === 'https:' ? https : http;
+    const headers = Object.assign({
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    }, opts.headers || {});
+    if (cookieJar) headers.Cookie = cookieJar;
+    if (opts.body && !headers['Content-Type'] && !headers['content-type']) {
+      headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    }
+    if (opts.body) headers['Content-Length'] = Buffer.byteLength(opts.body);
+
+    last = await new Promise((resolve, reject) => {
+      const req = lib.request({
+        hostname: target.hostname,
+        port: parseInt(target.port) || (target.protocol === 'https:' ? 443 : 80),
+        path: target.pathname + target.search,
+        method: opts.method || 'GET',
+        headers,
+      }, (proxyRes) => {
+        let data = '';
+        const setCookies = [].concat(proxyRes.headers['set-cookie'] || []);
+        proxyRes.on('data', (c) => { data += c; });
+        proxyRes.on('end', () => {
+          resolve({
+            status: proxyRes.statusCode || 0,
+            headers: proxyRes.headers,
+            setCookies,
+            body: data,
+            finalUrl: current,
+          });
         });
       });
+      req.on('error', reject);
+      req.setTimeout(15000, () => { req.destroy(); reject(new Error('Timeout Odoo login')); });
+      if (opts.body && (opts.method || 'GET') !== 'GET') req.write(opts.body);
+      req.end();
     });
-    req.on('error', reject);
-    req.setTimeout(12000, () => { req.destroy(); reject(new Error('Timeout Odoo login')); });
-    if (opts.body) req.write(opts.body);
-    req.end();
+
+    for (const raw of last.setCookies || []) {
+      const m = String(raw).match(/^([^=;]+)=([^;]*)/);
+      if (!m) continue;
+      const name = m[1].trim();
+      const val = m[2];
+      // replace existing cookie name in jar
+      const parts = cookieJar ? cookieJar.split(/;\s*/).filter(Boolean).filter((c) => !c.startsWith(name + '=')) : [];
+      parts.push(`${name}=${val}`);
+      cookieJar = parts.join('; ');
+    }
+
+    if (last.status >= 300 && last.status < 400 && last.headers.location && hop < maxRedirects) {
+      current = new URL(last.headers.location, current).toString();
+      opts = { ...opts, method: 'GET', body: undefined, headers: { ...(opts.headers || {}) } };
+      delete opts.headers['Content-Type'];
+      delete opts.headers['Content-Length'];
+      delete opts.headers['content-type'];
+      continue;
+    }
+    last.cookieJar = cookieJar;
+    return last;
+  }
+  return last;
+}
+
+/** Server-side Odoo web login → authenticated session_id (avoids browser CSRF mismatch). */
+async function odooWebLoginSession(publicBase, login, password, db) {
+  const base = String(publicBase || '').replace(/\/$/, '');
+  const loginUrl = `${base}/web/login`;
+  const page = await fetchUrlText(loginUrl, { method: 'GET', maxRedirects: 3 });
+  const csrfToken = extractOdooCsrf(page.body);
+  const bootstrapSession = extractSessionIdFromCookies(page.setCookies)
+    || (page.cookieJar && (page.cookieJar.match(/(?:^|;\s*)session_id=([^;]+)/) || [])[1]);
+  if (!csrfToken) throw new Error('No se pudo obtener csrf_token de Odoo');
+  if (!bootstrapSession) throw new Error('Odoo no entregó session_id en /web/login');
+
+  const params = new URLSearchParams();
+  params.set('csrf_token', csrfToken);
+  params.set('login', login);
+  params.set('password', password);
+  params.set('redirect', '/web');
+  if (db) params.set('db', db);
+
+  const post = await fetchUrlText(loginUrl, {
+    method: 'POST',
+    maxRedirects: 5,
+    cookie: `session_id=${bootstrapSession}`,
+    headers: {
+      Referer: loginUrl,
+      Origin: base,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: params.toString(),
   });
+
+  const sessionId = extractSessionIdFromCookies(post.setCookies)
+    || (post.cookieJar && (post.cookieJar.match(/(?:^|;\s*)session_id=([^;]+)/) || [])[1])
+    || null;
+
+  const landedOnLogin = /\/web\/login/i.test(post.finalUrl || '')
+    || /name=["']password["']/i.test(post.body || '');
+  const looksAuthed = Boolean(sessionId)
+    && !landedOnLogin
+    && (post.status === 200 || post.status === 303 || post.status === 302);
+
+  // Odoo may keep same session_id after login; accept if we left /web/login
+  if (sessionId && !/invalid CSRF|Session expired/i.test(post.body || '') && !landedOnLogin) {
+    return sessionId;
+  }
+  if (sessionId && looksAuthed) return sessionId;
+
+  // Fallback: JSON-RPC authenticate on public host
+  const auth = await odooValidateCredentials(base, db || 'db', login, password);
+  if (auth.valid && auth.sessionId) return auth.sessionId;
+
+  throw new Error('Login Odoo rechazado (credenciales o CSRF)');
 }
 
 function extractOdooCsrf(html) {
@@ -2703,46 +2793,31 @@ app.get('/api/sso/enter', portalLimiter, async (req, res) => {
       }
     }
 
-    // Preferred path: browser POSTs login form to the PUBLIC host (sets cookie on that host).
+    // Preferred: login server-side on the PUBLIC host, then hand cookie to browser (GET /web).
+    // Browser auto-POST was causing Odoo "Session expired (invalid CSRF token)" in Electron/desktop.
     if (password) {
       try {
-        const loginPage = await fetchUrlText(`${publicBase.replace(/\/$/, '')}/web/login`);
-        const csrfToken = extractOdooCsrf(loginPage.body);
-        const bootstrapSession = extractSessionIdFromCookies(loginPage.setCookies);
-        if (!csrfToken) {
-          throw new Error('No se pudo obtener csrf_token de Odoo');
-        }
-
+        const sessionId = await odooWebLoginSession(publicBase, row.odoo_login, password, null);
         await pool.query(
           `UPDATE sso_tokens SET used = TRUE, used_at = NOW(), auth_secret_enc = NULL WHERE id = $1`,
           [row.id]
         );
 
         const cookieDomain = cookieDomainForPublicUrl(publicBase);
-        if (bootstrapSession) {
-          const cookieParts = [
-            `session_id=${bootstrapSession}`,
-            'Path=/',
-            'HttpOnly',
-            'Secure',
-            'SameSite=Lax',
-            'Max-Age=86400',
-          ];
-          if (cookieDomain) cookieParts.push(`Domain=${cookieDomain}`);
-          res.setHeader('Set-Cookie', cookieParts.join('; '));
-        }
+        const cookieParts = [
+          `session_id=${sessionId}`,
+          'Path=/',
+          'HttpOnly',
+          'Secure',
+          'SameSite=Lax',
+          'Max-Age=86400',
+        ];
+        if (cookieDomain) cookieParts.push(`Domain=${cookieDomain}`);
+        res.setHeader('Set-Cookie', cookieParts.join('; '));
         res.setHeader('Cache-Control', 'no-store');
-        return res.type('html').send(buildOdooAutoLoginHtml({
-          clientName: row.client_name,
-          publicBase,
-          login: row.odoo_login,
-          password,
-          csrfToken,
-          // Let Odoo dbfilter pick DB from hostname; wrong explicit db breaks login.
-          db: null,
-        }));
+        return res.type('html').send(buildRedirectPage(escAttr(row.client_name || 'Odoo'), publicBase));
       } catch (e) {
-        console.warn('[sso enter] auto-form warn:', e.message);
+        console.warn('[sso enter] server web-login warn:', e.message);
       }
     }
 
