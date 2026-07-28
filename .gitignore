@@ -48,6 +48,8 @@ build/AppIcon.iconset/
 vendor/posagent/*.exe
 vendor/posagent/app/
 !vendor/posagent/README.md
+vendor/vcredist/*.exe
+!vendor/vcredist/README.md
 www/
 downloads/*.exe
 downloads/*.ipa

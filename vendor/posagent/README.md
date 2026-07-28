@@ -6,12 +6,15 @@ Bundled from [dieg0-a/posagentpro](https://github.com/dieg0-a/posagentpro) — o
 
 ```bash
 ./scripts/vendor-posagent.sh
+./scripts/vendor-vcredist.sh   # Visual C++ x64 (Qt / POS Agent)
 ```
 
 Creates:
 
 - `POSAgentPROv021.exe` — official NSIS installer
 - `app/` — extracted portable tree (`posagent.exe` + Qt DLLs) shipped inside RENACE Portal Windows builds
+
+**Visual C++:** sin el redistributable x64, POS Agent falla al abrir. El instalador NSIS de RENACE Portal lo detecta e instala automáticamente (`vendor/vcredist`).
 
 ## Odoo POS
 
