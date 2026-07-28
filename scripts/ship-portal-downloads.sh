@@ -13,6 +13,7 @@ need=(
   docs/RENACE-Portal-mac-x64.dmg
   docs/RENACE-Portal-win-x64.exe
   docs/RENACE-Portal-ios.ipa
+  docs/RENACE-Portal-android.apk
 )
 
 echo "═══════════════════════════════════════════"
@@ -41,6 +42,7 @@ echo "── Verificación ──"
 curl -sSI https://renace.tech/docs/RENACE-Portal-mac-arm64.dmg | head -5
 curl -sSI https://renace.tech/docs/RENACE-Portal-win-x64.exe | head -5
 curl -sSI https://renace.tech/docs/RENACE-Portal-ios.ipa | head -5
+curl -sSI https://renace.tech/docs/RENACE-Portal-android.apk | head -5
 EOF
 
 echo "✅ Ship completo → https://renace.tech/descargas"

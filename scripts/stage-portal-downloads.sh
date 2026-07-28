@@ -22,6 +22,8 @@ copy_one "dist-electron/RENACE Portal-3.0.0-mac.zip" "RENACE-Portal-mac-x64.zip"
 copy_one "dist-electron/RENACE Portal-3.0.0-arm64-mac.zip" "RENACE-Portal-mac-arm64.zip"
 copy_one "dist-electron/RENACE-Portal-3.0.0-win-x64.exe" "RENACE-Portal-win-x64.exe"
 copy_one "dist-electron/RENACE-Portal-3.0.0-win-x64.appx" "RENACE-Portal-win-x64.appx"
+copy_one "android/app/build/outputs/apk/debug/app-debug.apk" "RENACE-Portal-android.apk"
+copy_one "android/app/build/outputs/apk/release/app-release.apk" "RENACE-Portal-android.apk"
 
 # Anuncio en documents.json si existe
 python3 - <<'PY'

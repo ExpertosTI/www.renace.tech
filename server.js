@@ -3580,6 +3580,8 @@ function sendAttachmentFile(res, absPath, fallbackName) {
     '.apk': 'application/vnd.android.package-archive',
     '.exe': 'application/octet-stream',
     '.msi': 'application/octet-stream',
+    '.dmg': 'application/octet-stream',
+    '.ipa': 'application/octet-stream',
     '.zip': 'application/zip',
     '.pdf': 'application/pdf',
   };

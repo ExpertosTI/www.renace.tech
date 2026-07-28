@@ -117,3 +117,7 @@ SysMonitor/
 !robots.txt
 !sitemap.xml
 !sw.js
+
+docs/*.apk
+downloads/*.apk
+*.apk

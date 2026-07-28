@@ -108,13 +108,15 @@
     }
 
     .platforms {
-      width: min(960px, 100%);
+      width: min(1100px, 100%);
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 18px;
     }
-    .platforms[data-cols="1"] { grid-template-columns: minmax(240px, 320px); justify-content: center; }
-    .platforms[data-cols="2"] { grid-template-columns: repeat(2, minmax(240px, 320px)); justify-content: center; }
+    .platforms[data-cols="1"] { grid-template-columns: minmax(200px, 280px); justify-content: center; }
+    .platforms[data-cols="2"] { grid-template-columns: repeat(2, minmax(200px, 280px)); justify-content: center; }
+    .platforms[data-cols="3"] { grid-template-columns: repeat(3, minmax(200px, 280px)); justify-content: center; }
+    .platforms[data-cols="4"] { grid-template-columns: repeat(4, minmax(180px, 260px)); justify-content: center; }
 
     .col {
       display: flex;
@@ -245,6 +247,8 @@
         padding-top: 36px;
       }
       .platforms,
+      .platforms[data-cols="4"],
+      .platforms[data-cols="3"],
       .platforms[data-cols="2"],
       .platforms[data-cols="1"] {
         grid-template-columns: 1fr;
@@ -322,14 +326,23 @@
             { href: '/docs/RENACE-Portal-ios.ipa', label: 'IPA', chip: 'IPA', primary: true },
           ],
         },
+        {
+          id: 'android',
+          title: 'Android',
+          hint: 'APK',
+          builds: [
+            { href: '/docs/RENACE-Portal-android.apk', label: 'APK', chip: 'APK', primary: true },
+          ],
+        },
       ];
 
       var ua = navigator.userAgent || '';
       var platform = navigator.platform || '';
       var isIOS = /iPhone|iPad|iPod/i.test(ua) || (platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      var isAndroid = /Android/i.test(ua);
       var isWin = /Windows/i.test(ua);
       var isMac = (/Mac/i.test(platform) || /Macintosh/i.test(ua)) && !isIOS;
-      var preferred = isWin ? 'windows' : isIOS ? 'ios' : isMac ? 'macos' : 'windows';
+      var preferred = isWin ? 'windows' : isAndroid ? 'android' : isIOS ? 'ios' : isMac ? 'macos' : 'windows';
 
       function render() {
         var root = document.getElementById('platforms');
@@ -338,7 +351,7 @@
         empty.hidden = true;
 
         var cols = CATALOG.slice();
-        root.setAttribute('data-cols', String(Math.min(3, cols.length)));
+        root.setAttribute('data-cols', String(Math.min(4, cols.length)));
 
         cols.forEach(function (os) {
           var primary = os.builds.find(function (b) { return b.primary; }) || os.builds[0];
@@ -348,7 +361,7 @@
           col.innerHTML =
             '<div class="os-ico">' + (ICONS[os.id] || ICONS.macos) + '</div>' +
             '<div class="os-name">' + os.title + '</div>' +
-            '<a class="btn-dl" href="' + primary.href + '">' +
+            '<a class="btn-dl" href="' + primary.href + '" download>' +
               '<span class="btn-title">' + DL + '<span></span></span>' +
               '<span class="btn-sub"></span>' +
             '</a>' +
@@ -359,7 +372,7 @@
           rest.forEach(function (b) {
             var row = document.createElement('div');
             row.className = 'alt';
-            row.innerHTML = '<span></span><a></a>';
+            row.innerHTML = '<span></span><a download></a>';
             row.querySelector('span').textContent = b.label;
             var a = row.querySelector('a');
             a.href = b.href;
