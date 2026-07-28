@@ -1,8 +1,20 @@
-const { app, BrowserWindow, Menu, shell, session, dialog, clipboard } = require('electron');
+const path = require('path');
+const {
+  app,
+  BrowserWindow,
+  Menu,
+  shell,
+  session,
+  dialog,
+  clipboard,
+  ipcMain,
+} = require('electron');
+const store = require('./secure-store.cjs');
 
 const PORTAL_URL = process.env.RENACE_PORTAL_URL || 'https://renace.tech/portal';
 const HOME_URL = process.env.RENACE_HOME_URL || 'https://renace.tech';
 const PARTITION = 'persist:renace-portal';
+const PRELOAD = path.join(__dirname, 'preload.cjs');
 const ALLOWED = [
   /^https:\/\/renace\.tech(\/|$)/i,
   /^https:\/\/www\.renace\.tech(\/|$)/i,
@@ -19,6 +31,18 @@ function isAllowed(url) {
 
 function currentWin() {
   return BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0] || null;
+}
+
+function registerIpc() {
+  ipcMain.handle('renace:keychain-available', () => store.canEncrypt());
+  ipcMain.handle('renace:secret-set', (_e, key, value) => store.setSecret(key, value));
+  ipcMain.handle('renace:secret-get', (_e, key) => store.getSecret(key));
+  ipcMain.handle('renace:secret-clear', () => {
+    store.clearSecrets();
+    return true;
+  });
+  ipcMain.handle('renace:usage-record', (_e, url) => store.recordVisit(url));
+  ipcMain.handle('renace:usage-top', (_e, limit) => store.topDestinations(limit));
 }
 
 async function clearRenaceCookies() {
@@ -40,7 +64,6 @@ async function setOdooSessionCookie(publicUrl, sessionId) {
   if (!base || !sessionId) return;
   const ses = portalSession();
   const expirationDate = Math.floor(Date.now() / 1000) + 86400;
-  // Host-only cookie on the exact Odoo public host (most reliable in Electron)
   await ses.cookies.set({
     url: base,
     name: 'session_id',
@@ -51,7 +74,6 @@ async function setOdooSessionCookie(publicUrl, sessionId) {
     sameSite: 'no_restriction',
     expirationDate,
   });
-  // Also set parent-domain style for sibling subdomains
   await ses.cookies.set({
     url: 'https://renace.tech',
     name: 'session_id',
@@ -78,6 +100,7 @@ async function completeSsoEnter(win, enterUrl) {
     }
     await setOdooSessionCookie(data.publicUrl, data.sessionId);
     const dest = data.redirectUrl || `${String(data.publicUrl).replace(/\/$/, '')}/web`;
+    store.recordVisit(dest);
     await win.loadURL(dest);
     return true;
   } catch (e) {
@@ -86,9 +109,44 @@ async function completeSsoEnter(win, enterUrl) {
   }
 }
 
+/** Precarga DNS/TLS/caché de los destinos más usados (ventanas ocultas). */
+async function warmTopDestinations() {
+  const tops = store.topDestinations(3);
+  if (!tops.length) return;
+  const ses = portalSession();
+  for (const item of tops) {
+    try {
+      if (typeof ses.preconnect === 'function') {
+        ses.preconnect({ url: item.origin, numSockets: 2 });
+      }
+    } catch (_) {}
+  }
+  for (const item of tops.slice(0, 2)) {
+    try {
+      const warm = new BrowserWindow({
+        show: false,
+        width: 800,
+        height: 600,
+        webPreferences: {
+          contextIsolation: true,
+          nodeIntegration: false,
+          sandbox: true,
+          partition: PARTITION,
+          preload: PRELOAD,
+        },
+      });
+      await warm.loadURL(item.warmUrl).catch(() => {});
+      setTimeout(() => {
+        if (!warm.isDestroyed()) warm.destroy();
+      }, 12000);
+    } catch (e) {
+      console.warn('[electron warm]', item.origin, e.message);
+    }
+  }
+}
+
 function buildMenu() {
   const isMac = process.platform === 'darwin';
-
   const template = [
     ...(isMac
       ? [{
@@ -106,6 +164,17 @@ function buildMenu() {
               click: async () => {
                 await clearRenaceCookies();
                 currentWin()?.loadURL(PORTAL_URL);
+              },
+            },
+            {
+              label: 'Borrar credenciales del Llavero',
+              click: async () => {
+                store.clearSecrets();
+                dialog.showMessageBox({
+                  type: 'info',
+                  title: 'Llavero',
+                  message: 'Credenciales de portal eliminadas del almacén seguro.',
+                });
               },
             },
             { type: 'separator' },
@@ -132,6 +201,12 @@ function buildMenu() {
           accelerator: 'CmdOrCtrl+2',
           click: () => currentWin()?.loadURL(HOME_URL),
         },
+        { type: 'separator' },
+        ...store.topDestinations(5).map((d, i) => ({
+          label: `Abrir frecuente: ${d.origin.replace(/^https:\/\//, '')}`,
+          accelerator: i < 3 ? `CmdOrCtrl+${i + 3}` : undefined,
+          click: () => currentWin()?.loadURL(d.warmUrl),
+        })),
         { type: 'separator' },
         {
           label: 'Abrir en el navegador',
@@ -254,7 +329,6 @@ function buildMenu() {
       ],
     },
   ];
-
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
@@ -274,7 +348,7 @@ function attachWindowGuards(win) {
     if (/\/api\/sso\/enter(\?|$)/i.test(url)) {
       event.preventDefault();
       const ok = await completeSsoEnter(win, url);
-      if (!ok) win.loadURL(url); // fall back to HTML handoff
+      if (!ok) win.loadURL(url);
     }
   });
 
@@ -286,6 +360,13 @@ function attachWindowGuards(win) {
     }
   });
 
+  win.webContents.on('did-navigate', (_e, url) => {
+    store.recordVisit(url);
+  });
+  win.webContents.on('did-navigate-in-page', (_e, url) => {
+    store.recordVisit(url);
+  });
+
   win.webContents.on('page-title-updated', (_e, title) => {
     if (/400 Bad Request|Session expired|invalid CSRF/i.test(String(title || ''))) {
       win.setTitle('RENACE Portal — error de sesión');
@@ -294,9 +375,6 @@ function attachWindowGuards(win) {
 
   win.webContents.on('did-finish-load', async () => {
     try {
-      const url = win.webContents.getURL();
-      // Odoo login page after failed SSO → offer return to portal
-      const onOdooLogin = /\/web\/login/i.test(url);
       const bad = await win.webContents.executeJavaScript(`
         (() => {
           const t = document.title || '';
@@ -304,9 +382,7 @@ function attachWindowGuards(win) {
           return /400 Bad Request|Session expired|invalid CSRF/i.test(t + ' ' + b);
         })()
       `);
-      if (bad || onOdooLogin) {
-        // Only prompt on CSRF errors; login page alone is normal if user opened Odoo directly
-        if (!bad) return;
+      if (bad) {
         const { response } = await dialog.showMessageBox(win, {
           type: 'warning',
           title: 'Sesión Odoo inválida',
@@ -341,17 +417,26 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: true,
       partition: PARTITION,
+      preload: PRELOAD,
     },
   });
 
   attachWindowGuards(win);
-  win.loadURL(PORTAL_URL);
+
+  // Abrir el destino más usado si hay historial; si no, portal
+  const top = store.topDestinations(1)[0];
+  const startUrl = top && top.count >= 2 ? top.warmUrl : PORTAL_URL;
+  win.loadURL(startUrl);
   return win;
 }
 
 app.whenReady().then(() => {
+  registerIpc();
   buildMenu();
   createWindow();
+  setTimeout(() => {
+    warmTopDestinations().catch((e) => console.warn('[warm]', e.message));
+  }, 1500);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

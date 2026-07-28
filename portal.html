@@ -801,6 +801,34 @@
     const rememberedCode = localStorage.getItem('renace_service_code') || '';
     if (rememberedCode) serviceCodeInput.value = rememberedCode;
 
+    // Desktop (Electron): autofill desde Llavero / safeStorage
+    (async () => {
+      if (!window.renaceDesktop?.isDesktop) return;
+      try {
+        const loginEl = document.getElementById('login');
+        const savedLogin = await window.renaceDesktop.getSecret('portal.login');
+        const savedPass = await window.renaceDesktop.getSecret('portal.password');
+        const savedCode = await window.renaceDesktop.getSecret('portal.serviceCode');
+        if (savedLogin && loginEl && !loginEl.value) loginEl.value = savedLogin;
+        if (savedPass && passInput && !passInput.value) passInput.value = savedPass;
+        if (savedCode && serviceCodeInput && !serviceCodeInput.value) serviceCodeInput.value = savedCode;
+      } catch (e) {
+        console.warn('[portal keychain]', e);
+      }
+    })();
+
+    async function saveDesktopCredentials(login, password, serviceCode) {
+      if (!window.renaceDesktop?.isDesktop) return;
+      try {
+        await window.renaceDesktop.saveSecret('portal.login', login);
+        await window.renaceDesktop.saveSecret('portal.password', password);
+        if (serviceCode) await window.renaceDesktop.saveSecret('portal.serviceCode', serviceCode);
+        else await window.renaceDesktop.saveSecret('portal.serviceCode', '');
+      } catch (e) {
+        console.warn('[portal keychain save]', e);
+      }
+    }
+
     togglePass.addEventListener('click', () => {
       const isPass = passInput.type === 'password';
       passInput.type = isPass ? 'text' : 'password';
@@ -919,7 +947,7 @@
       return { res, data };
     }
 
-    function finishRedirect(data) {
+    function finishRedirect(data, credentials) {
       if (data.token) {
         localStorage.setItem('renace_sso_token', data.token);
         localStorage.setItem('renace_client_name', data.client_name || '');
@@ -927,7 +955,13 @@
       if (payloadServiceCode()) {
         localStorage.setItem('renace_service_code', payloadServiceCode());
       }
+      if (credentials?.login && credentials?.password) {
+        saveDesktopCredentials(credentials.login, credentials.password, credentials.serviceCode || payloadServiceCode());
+      }
       if (data.redirect_url) {
+        if (window.renaceDesktop?.recordVisit) {
+          window.renaceDesktop.recordVisit(data.redirect_url).catch(() => {});
+        }
         window.location.href = data.redirect_url;
         return true;
       }
