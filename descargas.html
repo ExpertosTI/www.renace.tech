@@ -268,11 +268,11 @@
   <div class="page">
     <header class="intro">
       <h1>Descarga <span class="hl">Portal</span></h1>
-      <p>Instaladores y herramientas publicadas. Solo se muestran archivos disponibles.</p>
+      <p>App de escritorio y móvil para tu instancia Odoo. Solo instaladores del Portal.</p>
     </header>
 
-    <div class="platforms" id="platforms" data-cols="0"></div>
-    <p class="empty" id="empty">No hay descargas publicadas todavía.</p>
+    <div class="platforms" id="platforms" data-cols="3"></div>
+    <p class="empty" id="empty" hidden>Los instaladores del Portal se publicarán aquí en breve.</p>
 
     <p class="legal">
       Soporte <a href="https://wa.me/8494577463">WhatsApp</a>
@@ -283,14 +283,51 @@
 
   <script>
     (function () {
-      var SKIP = /icon\.png|rufus|vc_redist/i;
       var DL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
 
       var ICONS = {
         windows: '<svg viewBox="0 0 88 88" fill="currentColor" aria-hidden="true"><path d="M0 12.4 35.8 7.5v33.2H0zm39.2-5.7L87.9 0v40.7H39.2zM0 50.3h35.8v33.2L0 78.5zm39.2 0H87.9V88L39.2 80.8z"/></svg>',
         macos: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>',
+        ios: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>',
         android: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.6 9.48 19.2 6.7a.45.45 0 0 0-.18-.61.46.46 0 0 0-.61.18l-1.64 2.84A8.1 8.1 0 0 0 12 8.2a8.1 8.1 0 0 0-4.77.91L5.59 6.27a.46.46 0 1 0-.79.43L6.4 9.48A7.8 7.8 0 0 0 4.2 15.2v.8c0 .44.36.8.8.8h14c.44 0 .8-.36.8-.8v-.8a7.8 7.8 0 0 0-2.2-5.72M8.5 13.4a.9.9 0 1 1 0-1.8.9.9 0 0 1 0 1.8m7 0a.9.9 0 1 1 0-1.8.9.9 0 0 1 0 1.8"/></svg>',
       };
+
+      /* Catálogo fijo del Portal — no documentos generales */
+      var CATALOG = [
+        {
+          id: 'windows',
+          title: 'Windows',
+          hint: 'Windows 10 / 11',
+          builds: [
+            { href: '/docs/RENACE-Portal-win-x64.exe', label: 'Instalador', chip: 'x64', primary: true },
+          ],
+        },
+        {
+          id: 'macos',
+          title: 'macOS',
+          hint: 'macOS 12+',
+          builds: [
+            { href: '/docs/RENACE-Portal-mac-arm64.dmg', label: 'Apple Silicon', chip: 'Arm64', primary: true },
+            { href: '/docs/RENACE-Portal-mac-x64.dmg', label: 'Intel', chip: 'x64' },
+          ],
+        },
+        {
+          id: 'ios',
+          title: 'iOS',
+          hint: 'iPhone / iPad',
+          builds: [
+            { href: '/docs/RENACE-Portal-ios.ipa', label: 'IPA', chip: 'IPA', primary: true },
+          ],
+        },
+        {
+          id: 'android',
+          title: 'Android',
+          hint: 'APK',
+          builds: [
+            { href: '/docs/RENACE-Portal-android.apk', label: 'APK', chip: 'APK', primary: true },
+          ],
+        },
+      ];
 
       var ua = navigator.userAgent || '';
       var platform = navigator.platform || '';
@@ -298,111 +335,91 @@
       var isAndroid = /Android/i.test(ua);
       var isWin = /Windows/i.test(ua);
       var isMac = (/Mac/i.test(platform) || /Macintosh/i.test(ua)) && !isIOS;
-      var preferred = isWin ? 'windows' : isAndroid ? 'android' : (isMac || isIOS) ? 'macos' : 'windows';
+      var preferred = isWin ? 'windows' : isAndroid ? 'android' : isIOS ? 'ios' : isMac ? 'macos' : 'windows';
 
-      function blob(doc) {
-        return [(doc.name || ''), (doc.file || ''), (doc.type || ''), (doc.category || '')].join(' ');
+      function probe(href) {
+        return fetch(href, { method: 'HEAD', credentials: 'same-origin' })
+          .then(function (r) { return r.ok; })
+          .catch(function () { return false; });
       }
 
-      function keep(doc) {
-        if (!doc || !doc.file || doc.available === false) return false;
-        var b = blob(doc);
-        if (SKIP.test(b)) return false;
-        if (/^image$/i.test(doc.category || '') || /^(png|jpe?g|gif|webp|svg)$/i.test(doc.type || '')) return false;
-        return true;
-      }
-
-      function platformOf(doc) {
-        var b = blob(doc);
-        if (/\.apk\b|android|env[ií]os/i.test(b)) return 'android';
-        if (/\.dmg\b|\.pkg\b|mac.?os|apple.?silicon|arm64.?mac|darwin|iphone|ipad|\.ipa\b/i.test(b)) return 'macos';
-        if (/\.exe\b|\.msi\b|\.appx\b|windows|win64|win32|pos.?agent/i.test(b)) return 'windows';
-        if (/\.zip\b/i.test(b) && /pos.?agent|renace.?pos/i.test(b)) return 'windows';
-        return null;
-      }
-
-      function rank(doc, os) {
-        var b = blob(doc);
-        var s = 0;
-        if (/portal/i.test(b)) s += 4;
-        if (os === 'windows' && /pos.?agent/i.test(b) && /\.exe\b/i.test(b)) s += 5;
-        if (os === 'windows' && /\.zip\b/i.test(b)) s += 2;
-        if (os === 'android' && /\.apk\b/i.test(b)) s += 5;
-        if (os === 'macos' && /\.dmg\b/i.test(b)) s += 5;
-        return s;
-      }
-
-      function labelFor(doc) {
-        var bits = [doc.type, doc.size].filter(Boolean);
-        return bits.join(' · ') || 'Descarga';
-      }
-
-      function render(docs) {
+      function render(availability) {
         var root = document.getElementById('platforms');
         var empty = document.getElementById('empty');
         root.innerHTML = '';
 
-        var groups = { windows: [], macos: [], android: [] };
-        docs.filter(keep).forEach(function (doc) {
-          var os = platformOf(doc);
-          if (!os || !groups[os]) return;
-          groups[os].push(doc);
-        });
+        var cols = CATALOG.map(function (os) {
+          var builds = os.builds
+            .map(function (b) { return Object.assign({}, b, { ok: !!availability[b.href] }); })
+            .filter(function (b) { return b.ok; });
+          return Object.assign({}, os, { builds: builds });
+        }).filter(function (os) { return os.builds.length > 0; });
 
-        Object.keys(groups).forEach(function (os) {
-          groups[os].sort(function (a, b) { return rank(b, os) - rank(a, os); });
-        });
-
-        var order = ['windows', 'macos', 'android'];
-        var visible = order.filter(function (os) { return groups[os].length > 0; });
-        root.setAttribute('data-cols', String(visible.length));
-
-        if (!visible.length) {
-          empty.style.display = 'block';
-          return;
-        }
-        empty.style.display = 'none';
-
-        var titles = { windows: 'Windows', macos: 'macOS', android: 'Android' };
-        var hints = { windows: 'POS / escritorio', macos: 'Apple Silicon / Intel', android: 'APK' };
-
-        visible.forEach(function (os) {
-          var list = groups[os];
-          var primary = list[0];
-          var rest = list.slice(1);
-          var col = document.createElement('div');
-          col.className = 'col' + (os === preferred ? ' active' : '');
-          col.innerHTML =
-            '<div class="os-ico">' + ICONS[os] + '</div>' +
-            '<div class="os-name">' + titles[os] + '</div>' +
-            '<a class="btn-dl" href="' + primary.file + '">' +
-              '<span class="btn-title">' + DL + '<span></span></span>' +
-              '<span class="btn-sub"></span>' +
-            '</a>' +
-            '<div class="alts"></div>';
-          col.querySelector('.btn-title span').textContent = titles[os];
-          col.querySelector('.btn-sub').textContent = labelFor(primary) || hints[os];
-
-          var alts = col.querySelector('.alts');
-          rest.forEach(function (doc) {
-            var row = document.createElement('div');
-            row.className = 'alt';
-            row.innerHTML = '<span></span><a></a>';
-            row.querySelector('span').textContent = doc.name;
-            var a = row.querySelector('a');
-            a.href = doc.file;
-            a.textContent = doc.type || 'Descargar';
-            alts.appendChild(row);
+        /* Si aún no hay instaladores en el servidor, mostrar las 3 columnas principales deshabilitadas */
+        if (!cols.length) {
+          cols = CATALOG.filter(function (os) { return os.id !== 'android'; }).map(function (os) {
+            return Object.assign({}, os, { builds: [], soon: true });
           });
+        }
+
+        root.setAttribute('data-cols', String(Math.min(3, cols.length)));
+        empty.hidden = true;
+
+        cols.forEach(function (os) {
+          var primary = os.builds.find(function (b) { return b.primary; }) || os.builds[0];
+          var rest = primary ? os.builds.filter(function (b) { return b !== primary; }) : [];
+          var col = document.createElement('div');
+          col.className = 'col' + (os.id === preferred && primary ? ' active' : '');
+
+          if (primary) {
+            col.innerHTML =
+              '<div class="os-ico">' + (ICONS[os.id] || ICONS.macos) + '</div>' +
+              '<div class="os-name">' + os.title + '</div>' +
+              '<a class="btn-dl" href="' + primary.href + '">' +
+                '<span class="btn-title">' + DL + '<span></span></span>' +
+                '<span class="btn-sub"></span>' +
+              '</a>' +
+              '<div class="alts"></div>';
+            col.querySelector('.btn-title span').textContent = os.title;
+            col.querySelector('.btn-sub').textContent = primary.label + ' · ' + primary.chip;
+            var alts = col.querySelector('.alts');
+            rest.forEach(function (b) {
+              var row = document.createElement('div');
+              row.className = 'alt';
+              row.innerHTML = '<span></span><a></a>';
+              row.querySelector('span').textContent = b.label;
+              var a = row.querySelector('a');
+              a.href = b.href;
+              a.textContent = b.chip;
+              alts.appendChild(row);
+            });
+          } else {
+            col.innerHTML =
+              '<div class="os-ico">' + (ICONS[os.id] || ICONS.macos) + '</div>' +
+              '<div class="os-name">' + os.title + '</div>' +
+              '<span class="btn-dl" style="opacity:.45;cursor:default;pointer-events:none">' +
+                '<span class="btn-title"><span>Próximamente</span></span>' +
+                '<span class="btn-sub"></span>' +
+              '</span>';
+            col.querySelector('.btn-sub').textContent = os.hint;
+          }
 
           root.appendChild(col);
         });
       }
 
-      fetch('/api/documents', { credentials: 'same-origin' })
-        .then(function (r) { return r.ok ? r.json() : []; })
-        .then(function (data) { render(Array.isArray(data) ? data : []); })
-        .catch(function () { render([]); });
+      var hrefs = [];
+      CATALOG.forEach(function (os) {
+        os.builds.forEach(function (b) { hrefs.push(b.href); });
+      });
+
+      Promise.all(hrefs.map(function (h) {
+        return probe(h).then(function (ok) { return [h, ok]; });
+      })).then(function (pairs) {
+        var map = {};
+        pairs.forEach(function (p) { map[p[0]] = p[1]; });
+        render(map);
+      });
     })();
   </script>
 </body>
