@@ -992,7 +992,7 @@
           showError(data.error || 'Error al iniciar sesión. Intenta de nuevo.');
           return;
         }
-        if (!finishRedirect(data)) {
+        if (!finishRedirect(data, pendingCredentials)) {
           showError('No se recibió URL de redirección.');
         }
       } catch (e) {
