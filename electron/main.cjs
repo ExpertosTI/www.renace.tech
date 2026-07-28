@@ -1,13 +1,17 @@
 const { app, BrowserWindow, Menu, shell, session, dialog, clipboard } = require('electron');
-const path = require('path');
 
 const PORTAL_URL = process.env.RENACE_PORTAL_URL || 'https://renace.tech/portal';
 const HOME_URL = process.env.RENACE_HOME_URL || 'https://renace.tech';
+const PARTITION = 'persist:renace-portal';
 const ALLOWED = [
   /^https:\/\/renace\.tech(\/|$)/i,
   /^https:\/\/www\.renace\.tech(\/|$)/i,
   /^https:\/\/[a-z0-9.-]+\.renace\.tech(\/|$)/i,
 ];
+
+function portalSession() {
+  return session.fromPartition(PARTITION);
+}
 
 function isAllowed(url) {
   return ALLOWED.some((re) => re.test(String(url || '')));
@@ -18,7 +22,7 @@ function currentWin() {
 }
 
 async function clearRenaceCookies() {
-  const ses = session.defaultSession;
+  const ses = portalSession();
   const cookies = await ses.cookies.get({});
   await Promise.all(
     cookies
@@ -29,6 +33,57 @@ async function clearRenaceCookies() {
         return ses.cookies.remove(url, c.name);
       })
   );
+}
+
+async function setOdooSessionCookie(publicUrl, sessionId) {
+  const base = String(publicUrl || '').replace(/\/$/, '');
+  if (!base || !sessionId) return;
+  const ses = portalSession();
+  const expirationDate = Math.floor(Date.now() / 1000) + 86400;
+  // Host-only cookie on the exact Odoo public host (most reliable in Electron)
+  await ses.cookies.set({
+    url: base,
+    name: 'session_id',
+    value: String(sessionId),
+    path: '/',
+    secure: true,
+    httpOnly: true,
+    sameSite: 'no_restriction',
+    expirationDate,
+  });
+  // Also set parent-domain style for sibling subdomains
+  await ses.cookies.set({
+    url: 'https://renace.tech',
+    name: 'session_id',
+    value: String(sessionId),
+    domain: '.renace.tech',
+    path: '/',
+    secure: true,
+    httpOnly: true,
+    sameSite: 'no_restriction',
+    expirationDate,
+  }).catch(() => {});
+}
+
+async function completeSsoEnter(win, enterUrl) {
+  try {
+    const u = new URL(enterUrl);
+    u.searchParams.set('format', 'json');
+    const res = await portalSession().fetch(u.toString(), {
+      headers: { Accept: 'application/json' },
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.ok || !data.sessionId || !data.publicUrl) {
+      throw new Error(data?.error || `SSO HTTP ${res.status}`);
+    }
+    await setOdooSessionCookie(data.publicUrl, data.sessionId);
+    const dest = data.redirectUrl || `${String(data.publicUrl).replace(/\/$/, '')}/web`;
+    await win.loadURL(dest);
+    return true;
+  } catch (e) {
+    console.warn('[electron sso]', e.message);
+    return false;
+  }
 }
 
 function buildMenu() {
@@ -82,8 +137,7 @@ function buildMenu() {
           label: 'Abrir en el navegador',
           accelerator: 'CmdOrCtrl+Shift+O',
           click: () => {
-            const win = currentWin();
-            const url = win?.webContents?.getURL();
+            const url = currentWin()?.webContents?.getURL();
             if (url) shell.openExternal(url);
           },
         },
@@ -184,10 +238,6 @@ function buildMenu() {
           label: 'Soporte RENACE',
           click: () => shell.openExternal('https://renace.tech/contacto'),
         },
-        {
-          label: 'Estado del servicio',
-          click: () => shell.openExternal('https://renace.tech'),
-        },
         { type: 'separator' },
         {
           label: 'Si ves pantalla negra / CSRF…',
@@ -198,7 +248,6 @@ function buildMenu() {
               type: 'info',
               title: 'Sesión reiniciada',
               message: 'Se limpiaron cookies de RENACE y se abrió el portal.',
-              detail: 'Vuelve a iniciar sesión. Si el error CSRF vuelve, actualiza la app tras el próximo deploy.',
             });
           },
         },
@@ -216,23 +265,38 @@ function attachWindowGuards(win) {
     return { action: 'deny' };
   });
 
-  win.webContents.on('will-navigate', (event, url) => {
+  win.webContents.on('will-navigate', async (event, url) => {
     if (!isAllowed(url)) {
       event.preventDefault();
       shell.openExternal(url);
+      return;
+    }
+    if (/\/api\/sso\/enter(\?|$)/i.test(url)) {
+      event.preventDefault();
+      const ok = await completeSsoEnter(win, url);
+      if (!ok) win.loadURL(url); // fall back to HTML handoff
     }
   });
 
-  // Recover from Odoo CSRF / blank error pages
+  win.webContents.on('will-redirect', async (event, url) => {
+    if (/\/api\/sso\/enter(\?|$)/i.test(url)) {
+      event.preventDefault();
+      const ok = await completeSsoEnter(win, url);
+      if (!ok) win.loadURL(url);
+    }
+  });
+
   win.webContents.on('page-title-updated', (_e, title) => {
-    const t = String(title || '');
-    if (/400 Bad Request|Session expired|invalid CSRF/i.test(t)) {
+    if (/400 Bad Request|Session expired|invalid CSRF/i.test(String(title || ''))) {
       win.setTitle('RENACE Portal — error de sesión');
     }
   });
 
   win.webContents.on('did-finish-load', async () => {
     try {
+      const url = win.webContents.getURL();
+      // Odoo login page after failed SSO → offer return to portal
+      const onOdooLogin = /\/web\/login/i.test(url);
       const bad = await win.webContents.executeJavaScript(`
         (() => {
           const t = document.title || '';
@@ -240,12 +304,14 @@ function attachWindowGuards(win) {
           return /400 Bad Request|Session expired|invalid CSRF/i.test(t + ' ' + b);
         })()
       `);
-      if (bad) {
+      if (bad || onOdooLogin) {
+        // Only prompt on CSRF errors; login page alone is normal if user opened Odoo directly
+        if (!bad) return;
         const { response } = await dialog.showMessageBox(win, {
           type: 'warning',
           title: 'Sesión Odoo inválida',
           message: 'Odoo rechazó la sesión (CSRF).',
-          detail: 'Esto suele pasar tras un SSO fallido. ¿Volver al portal y limpiar cookies?',
+          detail: '¿Volver al portal y limpiar cookies?',
           buttons: ['Volver al portal', 'Quedarme aquí'],
           defaultId: 0,
           cancelId: 1,
@@ -274,7 +340,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      partition: 'persist:renace-portal',
+      partition: PARTITION,
     },
   });
 

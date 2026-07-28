@@ -1055,6 +1055,21 @@ function cookieDomainForPublicUrl(publicUrl) {
   }
 }
 
+/** Set Odoo session_id for *.renace.tech (SameSite=None so Electron/desktop handoff works). */
+function setOdooSessionCookie(res, sessionId, publicUrl) {
+  const cookieDomain = cookieDomainForPublicUrl(publicUrl);
+  const cookieParts = [
+    `session_id=${sessionId}`,
+    'Path=/',
+    'HttpOnly',
+    'Secure',
+    'SameSite=None',
+    'Max-Age=86400',
+  ];
+  if (cookieDomain) cookieParts.push(`Domain=${cookieDomain}`);
+  res.setHeader('Set-Cookie', cookieParts.join('; '));
+}
+
 function buildSsoEnterUrl(req, token) {
   return `${portalPublicBase(req)}/api/sso/enter?token=${encodeURIComponent(token)}`;
 }
@@ -2797,23 +2812,32 @@ app.get('/api/sso/enter', portalLimiter, async (req, res) => {
     // Browser auto-POST was causing Odoo "Session expired (invalid CSRF token)" in Electron/desktop.
     if (password) {
       try {
-        const sessionId = await odooWebLoginSession(publicBase, row.odoo_login, password, null);
+        const sessionId = await odooWebLoginSession(
+          publicBase,
+          row.odoo_login,
+          password,
+          row.odoo_db || null
+        );
         await pool.query(
           `UPDATE sso_tokens SET used = TRUE, used_at = NOW(), auth_secret_enc = NULL WHERE id = $1`,
           [row.id]
         );
 
-        const cookieDomain = cookieDomainForPublicUrl(publicBase);
-        const cookieParts = [
-          `session_id=${sessionId}`,
-          'Path=/',
-          'HttpOnly',
-          'Secure',
-          'SameSite=Lax',
-          'Max-Age=86400',
-        ];
-        if (cookieDomain) cookieParts.push(`Domain=${cookieDomain}`);
-        res.setHeader('Set-Cookie', cookieParts.join('; '));
+        const wantsJson = String(req.query.format || '').toLowerCase() === 'json'
+          || String(req.headers.accept || '').includes('application/json');
+        if (wantsJson) {
+          res.setHeader('Cache-Control', 'no-store');
+          return res.json({
+            ok: true,
+            sessionId,
+            publicUrl: publicBase,
+            redirectUrl: `${publicBase.replace(/\/$/, '')}/web`,
+            clientName: row.client_name,
+            login: row.odoo_login,
+          });
+        }
+
+        setOdooSessionCookie(res, sessionId, publicBase);
         res.setHeader('Cache-Control', 'no-store');
         return res.type('html').send(buildRedirectPage(escAttr(row.client_name || 'Odoo'), publicBase));
       } catch (e) {
@@ -2841,6 +2865,11 @@ app.get('/api/sso/enter', portalLimiter, async (req, res) => {
     }
 
     if (!sessionId) {
+      const wantsJson = String(req.query.format || '').toLowerCase() === 'json'
+        || String(req.headers.accept || '').includes('application/json');
+      if (wantsJson) {
+        return res.status(503).json({ ok: false, error: 'No se pudo abrir la sesión de Odoo', publicUrl: publicBase });
+      }
       return res.status(503).type('html').send('<h1>No se pudo abrir la sesión de Odoo</h1><p><a href="/portal">Volver al portal</a></p>');
     }
 
@@ -2849,17 +2878,21 @@ app.get('/api/sso/enter', portalLimiter, async (req, res) => {
       [row.id]
     );
 
-    const cookieDomain = cookieDomainForPublicUrl(publicBase);
-    const cookieParts = [
-      `session_id=${sessionId}`,
-      'Path=/',
-      'HttpOnly',
-      'Secure',
-      'SameSite=Lax',
-      'Max-Age=86400',
-    ];
-    if (cookieDomain) cookieParts.push(`Domain=${cookieDomain}`);
-    res.setHeader('Set-Cookie', cookieParts.join('; '));
+    const wantsJson = String(req.query.format || '').toLowerCase() === 'json'
+      || String(req.headers.accept || '').includes('application/json');
+    if (wantsJson) {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json({
+        ok: true,
+        sessionId,
+        publicUrl: publicBase,
+        redirectUrl: `${publicBase.replace(/\/$/, '')}/web`,
+        clientName: row.client_name,
+        login: row.odoo_login,
+      });
+    }
+
+    setOdooSessionCookie(res, sessionId, publicBase);
     res.setHeader('Cache-Control', 'no-store');
     return res.type('html').send(buildRedirectPage(escAttr(row.client_name || 'Odoo'), publicBase));
   } catch (e) {
