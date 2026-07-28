@@ -3,9 +3,17 @@
   "version": "3.0.0",
   "private": true,
   "description": "RENACE.TECH — Platform for business digitalization",
+  "author": "RENACE.TECH",
+  "main": "electron/main.cjs",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "www:portal": "./scripts/build-portal-www.sh",
+    "icons": "./scripts/generate-app-icons.sh",
+    "cap:sync": "./scripts/build-portal-www.sh && npx cap sync",
+    "mac:pack": "npm run icons && electron-builder --mac dmg zip --publish never",
+    "electron:dev": "electron electron/main.cjs",
+    "postinstall": "./scripts/fix-electron-install.sh"
   },
   "dependencies": {
     "@capacitor/android": "^8.2.0",
@@ -24,6 +32,55 @@
     "node": ">=20.0.0"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.2.0"
+    "@capacitor/cli": "^8.2.0",
+    "electron": "^37.10.3",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "tech.renace.portal",
+    "productName": "RENACE Portal",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "afterPack": "./electron/afterPack.cjs",
+    "icon": "build/icon.icns",
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "dmg": {
+      "background": "build/dmg-background.png",
+      "iconSize": 128,
+      "iconTextSize": 14,
+      "window": {
+        "width": 660,
+        "height": 420
+      },
+      "contents": [
+        {
+          "x": 160,
+          "y": 205,
+          "type": "file"
+        },
+        {
+          "x": 500,
+          "y": 205,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "mac": {
+      "category": "public.app-category.business",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "electron/entitlements.mac.plist",
+      "entitlementsInherit": "electron/entitlements.mac.plist",
+      "identity": "ADDERLY MARTE (M5LFB3VWUY)",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    }
   }
 }
