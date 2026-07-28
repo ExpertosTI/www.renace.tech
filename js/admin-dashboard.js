@@ -1297,15 +1297,18 @@
   });
 
   document.getElementById('btn-purge-public-urls')?.addEventListener('click', async () => {
-    if (!confirm('¿Depurar URLs y códigos de empresa desde el catálogo RNV?')) return;
+    if (!confirm('¿Depurar desde RNV (servicios type=odoo) + catálogo local?')) return;
     try {
       const res = await adminFetch('/api/admin/odoo-instances/purge-public-urls', { method: 'POST', body: JSON.stringify({}) });
       const data = await res.json();
       if (!res.ok) { odooMsg(instancesMsg, data.error || 'Error al depurar', 'error'); return; }
+      const warn = Array.isArray(data.rnvPullErrors) && data.rnvPullErrors.length
+        ? ` Aviso RNV: ${data.rnvPullErrors[0]}`
+        : '';
       odooMsg(
         instancesMsg,
-        `Depurado: ${data.assignedServiceCodes || 0} códigos, ${data.updatedPublicUrls || 0} URLs, ${data.seededFromCatalog || 0} del catálogo.`,
-        'success'
+        `Depurado: ${data.totalInstances || 0} instancias (RNV ${data.pulledFromRnv || 0}, catálogo +${data.seededFromCatalog || 0}).${warn}`,
+        data.pulledFromRnv || data.seededFromCatalog ? 'success' : 'error'
       );
       await loadInstances();
     } catch (e) { odooMsg(instancesMsg, e.message, 'error'); }

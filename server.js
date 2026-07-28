@@ -1850,49 +1850,90 @@ app.post('/api/rnv/sync', apiLimiter, async (req, res) => {
   }
 });
 
-// Purge/fix public SSO URLs from RNV catalog (+ optional live RNV API pull)
+// Purge/fix public SSO URLs from live RNV /api/services (type=odoo) + catalog fallback
 app.post('/api/admin/odoo-instances/purge-public-urls', apiLimiter, async (req, res) => {
   if (!requireAdminToken(req, res)) return;
   try {
     const pulled = [];
+    const rnvPullErrors = [];
     const rnvBase = String(process.env.RNV_API_URL || 'https://rnv.renace.tech').replace(/\/$/, '');
-    const rnvKey = String(process.env.RNV_API_KEY || process.env.ADMIN_TOKEN || '').trim();
+    const rnvKey = String(
+      req.body?.rnvToken ||
+      process.env.RNV_API_TOKEN ||
+      process.env.RNV_API_KEY ||
+      ''
+    ).trim();
+
+    // Optional: paste RNV services JSON directly { services: [...] } / { instances: [...] }
+    const manualList = Array.isArray(req.body?.services)
+      ? req.body.services
+      : Array.isArray(req.body?.instances)
+        ? req.body.instances
+        : [];
+    for (const row of manualList) {
+      if (rnvCatalog.isRnvOdooService(row) || row?.odoo_url || row?.service_code || row?.public_url) {
+        pulled.push(row);
+      }
+    }
+
     if (rnvKey) {
-      for (const pathSuffix of ['/api/odoo', '/api/clients']) {
+      for (const pathSuffix of ['/api/services', '/api/topology']) {
         try {
           const rr = await fetch(rnvBase + pathSuffix, {
             headers: {
               Accept: 'application/json',
               Authorization: `Bearer ${rnvKey}`,
-              'X-API-Key': rnvKey,
             },
           });
-          if (!rr.ok) continue;
-          const body = await rr.json();
-          const list = Array.isArray(body) ? body
-            : Array.isArray(body?.instances) ? body.instances
-            : Array.isArray(body?.data) ? body.data
-            : Array.isArray(body?.clients) ? body.clients
-            : Array.isArray(body?.odoo) ? body.odoo
-            : [];
-          for (const row of list) pulled.push(row);
-          if (list.length) break;
+          const body = await rr.json().catch(() => ({}));
+          if (!rr.ok) {
+            rnvPullErrors.push(`${pathSuffix}: HTTP ${rr.status} ${body?.error || ''}`.trim());
+            continue;
+          }
+          let list = rnvCatalog.extractRnvList(body);
+          if (pathSuffix === '/api/topology') {
+            list = list.filter((n) => String(n?.type || '').toLowerCase() === 'service');
+            list = list.map((n) => ({
+              name: n.label || n.meta?.name,
+              type: n.meta?.type,
+              url: n.meta?.url,
+              port: n.meta?.port,
+              client: n.meta?.clientName ? { name: n.meta.clientName } : null,
+              status: n.status,
+            }));
+          }
+          const odooRows = list.filter((row) => rnvCatalog.isRnvOdooService(row));
+          for (const row of odooRows) pulled.push(row);
+          if (odooRows.length) break;
+          if (list.length && !odooRows.length) {
+            rnvPullErrors.push(`${pathSuffix}: ${list.length} filas, 0 type=odoo`);
+          }
         } catch (e) {
+          rnvPullErrors.push(`${pathSuffix}: ${e.message}`);
           console.warn('[purge-public-urls] RNV pull warn:', pathSuffix, e.message);
         }
       }
+    } else if (!manualList.length) {
+      rnvPullErrors.push('Sin RNV_API_TOKEN / RNV_API_KEY — solo se siembra el catálogo local');
     }
 
-    // Upsert anything pulled from RNV
-    let upserted = 0;
+    // Deduplicate by service_code / slug
+    const seenPull = new Set();
+    const uniquePulled = [];
     for (const raw of pulled) {
       const item = rnvCatalog.normalizeRnvItem(raw);
+      const key = String(item.service_code || '').toLowerCase();
+      if (!key || seenPull.has(key)) continue;
+      if (rnvCatalog.NON_ODOO_HOSTS.has(key)) continue;
+      seenPull.add(key);
+      uniquePulled.push(raw);
+    }
+
+    let upserted = 0;
+    for (const raw of uniquePulled) {
+      const item = rnvCatalog.normalizeRnvItem(raw);
       if (!item.client_name || (!item.odoo_url && !item.public_url)) continue;
-      let finalCode = item.service_code;
-      if (!finalCode) {
-        const slug = String(raw.slug || raw.code || '').trim().slice(0, 32);
-        finalCode = slug || null;
-      }
+      const finalCode = item.service_code;
       if (!finalCode) continue;
       const odooUrl = item.odoo_url || item.public_url;
       await pool.query(
@@ -1902,7 +1943,7 @@ app.post('/api/admin/odoo-instances/purge-public-urls', apiLimiter, async (req, 
          SET client_name = EXCLUDED.client_name,
              odoo_url = COALESCE(NULLIF(EXCLUDED.odoo_url, ''), odoo_instances.odoo_url),
              public_url = COALESCE(EXCLUDED.public_url, odoo_instances.public_url),
-             odoo_db = EXCLUDED.odoo_db,
+             odoo_db = COALESCE(NULLIF(EXCLUDED.odoo_db, ''), odoo_instances.odoo_db),
              active = TRUE`,
         [item.client_name, odooUrl, item.public_url, item.odoo_db, finalCode]
       );
@@ -1981,7 +2022,6 @@ app.post('/api/admin/odoo-instances/purge-public-urls', apiLimiter, async (req, 
        RETURNING id, client_name, service_code`
     );
 
-    // Re-resolve after clear
     for (const row of cleared.rows) {
       const full = existing.rows.find((x) => x.id === row.id) || row;
       const resolved = rnvCatalog.resolvePublicUrlForInstance({ ...full, public_url: null });
@@ -1996,12 +2036,15 @@ app.post('/api/admin/odoo-instances/purge-public-urls', apiLimiter, async (req, 
 
     res.json({
       ok: true,
-      pulledFromRnv: pulled.length,
+      pulledFromRnv: uniquePulled.length,
       upsertedFromRnv: upserted,
       updatedPublicUrls: updated.length,
       assignedServiceCodes: coded.length,
       seededFromCatalog: seeded,
       clearedAppFallback: cleared.rowCount || 0,
+      totalInstances: finalRows.rowCount || finalRows.rows.length,
+      rnvConfigured: Boolean(rnvKey),
+      rnvPullErrors,
       instances: finalRows.rows,
     });
   } catch (e) {
