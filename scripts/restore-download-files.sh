@@ -10,7 +10,7 @@ cd /opt/www.renace.tech
 SRC_DIR="${1:-}"
 if [ -z "$SRC_DIR" ]; then
   for cand in /tmp /opt/www.renace.tech/docs ./docs /root/docs; do
-    if [ -d "$cand" ] && ls "$cand"/*.{exe,zip,apk,msi} >/dev/null 2>&1; then
+    if [ -d "$cand" ] && ls "$cand"/*.{exe,zip,apk,msi,dmg,ipa} >/dev/null 2>&1; then
       SRC_DIR="$cand"
       break
     fi
@@ -37,10 +37,18 @@ copied=0
 for f in "$SRC_DIR"/*; do
   [ -f "$f" ] || continue
   case "${f##*.}" in
-    exe|zip|apk|msi|pdf|dmg|rar|7z) ;;
+    exe|zip|apk|msi|pdf|dmg|rar|7z|ipa|appx) ;;
     *) continue ;;
   esac
   base=$(basename "$f")
+  # Solo Portal + tools conocidos (evitar basura)
+  case "$base" in
+    RENACE-Portal-*|posagent-win64.exe|Rufus*|rufus*|VC_redist*|EnviosRH*|Envíos*) ;;
+    *)
+      echo "· omitiendo $base"
+      continue
+      ;;
+  esac
   echo "→ copiando $base → volumen /app/data/docs/ (Documentos)"
   docker cp "$f" "$CONTAINER:/app/data/docs/$base"
   # Persistente en Swarm; no depender de /app/downloads (capa del contenedor)
@@ -67,6 +75,11 @@ const known = {
   'rufus-4.11.exe': { name: 'Rufus 4.11', type: 'EXE' },
   'VC_redist.x64.exe': { name: 'VC_redist.x64.exe', type: 'EXE' },
   'initPos.zip': { name: 'initPos.zip', type: 'ZIP' },
+  'RENACE-Portal-mac-arm64.dmg': { name: 'RENACE Portal — macOS Apple Silicon', type: 'DMG', category: 'apps' },
+  'RENACE-Portal-mac-x64.dmg': { name: 'RENACE Portal — macOS Intel', type: 'DMG', category: 'apps' },
+  'RENACE-Portal-win-x64.exe': { name: 'RENACE Portal — Windows', type: 'EXE', category: 'apps' },
+  'RENACE-Portal-ios.ipa': { name: 'RENACE Portal — iOS', type: 'IPA', category: 'apps' },
+  'RENACE-Portal-android.apk': { name: 'RENACE Portal — Android', type: 'APK', category: 'apps' },
 };
 const files = fs.readdirSync('/app/data/docs');
 for (const base of files) {
