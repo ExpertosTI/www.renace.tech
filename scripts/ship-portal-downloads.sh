@@ -16,6 +16,14 @@ need=(
   docs/RENACE-Portal-android.apk
 )
 
+# Manifiesto de updates (opcional pero recomendado)
+if [[ -f docs/portal-desktop-update.json ]]; then
+  need+=(docs/portal-desktop-update.json)
+else
+  ./scripts/publish-desktop-update.sh || true
+  [[ -f docs/portal-desktop-update.json ]] && need+=(docs/portal-desktop-update.json)
+fi
+
 echo "═══════════════════════════════════════════"
 echo " Ship Portal → $HOST"
 echo "═══════════════════════════════════════════"

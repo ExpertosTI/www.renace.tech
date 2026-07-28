@@ -1,6 +1,6 @@
 {
   "name": "renace-tech",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "private": true,
   "description": "RENACE.TECH — Platform for business digitalization",
   "author": "RENACE.TECH",
@@ -27,7 +27,8 @@
     "native:user-mode": "./scripts/apply-native-user-mode.sh",
     "android:open": "npm run android:sync && npx cap open android",
     "ios:open": "npm run ios:sync && npx cap open ios",
-    "stage:downloads": "./scripts/stage-portal-downloads.sh"
+    "stage:downloads": "./scripts/stage-portal-downloads.sh",
+    "desktop:update-manifest": "./scripts/publish-desktop-update.sh"
   },
   "dependencies": {
     "@capacitor/android": "8.2.0",

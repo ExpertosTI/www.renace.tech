@@ -37,18 +37,28 @@ copied=0
 for f in "$SRC_DIR"/*; do
   [ -f "$f" ] || continue
   case "${f##*.}" in
-    exe|zip|apk|msi|pdf|dmg|rar|7z|ipa|appx) ;;
+    exe|zip|apk|msi|pdf|dmg|rar|7z|ipa|appx|json) ;;
     *) continue ;;
   esac
   base=$(basename "$f")
   # Solo Portal + tools conocidos (evitar basura)
   case "$base" in
-    RENACE-Portal-*|posagent-win64.exe|Rufus*|rufus*|VC_redist*|EnviosRH*|Envíos*) ;;
+    RENACE-Portal-*|posagent-win64.exe|Rufus*|rufus*|VC_redist*|EnviosRH*|Envíos*|portal-desktop-update.json) ;;
     *)
       echo "· omitiendo $base"
       continue
       ;;
   esac
+  if [[ "$base" == "portal-desktop-update.json" ]]; then
+    echo "→ copiando $base → volumen /app/data/ (manifiesto updates)"
+    docker cp "$f" "$CONTAINER:/app/data/$base"
+    docker exec -u root "$CONTAINER" chmod 644 "/app/data/$base" 2>/dev/null || true
+    docker exec -u root "$CONTAINER" chown appuser:nodejs "/app/data/$base" 2>/dev/null || true
+    # también en docs por si la app pide /docs/
+    docker cp "$f" "$CONTAINER:/app/data/docs/$base"
+    copied=$((copied + 1))
+    continue
+  fi
   echo "→ copiando $base → volumen /app/data/docs/ (Documentos)"
   docker cp "$f" "$CONTAINER:/app/data/docs/$base"
   # Persistente en Swarm; no depender de /app/downloads (capa del contenedor)

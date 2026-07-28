@@ -1310,6 +1310,26 @@ app.get('/descargas', (req, res) => {
 });
 app.get('/descargas.html', (req, res) => res.redirect(301, '/descargas'));
 
+/** Manifiesto de actualizaciones del Portal Desktop (Electron) */
+app.get('/api/portal/desktop-update', apiLimiter, (req, res) => {
+  const candidates = [
+    path.join(DATA_DIR, 'portal-desktop-update.json'),
+    path.join(DATA_DIR, 'docs', 'portal-desktop-update.json'),
+    path.join(DOCS_DIR, 'portal-desktop-update.json'),
+    path.join(__dirname, 'docs', 'portal-desktop-update.json'),
+  ];
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+        res.setHeader('Cache-Control', 'no-store');
+        res.type('json');
+        return res.send(fs.readFileSync(p, 'utf8'));
+      }
+    } catch { /* next */ }
+  }
+  return res.status(404).json({ error: 'Sin manifiesto de actualización del Portal' });
+});
+
 app.post('/api/portal/lookup', portalLimiter, async (req, res) => {
   const serviceCode = String(req.body?.serviceCode || req.body?.service_code || '').trim().toLowerCase().slice(0, 32);
   if (!serviceCode) {

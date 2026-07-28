@@ -20,6 +20,7 @@ const store = require('./secure-store.cjs');
 const log = require('./log.cjs');
 const { ensurePosAgent } = require('./posagent-win.cjs');
 const posProxy = require('./pos-proxy.cjs');
+const updater = require('./updater.cjs');
 
 app.commandLine.appendSwitch('disable-features', 'PushMessaging,Notifications');
 
@@ -29,6 +30,75 @@ const PARTITION = 'persist:renace-portal';
 const PRELOAD = path.join(__dirname, 'preload.cjs');
 const SETUP_HTML = path.join(__dirname, 'setup.html');
 
+/** Solo modo técnico (o actualización forzada) puede cerrar la app */
+let allowQuit = false;
+
+function requestQuitForUpdate() {
+  allowQuit = true;
+}
+
+function isUserModeLocked() {
+  if (allowQuit) return false;
+  if (store.getAppMode() !== 'user') return false;
+  // Solo con el sistema ya vinculado (instancia abierta)
+  return !!store.getInstance();
+}
+
+function denyCloseMessage(win) {
+  dialog
+    .showMessageBox(win || undefined, {
+      type: 'warning',
+      title: 'Cierre bloqueado',
+      message: 'En modo Usuario no se puede cerrar RENACE Portal.',
+      detail:
+        'Solo un técnico puede cerrar la app.\nAtajo: Ctrl+Shift+Alt+T (o Cmd+Shift+Alt+T) → Modo técnico.',
+      buttons: ['Entendido', 'Modo técnico…'],
+      defaultId: 0,
+      cancelId: 0,
+    })
+    .then(({ response }) => {
+      if (response === 1) unlockAdmin();
+    });
+}
+
+function updaterOpts() {
+  return {
+    getWin: () => currentWin(),
+    requestQuit: requestQuitForUpdate,
+    canInstall: () => store.getAppMode() !== 'user',
+  };
+}
+
+function runUpdateCheck(silent) {
+  return updater.checkForUpdates({ ...updaterOpts(), silent: !!silent });
+}
+
+async function runInstallPendingUpdate() {
+  if (store.getAppMode() === 'user') {
+    const ok = await unlockAdmin();
+    if (!ok) return;
+  }
+  const pending = updater.getPendingUpdate();
+  if (!pending) {
+    dialog.showMessageBox(currentWin() || undefined, {
+      type: 'info',
+      title: 'Actualizaciones',
+      message: 'No hay instalador descargado.',
+      detail: 'Usa «Buscar actualizaciones…» primero.',
+    });
+    return;
+  }
+  try {
+    await updater.installDownloadedUpdate(updaterOpts());
+  } catch (e) {
+    dialog.showMessageBox(currentWin() || undefined, {
+      type: 'error',
+      title: 'Actualización',
+      message: 'No se pudo iniciar el instalador.',
+      detail: e.message,
+    });
+  }
+}
 let PUSH_STUB = '';
 let COMPANY_FOCUS = '';
 let USER_SHELL = '';
@@ -420,16 +490,18 @@ function attachWindowChrome(win) {
       win.setAutoHideMenuBar(true);
       win.setMenuBarVisibility(false);
     } catch (_) {}
-    // Maximizar = área de trabajo (encima del dock/taskbar), no fullscreen exclusiv.
-    win.on('enter-full-screen', () => {
-      // Si el usuario pide fullscreen (F11), ok; al salir de maximize no forzar FS.
-    });
     win.on('maximize', () => {
       try {
         if (win.isFullScreen()) win.setFullScreen(false);
       } catch (_) {}
     });
   }
+
+  win.on('close', (e) => {
+    if (!isUserModeLocked()) return;
+    e.preventDefault();
+    denyCloseMessage(win);
+  });
 }
 
 /** Banner de diagnóstico si Odoo/portal queda vacío */
@@ -694,7 +766,7 @@ function buildMenu() {
   const isUser = store.getAppMode() === 'user';
 
   if (isUser) {
-    // Menú mínimo: sin atrás/recargar/devtools/portal
+    // Menú mínimo: sin atrás/recargar/devtools/portal/cerrar
     Menu.setApplicationMenu(
       Menu.buildFromTemplate([
         ...(isMac
@@ -708,8 +780,6 @@ function buildMenu() {
                   accelerator: 'CmdOrCtrl+Shift+Alt+T',
                   click: () => unlockAdmin(),
                 },
-                { type: 'separator' },
-                { role: 'quit' },
               ],
             }]
           : []),
@@ -721,7 +791,6 @@ function buildMenu() {
               accelerator: 'CmdOrCtrl+Shift+Alt+T',
               click: () => unlockAdmin(),
             },
-            ...(!isMac ? [{ type: 'separator' }, { role: 'quit' }] : []),
           ],
         },
         { label: 'Editar', submenu: [{ role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
@@ -767,6 +836,15 @@ function buildMenu() {
                 },
               },
               { type: 'separator' },
+              {
+                label: 'Buscar actualizaciones…',
+                click: () => runUpdateCheck(false),
+              },
+              {
+                label: 'Instalar actualización descargada…',
+                click: () => runInstallPendingUpdate(),
+              },
+              { type: 'separator' },
               { role: 'quit' },
             ],
           }]
@@ -798,6 +876,15 @@ function buildMenu() {
           },
           { label: 'Portal RENACE', click: () => currentWin()?.loadURL(PORTAL_URL) },
           { label: 'Sitio RENACE.TECH', click: () => currentWin()?.loadURL(HOME_URL) },
+          { type: 'separator' },
+          {
+            label: 'Buscar actualizaciones…',
+            click: () => runUpdateCheck(false),
+          },
+          {
+            label: 'Instalar actualización descargada…',
+            click: () => runInstallPendingUpdate(),
+          },
           { type: 'separator' },
           {
             label: 'Abrir en el navegador',
@@ -955,15 +1042,23 @@ app.whenReady().then(async () => {
   registerIpc();
   buildMenu();
   createWindow();
+  updater.startAutoUpdateLoop(updaterOpts());
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
-app.on('before-quit', () => {
+app.on('before-quit', (e) => {
+  if (isUserModeLocked()) {
+    e.preventDefault();
+    denyCloseMessage(currentWin());
+    return;
+  }
   posProxy.stop().catch(() => {});
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  if (process.platform === 'darwin') return;
+  if (isUserModeLocked()) return;
+  app.quit();
 });
