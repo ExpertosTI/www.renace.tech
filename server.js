@@ -1008,6 +1008,34 @@ function buildRedirectPage(safeName, safeUrl) {
 </html>`;
 }
 
+function portalPublicBase(req) {
+  const envBase = String(process.env.NEXT_PUBLIC_BASE_URL || process.env.PUBLIC_BASE_URL || '').trim().replace(/\/$/, '');
+  if (envBase) return envBase;
+  if (req) {
+    const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
+    const host = String(req.headers['x-forwarded-host'] || req.headers.host || 'renace.tech').split(',')[0].trim();
+    if (host) return `${proto}://${host}`;
+  }
+  return 'https://renace.tech';
+}
+
+function cookieDomainForPublicUrl(publicUrl) {
+  try {
+    const host = new URL(publicUrl).hostname.toLowerCase();
+    if (host === 'localhost' || /^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return null;
+    const parts = host.split('.');
+    if (parts.length >= 2 && parts.slice(-2).join('.') === 'renace.tech') return '.renace.tech';
+    if (parts.length >= 2) return '.' + parts.slice(-2).join('.');
+    return null;
+  } catch {
+    return '.renace.tech';
+  }
+}
+
+function buildSsoEnterUrl(req, token) {
+  return `${portalPublicBase(req)}/api/sso/enter?token=${encodeURIComponent(token)}`;
+}
+
 async function odooValidateCredentials(odooUrl, db, login, password) {
   const target = new URL(odooUrl);
   const lib = target.protocol === 'https:' ? https : http;
@@ -1271,6 +1299,8 @@ app.post('/api/portal/login', portalLimiter, async (req, res) => {
         odooLogin: login,
         odooUrl: safeUrl,
         publicUrl: instanceRow.public_url,
+        sessionId: authResult.sessionId || null,
+        portalBaseUrl: portalPublicBase(req),
         ip: getRequestClientIp(req),
         userAgent: req.get('user-agent') || '',
       });
@@ -1340,6 +1370,9 @@ app.post('/api/portal/sso-link', portalApiLimiter, async (req, res) => {
       instanceId: session.instanceId,
       odooLogin: session.email,
       odooUrl: session.odooUrl,
+      publicUrl: null,
+      sessionId: null,
+      portalBaseUrl: portalPublicBase(req),
       ip: getRequestClientIp(req),
       userAgent: req.get('user-agent') || '',
     });
@@ -2275,16 +2308,36 @@ app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
       });
     }
 
+    const odooSessionId = authResult.sessionId || null;
+    if (!odooSessionId) {
+      return res.status(503).json({
+        error: 'Odoo no devolvió sesión. Verifica la instancia y vuelve a intentar.',
+        code: 'missing_odoo_session',
+      });
+    }
+
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     await pool.query(
-      `INSERT INTO sso_tokens (token, user_id, instance_id, odoo_login, expires_at, ip_address, user_agent)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [token, portalUserId, targetInstance.instance_id, odoo_login, expiresAt, req.ip, req.get('user-agent')]
+      `INSERT INTO sso_tokens
+        (token, user_id, instance_id, odoo_login, expires_at, ip_address, user_agent, session_id, public_redirect_url)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [
+        token,
+        portalUserId,
+        targetInstance.instance_id,
+        odoo_login,
+        expiresAt,
+        req.ip,
+        req.get('user-agent'),
+        odooSessionId,
+        publicBase,
+      ]
     );
 
-    const redirectUrl = `${publicBase}/renace/sso?token=${token}`;
+    // /renace/sso no existe en Odoo (404). Entregar session_id vía portal y abrir /web en la instancia elegida.
+    const redirectUrl = buildSsoEnterUrl(req, token);
 
     res.json({
       success: true,
@@ -2390,6 +2443,88 @@ app.post('/api/sso/admin-generate', apiLimiter, async (req, res) => {
   } catch (e) {
     console.error('[sso admin-generate]', e.message);
     res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// ── SSO: Enter — set Odoo session cookie for the chosen public instance, then open /web ──
+app.get('/api/sso/enter', portalLimiter, async (req, res) => {
+  const token = String(req.query.token || '').trim();
+  if (!token || token.length < 32) {
+    return res.status(400).type('html').send('<h1>Token inválido</h1><p><a href="/portal">Volver al portal</a></p>');
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT st.id, st.odoo_login, st.used, st.expires_at, st.session_id, st.public_redirect_url,
+              oi.odoo_url, oi.public_url, oi.odoo_db, oi.client_name,
+              cpu.odoo_password_enc
+       FROM sso_tokens st
+       JOIN client_portal_users cpu ON cpu.id = st.user_id
+       JOIN odoo_instances oi ON oi.id = st.instance_id
+       WHERE st.token = $1
+       LIMIT 1`,
+      [token]
+    );
+
+    if (!result.rows.length) {
+      return res.status(404).type('html').send('<h1>Token inválido</h1><p><a href="/portal">Volver al portal</a></p>');
+    }
+
+    const row = result.rows[0];
+    if (row.used) {
+      return res.status(403).type('html').send('<h1>Este enlace ya fue usado</h1><p><a href="/portal">Volver al portal</a></p>');
+    }
+    if (new Date(row.expires_at) < new Date()) {
+      return res.status(403).type('html').send('<h1>Enlace expirado</h1><p><a href="/portal">Volver al portal</a></p>');
+    }
+
+    let sessionId = row.session_id || null;
+    const publicBase = portalAuth.toPublicOdooUrl(row.odoo_url, row.public_redirect_url || row.public_url);
+    if (!publicBase) {
+      return res.status(503).type('html').send('<h1>Instancia sin URL pública</h1><p><a href="/portal">Volver al portal</a></p>');
+    }
+
+    if (!sessionId && row.odoo_password_enc && PORTAL_ENCRYPTION_KEY) {
+      try {
+        const plain = portalDecrypt(row.odoo_password_enc);
+        const auth = await odooValidateCredentials(row.odoo_url, row.odoo_db, row.odoo_login, plain);
+        if (auth.valid && auth.sessionId) sessionId = auth.sessionId;
+      } catch (e) {
+        console.warn('[sso enter] re-auth warn:', e.message);
+      }
+    }
+
+    if (!sessionId) {
+      return res.status(503).type('html').send('<h1>No se pudo abrir la sesión de Odoo</h1><p><a href="/portal">Volver al portal</a></p>');
+    }
+
+    await pool.query(
+      `UPDATE sso_tokens SET used = TRUE, used_at = NOW() WHERE id = $1`,
+      [row.id]
+    );
+
+    const cookieDomain = cookieDomainForPublicUrl(publicBase);
+    const cookieParts = [
+      `session_id=${sessionId}`,
+      'Path=/',
+      'HttpOnly',
+      'Secure',
+      'SameSite=None',
+      'Max-Age=86400',
+    ];
+    if (cookieDomain) cookieParts.push(`Domain=${cookieDomain}`);
+    res.setHeader('Set-Cookie', cookieParts.join('; '));
+    res.setHeader('Cache-Control', 'no-store');
+
+    const safeName = escAttr(row.client_name || 'Odoo');
+    const dest = escAttr(`${publicBase}/web`);
+    res.type('html').send(buildRedirectPage(safeName, publicBase).replace(
+      /window\.location\.href='[^']+'/,
+      `window.location.href='${dest}'`
+    ));
+  } catch (e) {
+    console.error('[sso enter]', e.message);
+    res.status(500).type('html').send('<h1>Error interno</h1><p><a href="/portal">Volver al portal</a></p>');
   }
 });
 
@@ -2772,8 +2907,18 @@ async function initDB() {
         used_at TIMESTAMP,
         ip_address VARCHAR(45),
         user_agent TEXT,
+        session_id VARCHAR(255),
+        public_redirect_url VARCHAR(500),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sso_tokens' AND column_name='session_id') THEN
+          ALTER TABLE sso_tokens ADD COLUMN session_id VARCHAR(255);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sso_tokens' AND column_name='public_redirect_url') THEN
+          ALTER TABLE sso_tokens ADD COLUMN public_redirect_url VARCHAR(500);
+        END IF;
+      END $$;
       CREATE TABLE IF NOT EXISTS portal_requests (
         id SERIAL PRIMARY KEY,
         service_code VARCHAR(32),
