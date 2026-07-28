@@ -1008,6 +1008,29 @@ function buildRedirectPage(safeName, safeUrl) {
 </html>`;
 }
 
+function formatPortalInstanceChoice(row) {
+  const publicBase = portalAuth.toPublicOdooUrl(row.odoo_url, row.public_url)
+    || rnvCatalog.resolvePublicUrlForInstance(row)
+    || null;
+  const explicitLogo = String(row.logo_url || '').trim();
+  let logoUrl = explicitLogo || null;
+  if (!logoUrl && publicBase) {
+    logoUrl = `${publicBase.replace(/\/$/, '')}/web/image/res.company/1/logo`;
+  }
+  let hostLabel = null;
+  try {
+    if (publicBase) hostLabel = new URL(publicBase).hostname.replace(/^www\./, '');
+  } catch (_) {}
+  return {
+    id: row.id,
+    client_name: row.client_name,
+    service_code: row.service_code || null,
+    public_url: publicBase,
+    logo_url: logoUrl,
+    subtitle: row.service_code || hostLabel || 'Empresa',
+  };
+}
+
 function portalPublicBase(req) {
   const envBase = String(process.env.NEXT_PUBLIC_BASE_URL || process.env.PUBLIC_BASE_URL || '').trim().replace(/\/$/, '');
   if (envBase) return envBase;
@@ -1236,12 +1259,13 @@ app.post('/api/portal/login', portalLimiter, async (req, res) => {
       let selectable = [];
       if (canPickInstances) {
         const allRes = await pool.query(
-          `SELECT id, client_name, service_code FROM odoo_instances WHERE active = TRUE ORDER BY client_name ASC`
+          `SELECT id, client_name, service_code, odoo_url, public_url, logo_url
+           FROM odoo_instances WHERE active = TRUE ORDER BY client_name ASC`
         );
         selectable = allRes.rows;
       } else {
         const refreshed = await pool.query(
-          `SELECT oi.id, oi.client_name, oi.service_code
+          `SELECT oi.id, oi.client_name, oi.service_code, oi.odoo_url, oi.public_url, oi.logo_url
            FROM client_portal_users cpu
            JOIN odoo_instances oi ON oi.id = cpu.instance_id
            WHERE cpu.odoo_login = $1 AND cpu.active = TRUE AND oi.active = TRUE
@@ -1254,11 +1278,7 @@ app.post('/api/portal/login', portalLimiter, async (req, res) => {
         return res.json({
           ok: false,
           needs_instance_selection: true,
-          instances: selectable.map((r) => ({
-            id: r.id,
-            client_name: r.client_name,
-            service_code: r.service_code,
-          })),
+          instances: selectable.map(formatPortalInstanceChoice),
           message: 'Selecciona la instancia a la que deseas acceder',
         });
       }
@@ -1607,7 +1627,7 @@ app.get('/api/portal/google/callback', portalLimiter, async (req, res) => {
 app.get('/api/admin/odoo-instances', apiLimiter, async (req, res) => {
   if (!requireAdminToken(req, res)) return;
   try {
-    const r = await pool.query('SELECT id, client_name, odoo_url, public_url, odoo_db, service_code, active, created_at FROM odoo_instances ORDER BY created_at DESC');
+    const r = await pool.query('SELECT id, client_name, odoo_url, public_url, logo_url, odoo_db, service_code, active, created_at FROM odoo_instances ORDER BY created_at DESC');
     res.json(r.rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -2251,12 +2271,13 @@ app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
       let selectable = [];
       if (canPickInstances) {
         const allRes = await pool.query(
-          `SELECT id, client_name, service_code FROM odoo_instances WHERE active = TRUE ORDER BY client_name ASC`
+          `SELECT id, client_name, service_code, odoo_url, public_url, logo_url
+           FROM odoo_instances WHERE active = TRUE ORDER BY client_name ASC`
         );
         selectable = allRes.rows;
       } else {
         const refreshed = await pool.query(
-          `SELECT oi.id, oi.client_name, oi.service_code
+          `SELECT oi.id, oi.client_name, oi.service_code, oi.odoo_url, oi.public_url, oi.logo_url
            FROM client_portal_users cpu
            JOIN odoo_instances oi ON oi.id = cpu.instance_id
            WHERE cpu.odoo_login = $1 AND cpu.active = TRUE AND oi.active = TRUE
@@ -2270,11 +2291,7 @@ app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
         return res.json({
           success: false,
           needs_instance_selection: true,
-          instances: selectable.map((r) => ({
-            id: r.id,
-            client_name: r.client_name,
-            service_code: r.service_code,
-          })),
+          instances: selectable.map(formatPortalInstanceChoice),
           message: 'Selecciona la instancia a la que deseas acceder',
         });
       }
@@ -2509,7 +2526,7 @@ app.get('/api/sso/enter', portalLimiter, async (req, res) => {
       'Path=/',
       'HttpOnly',
       'Secure',
-      'SameSite=None',
+      'SameSite=Lax',
       'Max-Age=86400',
     ];
     if (cookieDomain) cookieParts.push(`Domain=${cookieDomain}`);
@@ -2517,11 +2534,7 @@ app.get('/api/sso/enter', portalLimiter, async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
 
     const safeName = escAttr(row.client_name || 'Odoo');
-    const dest = escAttr(`${publicBase}/web`);
-    res.type('html').send(buildRedirectPage(safeName, publicBase).replace(
-      /window\.location\.href='[^']+'/,
-      `window.location.href='${dest}'`
-    ));
+    res.type('html').send(buildRedirectPage(safeName, publicBase));
   } catch (e) {
     console.error('[sso enter]', e.message);
     res.status(500).type('html').send('<h1>Error interno</h1><p><a href="/portal">Volver al portal</a></p>');
@@ -2858,6 +2871,9 @@ async function initDB() {
         END IF;
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='odoo_instances' AND column_name='public_url') THEN
           ALTER TABLE odoo_instances ADD COLUMN public_url VARCHAR(500);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='odoo_instances' AND column_name='logo_url') THEN
+          ALTER TABLE odoo_instances ADD COLUMN logo_url VARCHAR(500);
         END IF;
       END $$;
       CREATE TABLE IF NOT EXISTS client_portal_users (
