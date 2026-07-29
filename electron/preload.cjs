@@ -87,6 +87,9 @@ try {
     setKeymap: (partial) => ipcRenderer.invoke('renace:keymap-set', partial),
     submitTechUnlock: (password) => ipcRenderer.send('renace:tech-password', String(password || '')),
     cancelTechUnlock: () => ipcRenderer.send('renace:tech-password-cancel'),
+    winClose: () => ipcRenderer.send('renace:win-close'),
+    winMin: () => ipcRenderer.send('renace:win-min'),
+    winMax: () => ipcRenderer.send('renace:win-max'),
   });
 } catch (_) {
   // reload: ya expuesto

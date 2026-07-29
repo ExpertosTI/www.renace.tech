@@ -2,12 +2,16 @@
 
 const fs = require('fs');
 const path = require('path');
-const { app } = require('electron');
+const { app, safeStorage } = require('electron');
 
 const FILE = () => path.join(app.getPath('userData'), 'renace-secure.json');
 
 function canEncrypt() {
-  return true;
+  try {
+    return !!(safeStorage && safeStorage.isEncryptionAvailable && safeStorage.isEncryptionAvailable());
+  } catch {
+    return false;
+  }
 }
 
 function readStore() {
@@ -32,7 +36,19 @@ function setSecret(key, value) {
   if (value == null || value === '') {
     delete store.secrets[k];
   } else {
-    store.secrets[k] = { plain: String(value) };
+    const plain = String(value);
+    if (canEncrypt()) {
+      try {
+        const buf = safeStorage.encryptString(plain);
+        store.secrets[k] = { enc: buf.toString('base64') };
+      } catch {
+        // No guardar en claro si falla el cifrado
+        return false;
+      }
+    } else {
+      // Fallback local con modo 0600 — preferible a perder el flujo de setup
+      store.secrets[k] = { plain };
+    }
   }
   writeStore(store);
   return true;
@@ -44,6 +60,13 @@ function getSecret(key) {
   const store = readStore();
   const entry = store.secrets[k];
   if (!entry) return '';
+  if (entry.enc && canEncrypt()) {
+    try {
+      return safeStorage.decryptString(Buffer.from(entry.enc, 'base64'));
+    } catch {
+      return '';
+    }
+  }
   if (entry.plain != null) return String(entry.plain);
   return '';
 }
@@ -216,8 +239,32 @@ function recordVisit(url) {
   row.count = (row.count || 0) + 1;
   row.lastAt = Date.now();
   store.usage[origin] = row;
+  // Guardar última ruta profunda de la instancia (para reabrir sin perder pantalla)
+  try {
+    const u = new URL(String(url || ''));
+    const inst = store.instance;
+    if (inst?.url && u.origin === new URL(inst.url).origin) {
+      if (/\/(web|odoo|pos)/i.test(u.pathname + u.hash)) {
+        store.lastInstanceUrl = u.href.split('#')[0];
+      }
+    }
+  } catch (_) {}
   writeStore(store);
   return { origin, ...row };
+}
+
+function getLastInstanceUrl() {
+  const store = readStore();
+  const last = store.lastInstanceUrl;
+  if (!last) return null;
+  const inst = getInstance();
+  if (!inst?.url) return null;
+  try {
+    if (new URL(last).origin !== new URL(inst.url).origin) return null;
+  } catch {
+    return null;
+  }
+  return last;
 }
 
 function topDestinations(limit = 3) {
@@ -241,6 +288,7 @@ module.exports = {
   clearSecrets,
   recordVisit,
   topDestinations,
+  getLastInstanceUrl,
   normalizeHost,
   normalizeInstanceUrl,
   getInstance,

@@ -2,6 +2,8 @@
 
 /**
  * Actualizaciones del Portal Desktop desde renace.tech
+ * - Al abrir: descarga en silencio (defer)
+ * - Al cerrar / Salir: instala pendiente
  * Manifiesto: GET https://renace.tech/api/portal/desktop-update
  */
 const fs = require('fs');
@@ -19,11 +21,52 @@ const UPDATE_URL =
 let checking = false;
 let downloadedPath = null;
 let pendingManifest = null;
+let installing = false;
 
 function updatesDir() {
   const dir = path.join(app.getPath('userData'), 'updates');
   fs.mkdirSync(dir, { recursive: true });
   return dir;
+}
+
+function pendingMetaPath() {
+  return path.join(updatesDir(), 'pending.json');
+}
+
+function savePendingMeta(filePath, version) {
+  try {
+    fs.writeFileSync(
+      pendingMetaPath(),
+      JSON.stringify({ path: filePath, version: version || null, at: new Date().toISOString() }, null, 2),
+      'utf8'
+    );
+  } catch (e) {
+    log.warn('pending meta save', e.message);
+  }
+}
+
+function clearPendingMeta() {
+  try {
+    fs.unlinkSync(pendingMetaPath());
+  } catch (_) {}
+}
+
+function loadPendingFromDisk() {
+  try {
+    const raw = fs.readFileSync(pendingMetaPath(), 'utf8');
+    const meta = JSON.parse(raw);
+    if (meta?.path && fs.existsSync(meta.path)) {
+      downloadedPath = meta.path;
+      if (meta.version) {
+        pendingManifest = { ...(pendingManifest || {}), version: meta.version };
+      }
+      return { path: meta.path, version: meta.version || null };
+    }
+  } catch (_) {}
+  if (downloadedPath && fs.existsSync(downloadedPath)) {
+    return { path: downloadedPath, version: pendingManifest?.version || null };
+  }
+  return null;
 }
 
 function platformKey() {
@@ -131,10 +174,11 @@ function sha256File(filePath) {
 }
 
 /**
- * @param {{ silent?: boolean, getWin?: () => any, requestQuit?: () => void, canInstall?: () => boolean }} opts
+ * @param {{ silent?: boolean, deferInstall?: boolean, getWin?: () => any, requestQuit?: () => void, canInstall?: () => boolean }} opts
  */
 async function checkForUpdates(opts = {}) {
   const silent = !!opts.silent;
+  const deferInstall = opts.deferInstall === true || silent;
   if (checking) return { ok: false, reason: 'busy' };
   checking = true;
   try {
@@ -169,21 +213,38 @@ async function checkForUpdates(opts = {}) {
       return { ok: false, reason: 'no-asset', remote };
     }
 
-    log.info('updater downloading', { remote, url: asset.url });
-    const ext = path.extname(new URL(asset.url).pathname) || (process.platform === 'win32' ? '.exe' : '.dmg');
-    const dest = path.join(updatesDir(), `RENACE-Portal-${remote}${ext}`);
-    await downloadFile(asset.url, dest);
-
-    if (asset.sha256) {
-      const got = await sha256File(dest);
-      if (got.toLowerCase() !== String(asset.sha256).toLowerCase()) {
-        fs.unlink(dest, () => {});
-        throw new Error('checksum mismatch');
+    // Reutilizar descarga previa válida
+    const existing = loadPendingFromDisk();
+    if (existing?.path && existing.version === remote) {
+      downloadedPath = existing.path;
+      log.info('updater reuse pending', existing.path);
+      if (deferInstall) {
+        return { ok: true, update: true, downloaded: true, deferred: true, remote, path: existing.path };
       }
+    } else {
+      log.info('updater downloading', { remote, url: asset.url });
+      const ext = path.extname(new URL(asset.url).pathname) || (process.platform === 'win32' ? '.exe' : '.dmg');
+      const dest = path.join(updatesDir(), `RENACE-Portal-${remote}${ext}`);
+      await downloadFile(asset.url, dest);
+
+      if (asset.sha256) {
+        const got = await sha256File(dest);
+        if (got.toLowerCase() !== String(asset.sha256).toLowerCase()) {
+          fs.unlink(dest, () => {});
+          throw new Error('checksum mismatch');
+        }
+      }
+
+      downloadedPath = dest;
+      savePendingMeta(dest, remote);
+      log.info('updater downloaded', dest);
     }
 
-    downloadedPath = dest;
-    log.info('updater downloaded', dest);
+    if (deferInstall) {
+      // Fondo: no instalar ahora — al cerrar / Salir
+      log.info('updater deferred until quit', remote);
+      return { ok: true, update: true, downloaded: true, deferred: true, remote, path: downloadedPath };
+    }
 
     const canInstall = typeof opts.canInstall === 'function' ? opts.canInstall() : true;
     if (!canInstall) {
@@ -192,26 +253,26 @@ async function checkForUpdates(opts = {}) {
           type: 'info',
           title: 'Actualización descargada',
           message: `Versión ${remote} lista.`,
-          detail: 'En modo Usuario no se instala sola. Un técnico (Modo técnico) puede instalarla desde el menú.',
+          detail: 'Se instalará al cerrar la aplicación (Salir en modo técnico), o puedes instalarla ahora desde el menú.',
         });
       }
-      return { ok: true, update: true, downloaded: true, needsTech: true, remote, path: dest };
+      return { ok: true, update: true, downloaded: true, deferred: true, remote, path: downloadedPath };
     }
 
     const { response } = await dialog.showMessageBox(opts.getWin?.() || undefined, {
       type: 'question',
       title: 'Actualización disponible',
       message: `RENACE Portal ${remote} está lista.`,
-      detail: `Versión actual: ${local}\n\n¿Instalar ahora? La app se cerrará un momento.`,
-      buttons: ['Más tarde', 'Instalar ahora'],
-      defaultId: 1,
+      detail: `Versión actual: ${local}\n\n¿Instalar ahora? (Si no, se instalará al cerrar).`,
+      buttons: ['Al cerrar', 'Instalar ahora'],
+      defaultId: 0,
       cancelId: 0,
     });
     if (response === 1) {
       await installDownloadedUpdate(opts);
       return { ok: true, update: true, installing: true, remote };
     }
-    return { ok: true, update: true, downloaded: true, remote, path: dest };
+    return { ok: true, update: true, downloaded: true, deferred: true, remote, path: downloadedPath };
   } catch (e) {
     log.warn('updater check failed', e.message);
     if (!silent) {
@@ -229,48 +290,99 @@ async function checkForUpdates(opts = {}) {
 }
 
 async function installDownloadedUpdate(opts = {}) {
+  if (installing) return;
+  loadPendingFromDisk();
   const file = downloadedPath;
   if (!file || !fs.existsSync(file)) {
     throw new Error('No hay instalador descargado');
   }
 
+  installing = true;
   if (typeof opts.requestQuit === 'function') opts.requestQuit();
 
   if (process.platform === 'win32') {
-    // NSIS silent install + relaunch
-    spawn(file, ['/S'], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
-    setTimeout(() => app.exit(0), 400);
+    const helper = path.join(updatesDir(), 'apply-update.cmd');
+    const exePath = file.replace(/"/g, '');
+    const bat = [
+      '@echo off',
+      'setlocal',
+      'rem RENACE Portal — apply silent update',
+      'taskkill /F /IM "RENACE Portal.exe" /T >nul 2>&1',
+      'taskkill /F /IM "posagent.exe" /T >nul 2>&1',
+      'timeout /t 3 /nobreak >nul',
+      'taskkill /F /IM "RENACE Portal.exe" /T >nul 2>&1',
+      'timeout /t 1 /nobreak >nul',
+      `start /wait "" "${exePath}" /S`,
+      'del /f /q "%~f0" >nul 2>&1',
+      'endlocal',
+      '',
+    ].join('\r\n');
+    fs.writeFileSync(helper, bat, 'utf8');
+    clearPendingMeta();
+    spawn('cmd.exe', ['/c', helper], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+      cwd: path.dirname(helper),
+    }).unref();
+    setTimeout(() => {
+      try {
+        app.exit(0);
+      } catch (_) {
+        process.exit(0);
+      }
+    }, 600);
     return;
   }
 
-  // macOS: abrir DMG para que el técnico arrastre a Aplicaciones
+  clearPendingMeta();
   await shell.openPath(file);
   dialog.showMessageBox(opts.getWin?.() || undefined, {
     type: 'info',
     title: 'Instalador abierto',
-    message: 'Arrastra RENACE Portal a Aplicaciones y vuelve a abrir la app.',
+    message: 'Arrastra RENACE Portal a Aplicaciones (reemplaza la copia vieja) y vuelve a abrir la app.',
   });
+  installing = false;
+}
+
+/**
+ * Si hay update pendiente, lanza instalador (Windows) y sale.
+ * @returns {boolean} true si se inició instalación
+ */
+function installDeferredIfAny(opts = {}) {
+  if (installing) return false;
+  const pending = loadPendingFromDisk();
+  if (!pending?.path) return false;
+  if (process.platform !== 'win32') {
+    // macOS: abrir DMG al salir
+    installDownloadedUpdate(opts).catch((e) => log.warn('deferred mac update', e.message));
+    return true;
+  }
+  log.info('installing deferred update on quit', pending);
+  installDownloadedUpdate(opts).catch((e) => log.warn('deferred install', e.message));
+  return true;
 }
 
 function getPendingUpdate() {
-  return downloadedPath && fs.existsSync(downloadedPath)
-    ? { path: downloadedPath, version: pendingManifest?.version || null }
-    : null;
+  return loadPendingFromDisk();
 }
 
 function startAutoUpdateLoop(opts) {
   const run = () => {
-    checkForUpdates({ ...opts, silent: true }).catch(() => {});
+    checkForUpdates({ ...opts, silent: true, deferInstall: true }).catch(() => {});
   };
-  setTimeout(run, 12000);
+  // Pronto al abrir (fondo) + cada 4 h
+  setTimeout(run, 8000);
   setInterval(run, 4 * 60 * 60 * 1000);
 }
 
 module.exports = {
   checkForUpdates,
   installDownloadedUpdate,
+  installDeferredIfAny,
   getPendingUpdate,
   startAutoUpdateLoop,
+  loadPendingFromDisk,
   isNewer,
   platformKey,
 };

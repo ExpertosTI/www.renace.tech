@@ -15,12 +15,14 @@ const {
   dialog,
   clipboard,
   ipcMain,
+  screen,
 } = require('electron');
 const store = require('./secure-store.cjs');
 const log = require('./log.cjs');
 const { ensurePosAgent, readStartWithWindowsFlag } = require('./posagent-win.cjs');
 const posProxy = require('./pos-proxy.cjs');
 const updater = require('./updater.cjs');
+const winFrameScript = require('./win-frame.js');
 
 app.commandLine.appendSwitch('disable-features', 'PushMessaging,Notifications');
 
@@ -31,13 +33,59 @@ const PRELOAD = path.join(__dirname, 'preload.cjs');
 const SETUP_HTML = path.join(__dirname, 'setup.html');
 const TECH_UNLOCK_HTML = path.join(__dirname, 'tech-unlock.html');
 const TECH_PIN = String(process.env.RENACE_TECH_PIN || '101284');
+/** Modo técnico caduca solo; siempre se arranca en usuario */
+const ADMIN_TTL_MS = 20 * 60 * 1000;
 
 /** Solo se puede salir con allowQuit (técnico confirmó / update) */
 let allowQuit = false;
 let techPromptOpen = false;
+let adminExpireTimer = null;
 
 function requestQuitForUpdate() {
   allowQuit = true;
+  BrowserWindow.getAllWindows().forEach((w) => {
+    try {
+      w.setClosable(true);
+      w.destroy();
+    } catch (_) {}
+  });
+}
+
+function clearAdminExpireTimer() {
+  if (adminExpireTimer) {
+    clearTimeout(adminExpireTimer);
+    adminExpireTimer = null;
+  }
+}
+
+function revertToUserMode(reason) {
+  clearAdminExpireTimer();
+  if (store.getAppMode() !== 'admin') return;
+  store.setAppMode('user');
+  buildMenu();
+  BrowserWindow.getAllWindows().forEach((w) => {
+    applyUserModeGuards(w);
+    applyClosableState(w);
+    injectUserShell(w.webContents);
+  });
+  log.info('tech mode locked', reason || 'manual');
+  if (reason === 'ttl') {
+    const win = currentWin();
+    dialog
+      .showMessageBox(win || undefined, {
+        type: 'info',
+        title: 'Modo técnico',
+        message: 'Sesión técnica finalizada (20 min).',
+        detail: 'Volviste a modo usuario. Para técnico otra vez: Archivo → Modo técnico… (clave).',
+        buttons: ['Entendido'],
+      })
+      .catch(() => {});
+  }
+}
+
+function scheduleAdminExpiry() {
+  clearAdminExpireTimer();
+  adminExpireTimer = setTimeout(() => revertToUserMode('ttl'), ADMIN_TTL_MS);
 }
 
 /** Instancia de trabajo vinculada = no cerrar con la X */
@@ -66,6 +114,7 @@ function denyCloseMessage(win) {
 async function requestQuitFromTech() {
   if (!store.getInstance()) {
     allowQuit = true;
+    if (updater.installDeferredIfAny(updaterOpts())) return true;
     app.quit();
     return true;
   }
@@ -73,12 +122,15 @@ async function requestQuitFromTech() {
     const ok = await unlockAdmin();
     if (!ok) return false;
   }
+  const pending = updater.getPendingUpdate();
   const { response } = await dialog.showMessageBox(currentWin() || undefined, {
     type: 'warning',
     title: 'Salir',
     message: '¿Cerrar RENACE Portal?',
-    detail: 'La instancia de trabajo dejará de estar abierta en este PC hasta que vuelvas a abrir la app.',
-    buttons: ['Cancelar', 'Cerrar aplicación'],
+    detail: pending
+      ? `Hay una actualización lista (${pending.version || 'nueva'}).\nAl salir se instalará en segundo plano y la app volverá a abrirse.`
+      : 'La instancia de trabajo dejará de estar abierta en este PC hasta que vuelvas a abrir la app.',
+    buttons: ['Cancelar', pending ? 'Salir e instalar' : 'Cerrar aplicación'],
     defaultId: 0,
     cancelId: 0,
   });
@@ -89,6 +141,7 @@ async function requestQuitFromTech() {
       w.setClosable(true);
     } catch (_) {}
   });
+  if (updater.installDeferredIfAny(updaterOpts())) return true;
   app.quit();
   return true;
 }
@@ -104,6 +157,7 @@ function updaterOpts() {
   return {
     getWin: () => currentWin(),
     requestQuit: requestQuitForUpdate,
+    // Manual "Instalar ahora" requiere modo técnico (o PIN vía runInstallPendingUpdate)
     canInstall: () => store.getAppMode() !== 'user',
   };
 }
@@ -190,6 +244,9 @@ async function applyInstanceCidsCookie(inst) {
   if (!inst?.url || !inst?.companyId) return;
   try {
     const ses = portalSession();
+    const existing = await ses.cookies.get({ url: inst.url, name: 'cids' });
+    // No pisar cids si el usuario ya eligió empresa en Odoo
+    if (existing?.length && String(existing[0].value || '').length) return;
     await ses.cookies.set({
       url: inst.url,
       name: 'cids',
@@ -200,7 +257,7 @@ async function applyInstanceCidsCookie(inst) {
       sameSite: 'no_restriction',
       expirationDate: Math.floor(Date.now() / 1000) + 86400 * 365,
     });
-    log.info('cids cookie set', { host: new URL(inst.url).host, companyId: inst.companyId });
+    log.info('cids cookie set (soft)', { host: new URL(inst.url).host, companyId: inst.companyId });
   } catch (e) {
     log.warn('cids cookie failed', e.message);
   }
@@ -233,12 +290,13 @@ async function openHome(win) {
   }
   await applyInstanceCidsCookie(inst);
   const loggedIn = await hasOdooSessionCookie(inst);
+  // Preferir última URL de la misma instancia (no romper pantalla/formulario al reabrir)
+  const last = store.getLastInstanceUrl?.() || null;
   let start;
-  if (loggedIn) {
-    // Restaurar sesión guardada (partition persist) — no forzar /web/login
-    start = inst.companyId
-      ? `${inst.url}/web?cids=${encodeURIComponent(String(inst.companyId))}`
-      : `${inst.url}/web`;
+  if (loggedIn && last && isSameOrigin(last, inst.url) && /\/(web|odoo|pos)/i.test(last)) {
+    start = last;
+  } else if (loggedIn) {
+    start = `${inst.url}/web`;
   } else {
     start = store.getStartUrl(PORTAL_URL);
   }
@@ -291,33 +349,90 @@ function currentWin() {
   return BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0] || null;
 }
 
+function isRenaceHost(hostname) {
+  const h = String(hostname || '').toLowerCase();
+  return h === 'renace.tech' || h.endsWith('.renace.tech');
+}
+
+function isSameOrigin(a, b) {
+  try {
+    return new URL(a).origin === new URL(b).origin;
+  } catch {
+    return false;
+  }
+}
+
+/** Orígenes seguros para mutar instancia / secretos (setup local o portal RENACE) */
+function senderIsTrusted(event) {
+  try {
+    const url = event?.senderFrame?.url || event?.sender?.getURL?.() || '';
+    if (!url) return false;
+    if (url.startsWith('file://')) return true;
+    if (/^https:\/\/(www\.)?renace\.tech(\/|$)/i.test(url)) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function requireTechOrTrusted(event) {
+  if (store.getAppMode() === 'admin') return true;
+  return senderIsTrusted(event);
+}
+
 function registerIpc() {
   ipcMain.handle('renace:keychain-available', () => store.canEncrypt());
-  ipcMain.handle('renace:secret-set', (_e, key, value) => store.setSecret(key, value));
-  ipcMain.handle('renace:secret-get', (_e, key) => store.getSecret(key));
-  ipcMain.handle('renace:secret-clear', () => {
+  ipcMain.handle('renace:secret-set', (event, key, value) => {
+    if (!requireTechOrTrusted(event)) return false;
+    return store.setSecret(key, value);
+  });
+  ipcMain.handle('renace:secret-get', (event, key) => {
+    if (!requireTechOrTrusted(event)) return '';
+    return store.getSecret(key);
+  });
+  ipcMain.handle('renace:secret-clear', (event) => {
+    if (!requireTechOrTrusted(event)) return false;
     store.clearSecrets();
     return true;
   });
   ipcMain.handle('renace:usage-record', (_e, url) => store.recordVisit(url));
   ipcMain.handle('renace:usage-top', (_e, limit) => store.topDestinations(limit));
   ipcMain.handle('renace:instance-get', () => store.getInstance());
-  ipcMain.handle('renace:instance-set', (_e, payload) => {
+  // Lectura OK desde Odoo; escritura solo setup/portal/técnico — no rebind desde XSS
+  ipcMain.handle('renace:instance-set', (event, payload) => {
+    if (!requireTechOrTrusted(event)) {
+      return { ok: false, error: 'No autorizado' };
+    }
+    const prev = store.getInstance();
     const res = store.setInstance(payload || {});
     log.info('instance-set', {
       ok: res.ok,
       error: res.error || null,
       url: res.instance?.url || null,
       companyId: res.instance?.companyId || null,
+      from: 'trusted',
     });
+    // Si cambia el host de instancia, no tocar cookies de la anterior (sesión intacta)
+    if (res.ok && prev?.url && res.instance?.url && !isSameOrigin(prev.url, res.instance.url)) {
+      log.info('instance URL changed — previous Odoo session cookies left intact (no wipe)');
+    }
     return res;
   });
-  ipcMain.handle('renace:instance-clear', () => store.clearInstance());
+  ipcMain.handle('renace:instance-clear', (event) => {
+    if (store.getAppMode() !== 'admin' && !senderIsTrusted(event)) {
+      return { ok: false, error: 'Requiere modo técnico' };
+    }
+    store.clearInstance();
+    return { ok: true };
+  });
   ipcMain.handle('renace:instance-open', async () => {
     await openHome(currentWin());
     return true;
   });
-  ipcMain.handle('renace:instance-save-open', async (_e, payload) => {
+  ipcMain.handle('renace:instance-save-open', async (event, payload) => {
+    if (!senderIsTrusted(event) && store.getAppMode() !== 'admin') {
+      return { ok: false, error: 'No autorizado' };
+    }
     const res = store.setInstance(payload || {});
     log.info('instance-save-open', {
       ok: res.ok,
@@ -326,9 +441,9 @@ function registerIpc() {
       companyId: res.instance?.companyId || null,
     });
     if (!res.ok) return res;
-    // Tras vincular PC del cliente → modo Usuario por defecto
-    if (payload?.mode === 'admin') store.setAppMode('admin');
-    else store.setAppMode('user');
+    // Tras vincular PC → siempre modo usuario (admin solo sesión corta con PIN)
+    store.setAppMode('user');
+    clearAdminExpireTimer();
     buildMenu();
     BrowserWindow.getAllWindows().forEach((w) => {
       applyUserModeGuards(w);
@@ -337,11 +452,16 @@ function registerIpc() {
     await openHome(currentWin());
     return { ...res, mode: store.getAppMode() };
   });
-  ipcMain.handle('renace:open-portal', () => {
+  ipcMain.handle('renace:open-portal', (event) => {
+    if (!requireTechOrTrusted(event)) return false;
     currentWin()?.loadURL(PORTAL_URL);
     return true;
   });
-  ipcMain.handle('renace:open-setup', () => {
+  ipcMain.handle('renace:open-setup', async (event) => {
+    if (store.getAppMode() !== 'admin' && !senderIsTrusted(event)) {
+      const ok = await unlockAdmin();
+      if (!ok) return false;
+    }
     openSetup(currentWin());
     return true;
   });
@@ -357,17 +477,15 @@ function registerIpc() {
       const ok = await unlockAdmin();
       return ok ? store.getAppMode() : store.getAppMode();
     }
-    const m = store.setAppMode('user');
-    buildMenu();
-    BrowserWindow.getAllWindows().forEach((w) => {
-      applyUserModeGuards(w);
-      injectUserShell(w.webContents);
-    });
-    log.info('app mode', m);
-    return m;
+    revertToUserMode('ipc');
+    log.info('app mode', 'user');
+    return store.getAppMode();
   });
   ipcMain.handle('renace:keymap-get', () => store.getKeymap());
-  ipcMain.handle('renace:keymap-set', (_e, partial) => {
+  ipcMain.handle('renace:keymap-set', (event, partial) => {
+    if (store.getAppMode() !== 'admin' && !senderIsTrusted(event)) {
+      return store.getKeymap();
+    }
     const km = store.setKeymap(partial || {});
     BrowserWindow.getAllWindows().forEach((w) => injectUserShell(w.webContents));
     return km;
@@ -377,25 +495,54 @@ function registerIpc() {
     const wc = event.sender;
     if (wc && !wc.isDestroyed()) wc.openDevTools({ mode: 'bottom' });
   });
+  ipcMain.on('renace:win-close', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win || win.isDestroyed()) return;
+    if (isWorkInstanceLocked()) {
+      try {
+        if (!win.isMinimized()) win.minimize();
+      } catch (_) {}
+      if (store.getAppMode() !== 'admin') denyCloseMessage(win);
+      return;
+    }
+    win.close();
+  });
+  ipcMain.on('renace:win-min', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) win.minimize();
+  });
+  ipcMain.on('renace:win-max', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) toggleCoverTaskbar(win);
+  });
+}
+
+function isPortalCookieDomain(domain) {
+  const d = String(domain || '').replace(/^\./, '').toLowerCase();
+  return d === 'renace.tech' || d.endsWith('.renace.tech');
 }
 
 async function clearRenaceCookies() {
+  // Solo cookies del portal RENACE — NO borra session_id de la instancia Odoo del cliente
   const ses = portalSession();
   const cookies = await ses.cookies.get({});
   await Promise.all(
     cookies
-      .filter((c) => String(c.domain || '').includes('renace.tech'))
+      .filter((c) => isPortalCookieDomain(c.domain))
       .map((c) => {
         const domain = c.domain.startsWith('.') ? c.domain.slice(1) : c.domain;
         return ses.cookies.remove(`https://${domain}${c.path || '/'}`, c.name);
       })
   );
-  log.info('cookies cleared');
+  log.info('portal cookies cleared (instance Odoo cookies preserved)');
 }
 
 async function setOdooSessionCookie(publicUrl, sessionId) {
   const base = String(publicUrl || '').replace(/\/$/, '');
   if (!base || !sessionId) return;
+  if (!isAllowed(base)) {
+    throw new Error('SSO publicUrl no permitido');
+  }
   const ses = portalSession();
   const expirationDate = Math.floor(Date.now() / 1000) + 86400;
   await ses.cookies.set({
@@ -414,7 +561,13 @@ async function setOdooSessionCookie(publicUrl, sessionId) {
 async function completeSsoEnter(win, enterUrl) {
   log.info('sso enter start', enterUrl);
   try {
+    if (!isAllowed(enterUrl)) {
+      throw new Error('SSO enter URL no permitido');
+    }
     const u = new URL(enterUrl);
+    if (!isRenaceHost(u.hostname)) {
+      throw new Error('SSO solo desde renace.tech');
+    }
     u.searchParams.set('format', 'json');
     const res = await portalSession().fetch(u.toString(), {
       headers: { Accept: 'application/json' },
@@ -431,8 +584,19 @@ async function completeSsoEnter(win, enterUrl) {
     if (!res.ok || !data?.ok || !data.sessionId || !data.publicUrl) {
       throw new Error(data?.error || `SSO HTTP ${res.status}`);
     }
-    await setOdooSessionCookie(data.publicUrl, data.sessionId);
-    const dest = data.redirectUrl || `${String(data.publicUrl).replace(/\/$/, '')}/web`;
+    const publicUrl = String(data.publicUrl).replace(/\/$/, '');
+    const dest = String(data.redirectUrl || `${publicUrl}/web`);
+    // Solo aceptar destino = instancia vinculada o host renace
+    const inst = store.getInstance();
+    const destOk =
+      isAllowed(dest) &&
+      isAllowed(publicUrl) &&
+      (isSameOrigin(publicUrl, dest) || isRenaceHost(new URL(dest).hostname)) &&
+      (!inst?.url || isSameOrigin(publicUrl, inst.url) || isRenaceHost(new URL(publicUrl).hostname));
+    if (!destOk) {
+      throw new Error('SSO destino fuera de instancia permitida');
+    }
+    await setOdooSessionCookie(publicUrl, data.sessionId);
     store.recordVisit(dest);
     log.info('sso loadURL', dest);
     await win.loadURL(dest);
@@ -503,11 +667,10 @@ function applyUserModeGuards(win) {
 
 function injectDrag(wc) {
   if (!wc || wc.isDestroyed()) return;
-  const isWin = process.platform === 'win32';
-  // Windows: barra fina bajo titleBarOverlay (32px) y hueco a la derecha para min/max/cerrar.
-  // Mac: zona de arrastre junto a traffic lights.
-  const height = isWin ? 32 : 28;
-  const rightGap = isWin ? 140 : 0;
+  // En Windows usamos barra custom izquierda (win-frame); no hace falta drag extra a la derecha.
+  if (process.platform === 'win32') return;
+  const height = 28;
+  const rightGap = 0;
   wc.executeJavaScript(
     `(() => {
       const height = ${height};
@@ -532,16 +695,17 @@ function injectDrag(wc) {
   ).catch(() => {});
 }
 
+function injectWinFrame(wc) {
+  if (process.platform !== 'win32' || !wc || wc.isDestroyed()) return;
+  wc.executeJavaScript(winFrameScript(), true).catch((e) => log.warn('injectWinFrame', e.message));
+}
+
 function windowChromeOptions() {
   if (process.platform === 'win32') {
     return {
-      autoHideMenuBar: true,
-      titleBarStyle: 'hidden',
-      titleBarOverlay: {
-        color: '#0a0f1a',
-        symbolColor: '#e8edf5',
-        height: 32,
-      },
+      frame: false,
+      autoHideMenuBar: false,
+      // Controles propios a la izquierda (win-frame) — no titleBarOverlay a la derecha
     };
   }
   if (process.platform === 'darwin') {
@@ -553,18 +717,40 @@ function windowChromeOptions() {
   return { autoHideMenuBar: true };
 }
 
+function coverTaskbar(win) {
+  if (!win || win.isDestroyed()) return;
+  try {
+    const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+    if (!win.__renaceCovered) {
+      win.__renacePrevBounds = win.getBounds();
+    }
+    win.setBounds(display.bounds);
+    win.__renaceCovered = true;
+  } catch (e) {
+    log.warn('cover taskbar', e.message);
+  }
+}
+
+function toggleCoverTaskbar(win) {
+  if (!win || win.isDestroyed()) return;
+  if (win.__renaceCovered) {
+    try {
+      if (win.__renacePrevBounds) win.setBounds(win.__renacePrevBounds);
+      else win.unmaximize();
+    } catch (_) {}
+    win.__renaceCovered = false;
+    return;
+  }
+  coverTaskbar(win);
+}
+
 function attachWindowChrome(win) {
   if (!win || win.isDestroyed()) return;
   if (process.platform === 'win32') {
     try {
-      win.setAutoHideMenuBar(true);
-      win.setMenuBarVisibility(false);
+      win.setAutoHideMenuBar(false);
+      win.setMenuBarVisibility(true);
     } catch (_) {}
-    win.on('maximize', () => {
-      try {
-        if (win.isFullScreen()) win.setFullScreen(false);
-      } catch (_) {}
-    });
   }
 
   applyClosableState(win);
@@ -572,7 +758,6 @@ function attachWindowChrome(win) {
   win.on('close', (e) => {
     if (!isWorkInstanceLocked()) return;
     e.preventDefault();
-    // Minimizar — no cerrar (instancia de trabajo / caja)
     try {
       if (!win.isMinimized()) win.minimize();
     } catch (_) {}
@@ -689,8 +874,7 @@ function attachWindowGuards(win) {
       event.preventDefault();
       const ok = await completeSsoEnter(win, url);
       if (!ok) {
-        log.warn('sso fallback loadURL', url);
-        win.loadURL(url);
+        log.warn('sso enter failed — stay on current page (no fallback load)');
       }
     }
   });
@@ -700,7 +884,7 @@ function attachWindowGuards(win) {
     if (/\/api\/sso\/enter(\?|$)/i.test(url)) {
       event.preventDefault();
       const ok = await completeSsoEnter(win, url);
-      if (!ok) win.loadURL(url);
+      if (!ok) log.warn('sso redirect failed — no fallback');
     }
   });
 
@@ -718,6 +902,7 @@ function attachWindowGuards(win) {
 
   wc.on('dom-ready', () => {
     log.info('dom-ready', wc.getURL());
+    injectWinFrame(wc);
     const u = wc.getURL();
     if (u.startsWith('file://')) return;
     injectPushStub(wc);
@@ -728,6 +913,7 @@ function attachWindowGuards(win) {
 
   wc.on('did-finish-load', () => {
     log.info('did-finish-load', wc.getURL());
+    injectWinFrame(wc);
     const u = wc.getURL();
     if (u.startsWith('file://')) return;
     injectPushStub(wc);
@@ -904,13 +1090,23 @@ async function unlockAdmin() {
     return false;
   }
   store.setAppMode('admin');
+  scheduleAdminExpiry();
   buildMenu();
   BrowserWindow.getAllWindows().forEach((w) => {
     applyUserModeGuards(w);
     applyClosableState(w);
     injectUserShell(w.webContents);
   });
-  log.info('tech mode unlocked');
+  log.info('tech mode unlocked', { ttlMin: ADMIN_TTL_MS / 60000 });
+  dialog
+    .showMessageBox(currentWin() || undefined, {
+      type: 'info',
+      title: 'Modo técnico',
+      message: 'Modo técnico activo.',
+      detail: 'Por seguridad vuelve a modo usuario a los 20 minutos (o antes si eliges Modo Usuario).',
+      buttons: ['OK'],
+    })
+    .catch(() => {});
   return true;
 }
 
@@ -957,7 +1153,7 @@ function buildMenu() {
   const isUser = store.getAppMode() === 'user';
 
   if (isUser) {
-    // Menú mínimo: sin atrás/recargar/devtools/portal/cerrar
+    // Usuario: Archivo con actualizaciones (instalar pide PIN técnico) — sin salir/devtools
     Menu.setApplicationMenu(
       Menu.buildFromTemplate([
         ...(isMac
@@ -965,6 +1161,15 @@ function buildMenu() {
               label: app.name,
               submenu: [
                 { role: 'about' },
+                { type: 'separator' },
+                {
+                  label: 'Buscar actualizaciones…',
+                  click: () => runUpdateCheck(false),
+                },
+                {
+                  label: 'Instalar actualización descargada…',
+                  click: () => runInstallPendingUpdate(),
+                },
                 { type: 'separator' },
                 {
                   label: 'Modo técnico…',
@@ -977,6 +1182,15 @@ function buildMenu() {
         {
           label: 'Archivo',
           submenu: [
+            {
+              label: 'Buscar actualizaciones…',
+              click: () => runUpdateCheck(false),
+            },
+            {
+              label: 'Instalar actualización descargada…',
+              click: () => runInstallPendingUpdate(),
+            },
+            { type: 'separator' },
             {
               label: 'Modo técnico…',
               accelerator: 'CmdOrCtrl+Shift+Alt+T',
@@ -1010,20 +1224,13 @@ function buildMenu() {
               },
               {
                 label: 'Modo Usuario',
-                click: () => {
-                  store.setAppMode('user');
-                  buildMenu();
-                  BrowserWindow.getAllWindows().forEach((w) => {
-                    applyUserModeGuards(w);
-                    injectUserShell(w.webContents);
-                  });
-                },
+                click: () => revertToUserMode('menu'),
               },
               {
-                label: 'Cerrar sesión / limpiar cookies',
+                label: 'Limpiar cookies del portal RENACE',
                 click: async () => {
                   await clearRenaceCookies();
-                  openHome(currentWin());
+                  // No openHome: no interrumpir sesión Odoo de la instancia
                 },
               },
               { type: 'separator' },
@@ -1060,15 +1267,7 @@ function buildMenu() {
           },
           {
             label: 'Modo Usuario',
-            click: () => {
-              store.setAppMode('user');
-              buildMenu();
-              BrowserWindow.getAllWindows().forEach((w) => {
-                applyUserModeGuards(w);
-                applyClosableState(w);
-                injectUserShell(w.webContents);
-              });
-            },
+            click: () => revertToUserMode('menu'),
           },
           {
             label: (() => {
@@ -1174,9 +1373,15 @@ function buildMenu() {
 
 function createWindow() {
   log.info('createWindow');
+  const primary = screen.getPrimaryDisplay();
+  const startBounds =
+    process.platform === 'win32'
+      ? primary.bounds
+      : { width: 1280, height: 860 };
   const win = new BrowserWindow({
-    width: 1280,
-    height: 860,
+    ...(process.platform === 'win32'
+      ? { x: startBounds.x, y: startBounds.y, width: startBounds.width, height: startBounds.height }
+      : { width: 1280, height: 860 }),
     minWidth: 960,
     minHeight: 640,
     show: true,
@@ -1196,6 +1401,14 @@ function createWindow() {
   attachWindowChrome(win);
   attachWindowGuards(win);
   applyUserModeGuards(win);
+  if (process.platform === 'win32') {
+    // Pantalla completa al inicio (incluye barra de tareas)
+    coverTaskbar(win);
+    win.once('ready-to-show', () => coverTaskbar(win));
+    win.on('show', () => {
+      if (!win.__renaceCovered) coverTaskbar(win);
+    });
+  }
   win.focus();
 
   const inst = store.getInstance();
@@ -1211,6 +1424,11 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   log.info('app ready', { version: app.getVersion(), log: log.path(), platform: process.platform });
+
+  // Siempre arrancar en modo usuario (técnico solo con clave, máx. 20 min)
+  store.setAppMode('user');
+  clearAdminExpireTimer();
+  updater.loadPendingFromDisk();
 
   if (process.platform === 'win32') {
     try {
@@ -1241,6 +1459,7 @@ app.whenReady().then(async () => {
   // No borrar caché al arrancar: preserva sesión Odoo / recursos del usuario
   app.on('web-contents-created', (_e, wc) => {
     wc.on('dom-ready', () => {
+      injectWinFrame(wc);
       const u = wc.getURL();
       if (u.startsWith('file://')) return;
       injectPushStub(wc);
@@ -1262,11 +1481,28 @@ app.on('before-quit', (e) => {
     denyCloseMessage(currentWin());
     return;
   }
+  // Salida autorizada: si hay update descargada, instalarla al cerrar
+  const pending = updater.getPendingUpdate();
+  if (pending && process.platform === 'win32') {
+    e.preventDefault();
+    if (!updater.installDeferredIfAny(updaterOpts())) {
+      // Sin instalador usable — salir igual
+      allowQuit = true;
+      setTimeout(() => app.exit(0), 100);
+    }
+    return;
+  }
   posProxy.stop().catch(() => {});
 });
 
 app.on('window-all-closed', () => {
   if (process.platform === 'darwin') return;
-  if (isWorkInstanceLocked()) return;
+  if (isWorkInstanceLocked()) {
+    // No salir: recrear ventana si alguien logró cerrarla
+    setTimeout(() => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    }, 200);
+    return;
+  }
   app.quit();
 });

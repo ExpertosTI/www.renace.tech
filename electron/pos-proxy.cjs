@@ -18,8 +18,20 @@ const log = require('./log.cjs');
 let server = null;
 let settings = { port: 9069, printer: '', enabled: true };
 
-function cors(res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+function cors(res, req) {
+  // Solo localhost (proxy escucha 127.0.0.1) — Origin del Odoo del cliente permitido
+  const origin = (req && req.headers && req.headers.origin) || '';
+  let allow = 'null';
+  try {
+    if (!origin || origin === 'null') allow = '*';
+    else {
+      const u = new URL(origin);
+      if (u.protocol === 'https:' || u.protocol === 'http:') allow = origin;
+    }
+  } catch (_) {
+    allow = 'null';
+  }
+  res.setHeader('Access-Control-Allow-Origin', allow);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader(
     'Access-Control-Allow-Headers',
@@ -28,6 +40,7 @@ function cors(res) {
   res.setHeader('Access-Control-Max-Age', '86400');
   res.setHeader('Connection', 'close');
   res.setHeader('Date', new Date().toUTCString());
+  if (allow !== '*') res.setHeader('Vary', 'Origin');
 }
 
 function readBody(req) {
@@ -143,7 +156,7 @@ async function handleDefaultPrinterAction(raw) {
 
 function createHandler() {
   return async (req, res) => {
-    cors(res);
+    cors(res, req);
     const url = String(req.url || '').split('?')[0];
 
     if (req.method === 'OPTIONS') {

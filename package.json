@@ -1,6 +1,6 @@
 {
   "name": "renace-tech",
-  "version": "3.0.4",
+  "version": "3.0.9",
   "private": true,
   "description": "RENACE.TECH — Platform for business digitalization",
   "author": "RENACE.TECH",
@@ -79,7 +79,8 @@
       "uninstallerIcon": "build/icon.ico",
       "installerHeaderIcon": "build/icon.ico",
       "runAfterFinish": true,
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "warningsAsErrors": false
     },
     "win": {
       "target": [
