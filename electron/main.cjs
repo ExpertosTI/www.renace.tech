@@ -32,7 +32,7 @@ const SETUP_HTML = path.join(__dirname, 'setup.html');
 const TECH_UNLOCK_HTML = path.join(__dirname, 'tech-unlock.html');
 const TECH_PIN = String(process.env.RENACE_TECH_PIN || '101284');
 
-/** Solo modo técnico (o actualización forzada) puede cerrar la app */
+/** Solo se puede salir con allowQuit (técnico confirmó / update) */
 let allowQuit = false;
 let techPromptOpen = false;
 
@@ -40,10 +40,9 @@ function requestQuitForUpdate() {
   allowQuit = true;
 }
 
-function isUserModeLocked() {
+/** Instancia de trabajo vinculada = no cerrar con la X */
+function isWorkInstanceLocked() {
   if (allowQuit) return false;
-  if (store.getAppMode() !== 'user') return false;
-  // Solo con el sistema ya vinculado (instancia abierta)
   return !!store.getInstance();
 }
 
@@ -51,10 +50,10 @@ function denyCloseMessage(win) {
   dialog
     .showMessageBox(win || undefined, {
       type: 'warning',
-      title: 'Cierre bloqueado',
-      message: 'En modo Usuario no se puede cerrar RENACE Portal.',
+      title: 'Instancia de trabajo',
+      message: 'No se puede cerrar RENACE Portal.',
       detail:
-        'Solo un técnico puede cerrar la app.\nAtajo: Ctrl+Shift+Alt+T (o Cmd+Shift+Alt+T) → Modo técnico.',
+        'Esta PC tiene una instancia de empresa vinculada.\nPara salir: Ctrl+Shift+Alt+T → contraseña técnico → Salir.',
       buttons: ['Entendido', 'Modo técnico…'],
       defaultId: 0,
       cancelId: 0,
@@ -62,6 +61,43 @@ function denyCloseMessage(win) {
     .then(({ response }) => {
       if (response === 1) unlockAdmin();
     });
+}
+
+async function requestQuitFromTech() {
+  if (!store.getInstance()) {
+    allowQuit = true;
+    app.quit();
+    return true;
+  }
+  if (store.getAppMode() !== 'admin') {
+    const ok = await unlockAdmin();
+    if (!ok) return false;
+  }
+  const { response } = await dialog.showMessageBox(currentWin() || undefined, {
+    type: 'warning',
+    title: 'Salir',
+    message: '¿Cerrar RENACE Portal?',
+    detail: 'La instancia de trabajo dejará de estar abierta en este PC hasta que vuelvas a abrir la app.',
+    buttons: ['Cancelar', 'Cerrar aplicación'],
+    defaultId: 0,
+    cancelId: 0,
+  });
+  if (response !== 1) return false;
+  allowQuit = true;
+  BrowserWindow.getAllWindows().forEach((w) => {
+    try {
+      w.setClosable(true);
+    } catch (_) {}
+  });
+  app.quit();
+  return true;
+}
+
+function applyClosableState(win) {
+  if (!win || win.isDestroyed()) return;
+  try {
+    win.setClosable(!isWorkInstanceLocked());
+  } catch (_) {}
 }
 
 function updaterOpts() {
@@ -294,7 +330,10 @@ function registerIpc() {
     if (payload?.mode === 'admin') store.setAppMode('admin');
     else store.setAppMode('user');
     buildMenu();
-    BrowserWindow.getAllWindows().forEach((w) => applyUserModeGuards(w));
+    BrowserWindow.getAllWindows().forEach((w) => {
+      applyUserModeGuards(w);
+      applyClosableState(w);
+    });
     await openHome(currentWin());
     return { ...res, mode: store.getAppMode() };
   });
@@ -528,10 +567,18 @@ function attachWindowChrome(win) {
     });
   }
 
+  applyClosableState(win);
+
   win.on('close', (e) => {
-    if (!isUserModeLocked()) return;
+    if (!isWorkInstanceLocked()) return;
     e.preventDefault();
-    denyCloseMessage(win);
+    // Minimizar — no cerrar (instancia de trabajo / caja)
+    try {
+      if (!win.isMinimized()) win.minimize();
+    } catch (_) {}
+    if (store.getAppMode() !== 'admin') {
+      denyCloseMessage(win);
+    }
   });
 }
 
@@ -860,6 +907,7 @@ async function unlockAdmin() {
   buildMenu();
   BrowserWindow.getAllWindows().forEach((w) => {
     applyUserModeGuards(w);
+    applyClosableState(w);
     injectUserShell(w.webContents);
   });
   log.info('tech mode unlocked');
@@ -988,7 +1036,11 @@ function buildMenu() {
                 click: () => runInstallPendingUpdate(),
               },
               { type: 'separator' },
-              { role: 'quit' },
+              {
+                label: 'Salir…',
+                accelerator: 'CmdOrCtrl+Q',
+                click: () => requestQuitFromTech(),
+              },
             ],
           }]
         : []),
@@ -1013,6 +1065,7 @@ function buildMenu() {
               buildMenu();
               BrowserWindow.getAllWindows().forEach((w) => {
                 applyUserModeGuards(w);
+                applyClosableState(w);
                 injectUserShell(w.webContents);
               });
             },
@@ -1050,7 +1103,16 @@ function buildMenu() {
               if (u) clipboard.writeText(u);
             },
           },
-          ...(!isMac ? [{ type: 'separator' }, { role: 'quit' }] : []),
+          ...(!isMac
+            ? [
+                { type: 'separator' },
+                {
+                  label: 'Salir…',
+                  accelerator: 'Alt+F4',
+                  click: () => requestQuitFromTech(),
+                },
+              ]
+            : []),
         ],
       },
       { label: 'Editar', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
@@ -1195,7 +1257,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('before-quit', (e) => {
-  if (isUserModeLocked()) {
+  if (isWorkInstanceLocked()) {
     e.preventDefault();
     denyCloseMessage(currentWin());
     return;
@@ -1205,6 +1267,6 @@ app.on('before-quit', (e) => {
 
 app.on('window-all-closed', () => {
   if (process.platform === 'darwin') return;
-  if (isUserModeLocked()) return;
+  if (isWorkInstanceLocked()) return;
   app.quit();
 });
