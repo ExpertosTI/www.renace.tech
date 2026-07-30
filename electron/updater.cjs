@@ -241,38 +241,21 @@ async function checkForUpdates(opts = {}) {
     }
 
     if (deferInstall) {
-      // Fondo: no instalar ahora — al cerrar / Salir
+      // Fondo: sin diálogos — se instala al cerrar
       log.info('updater deferred until quit', remote);
       return { ok: true, update: true, downloaded: true, deferred: true, remote, path: downloadedPath };
     }
 
+    // Instalación inmediata solo si modo técnico lo pide (menú); sin popup “Más tarde”
     const canInstall = typeof opts.canInstall === 'function' ? opts.canInstall() : true;
     if (!canInstall) {
-      if (!silent) {
-        dialog.showMessageBox(opts.getWin?.() || undefined, {
-          type: 'info',
-          title: 'Actualización descargada',
-          message: `Versión ${remote} lista.`,
-          detail: 'Se instalará al cerrar la aplicación (Salir en modo técnico), o puedes instalarla ahora desde el menú.',
-        });
-      }
+      log.info('updater waiting quit (user mode)', remote);
       return { ok: true, update: true, downloaded: true, deferred: true, remote, path: downloadedPath };
     }
 
-    const { response } = await dialog.showMessageBox(opts.getWin?.() || undefined, {
-      type: 'question',
-      title: 'Actualización disponible',
-      message: `RENACE Portal ${remote} está lista.`,
-      detail: `Versión actual: ${local}\n\n¿Instalar ahora? (Si no, se instalará al cerrar).`,
-      buttons: ['Al cerrar', 'Instalar ahora'],
-      defaultId: 0,
-      cancelId: 0,
-    });
-    if (response === 1) {
-      await installDownloadedUpdate(opts);
-      return { ok: true, update: true, installing: true, remote };
-    }
-    return { ok: true, update: true, downloaded: true, deferred: true, remote, path: downloadedPath };
+    log.info('updater installing now', remote);
+    await installDownloadedUpdate(opts);
+    return { ok: true, update: true, installing: true, remote };
   } catch (e) {
     log.warn('updater check failed', e.message);
     if (!silent) {

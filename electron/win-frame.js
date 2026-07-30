@@ -1,23 +1,30 @@
 'use strict';
 
 /**
- * Barra de ventana Windows a la izquierda (no tapa Cerrar sesión de Odoo a la derecha).
- * Incluye A− / A+ para zoom en cajas sin foco en el menú.
+ * Chrome Windows limpio:
+ * - Franja superior con espacio para clics (no tapa menús Odoo)
+ * - Controles a la izquierda + zoom
+ * - Arrastre solo en la franja, no sobre la navbar
  */
 module.exports = function winFrameScript() {
   return `(() => {
-    const CHROME_W = 230; /* 3×46 ventana + 2×46 zoom */
+    const TOP = 40;       /* altura franja / safe area */
+    const CHROME_W = 240; /* botones izq + zoom */
     const cssText = \`
+      :root { --renace-top: \${TOP}px; --renace-chrome-w: \${CHROME_W}px; }
+
       #renace-win-chrome{
         position:fixed;top:0;left:0;z-index:2147483646;
-        display:flex;align-items:stretch;height:36px;
+        display:flex;align-items:stretch;height:var(--renace-top);
         font-family:Segoe UI,system-ui,sans-serif;
         -webkit-app-region:no-drag;
         pointer-events:auto;
+        background:linear-gradient(180deg,#0d1420 0%,rgba(10,15,26,.92) 100%);
+        border-bottom:1px solid rgba(148,163,184,.08);
       }
       #renace-win-chrome button{
         width:46px;border:0;background:transparent;color:#c5d0e0;
-        font-size:14px;line-height:36px;cursor:pointer;padding:0;
+        font-size:13px;line-height:var(--renace-top);cursor:pointer;padding:0;
         -webkit-app-region:no-drag;
       }
       #renace-win-chrome button.renace-zoom-btn{
@@ -25,13 +32,45 @@ module.exports = function winFrameScript() {
       }
       #renace-win-chrome button:hover{background:rgba(255,255,255,.08);color:#fff}
       #renace-win-chrome button[data-act="close"]:hover{background:#e81123;color:#fff}
+
+      /* Solo arrastre a la derecha de los botones, dentro de la franja */
       #renace-win-drag{
-        position:fixed;top:0;left:\${CHROME_W}px;right:0;height:36px;z-index:2147483645;
+        position:fixed;top:0;left:var(--renace-chrome-w);right:0;
+        height:var(--renace-top);z-index:2147483645;
         -webkit-app-region:drag;
+        background:linear-gradient(180deg,#0d1420 0%,rgba(10,15,26,.92) 100%);
+        border-bottom:1px solid rgba(148,163,184,.08);
       }
-      /* Empujar un poco la navbar Odoo para no chocar con botones izquierdos */
-      .o_main_navbar{padding-left:\${CHROME_W + 10}px !important;}
+
+      /* Empujar TODO el UI de Odoo debajo de la franja — clics arriba funcionan */
+      html.renace-win-pad,
+      html.renace-win-pad body{
+        box-sizing:border-box !important;
+      }
+      html.renace-win-pad body{
+        padding-top:var(--renace-top) !important;
+      }
+      html.renace-win-pad .o_web_client,
+      html.renace-win-pad .o_action_manager,
+      html.renace-win-pad .o_main_navbar,
+      html.renace-win-pad .o_home_menu,
+      html.renace-win-pad .o_pos,
+      html.renace-win-pad .pos,
+      html.renace-win-pad .o_pos_kanban{
+        /* navbar ya no queda bajo el drag */
+      }
+      html.renace-win-pad .o_main_navbar{
+        padding-left:12px !important;
+        top:var(--renace-top) !important;
+      }
+      /* Login / setup locales */
+      html.renace-win-pad .oe_login_form,
+      html.renace-win-pad .o_database_form{
+        margin-top:8px;
+      }
     \`;
+    document.documentElement.classList.add('renace-win-pad');
+
     let css = document.getElementById('renace-win-chrome-style');
     if (!css) {
       css = document.createElement('style');
@@ -52,8 +91,8 @@ module.exports = function winFrameScript() {
         '<button type="button" data-act="close" title="Minimizar">✕</button>' +
         '<button type="button" data-act="min" title="Minimizar">─</button>' +
         '<button type="button" data-act="max" title="Pantalla completa">▢</button>' +
-        '<button type="button" class="renace-zoom-btn" data-act="zoom-out" title="Zoom − (Ctrl+−)">A−</button>' +
-        '<button type="button" class="renace-zoom-btn" data-act="zoom-in" title="Zoom + (Ctrl+=)">A+</button>';
+        '<button type="button" class="renace-zoom-btn" data-act="zoom-out" title="Zoom −">A−</button>' +
+        '<button type="button" class="renace-zoom-btn" data-act="zoom-in" title="Zoom +">A+</button>';
       document.documentElement.appendChild(bar);
       bar.addEventListener('click', (ev) => {
         const btn = ev.target.closest('button[data-act]');

@@ -1,6 +1,6 @@
 {
   "name": "renace-tech",
-  "version": "3.0.11",
+  "version": "3.0.13",
   "private": true,
   "description": "RENACE.TECH — Platform for business digitalization",
   "author": "RENACE.TECH",
@@ -68,9 +68,9 @@
       "enableEmbeddedAsarIntegrityValidation": false
     },
     "nsis": {
-      "oneClick": false,
+      "oneClick": true,
       "allowElevation": true,
-      "allowToChangeInstallationDirectory": true,
+      "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "RENACE Portal",
@@ -80,7 +80,8 @@
       "installerHeaderIcon": "build/icon.ico",
       "runAfterFinish": true,
       "deleteAppDataOnUninstall": false,
-      "warningsAsErrors": false
+      "warningsAsErrors": false,
+      "displayLanguageSelector": false
     },
     "win": {
       "target": [

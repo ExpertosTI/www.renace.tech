@@ -2,63 +2,12 @@
 
 const { contextBridge, ipcRenderer, webFrame } = require('electron');
 
-// No stub push en file:// (setup) — evita interferir con la pantalla local
+// Puente de notificaciones en páginas remotas (Odoo) — sin denegar push/toast
 try {
   if (!location.href.startsWith('file:')) {
     webFrame.executeJavaScript(`(() => {
-    if (window.__renacePushStub) return;
-    window.__renacePushStub = true;
-    const noop = () => {};
-    const fakePermissionStatus = (state, name) => ({
-      state: state || 'denied',
-      name: name || 'notifications',
-      onchange: null,
-      addEventListener: noop,
-      removeEventListener: noop,
-      dispatchEvent: () => false,
-    });
-    const fakeReg = {
-      scope: '/', active: null, installing: null, waiting: null,
-      pushManager: {
-        getSubscription: () => Promise.resolve(null),
-        permissionState: () => Promise.resolve('denied'),
-        subscribe: () => Promise.reject(new DOMException('Push disabled', 'NotAllowedError')),
-      },
-      unregister: () => Promise.resolve(true),
-      update: () => Promise.resolve(undefined),
-      addEventListener: noop, removeEventListener: noop,
-    };
-    const fakeSW = {
-      controller: null,
-      ready: Promise.resolve(fakeReg),
-      register: () => Promise.resolve(fakeReg),
-      getRegistration: () => Promise.resolve(undefined),
-      getRegistrations: () => Promise.resolve([]),
-      addEventListener: noop, removeEventListener: noop, startMessages: noop,
-    };
-    try {
-      Object.defineProperty(navigator, 'serviceWorker', { configurable: true, get: () => fakeSW });
-    } catch (_) {}
-    try {
-      if (window.Notification) {
-        try {
-          Object.defineProperty(window.Notification, 'permission', { configurable: true, get: () => 'denied' });
-        } catch (_) {}
-        window.Notification.requestPermission = () => Promise.resolve('denied');
-      }
-    } catch (_) {}
-    try {
-      if (navigator.permissions && navigator.permissions.query) {
-        const orig = navigator.permissions.query.bind(navigator.permissions);
-        navigator.permissions.query = (desc) => {
-          const name = desc && desc.name;
-          if (name === 'notifications' || name === 'push' || name === 'push-messaging') {
-            return Promise.resolve(fakePermissionStatus('denied', name));
-          }
-          return orig(desc).catch(() => fakePermissionStatus('prompt', name));
-        };
-      }
-    } catch (_) {}
+    if (window.__renaceNotifyBridge) return;
+    window.__renaceNotifyBridge = true;
   })();`, true).catch(() => {});
   }
 } catch (_) {}
@@ -87,20 +36,25 @@ try {
     setKeymap: (partial) => ipcRenderer.invoke('renace:keymap-set', partial),
     submitTechUnlock: (password) => ipcRenderer.send('renace:tech-password', String(password || '')),
     cancelTechUnlock: () => ipcRenderer.send('renace:tech-password-cancel'),
-    staffPublicList: () => ipcRenderer.invoke('renace:staff-public-list'),
-    staffTechList: () => ipcRenderer.invoke('renace:staff-tech-list'),
-    staffUpsert: (payload) => ipcRenderer.invoke('renace:staff-upsert', payload),
-    staffRemove: (id) => ipcRenderer.invoke('renace:staff-remove', id),
-    staffLogin: (id, pin) => ipcRenderer.invoke('renace:staff-login', id, pin),
-    staffHasProfiles: () => ipcRenderer.invoke('renace:staff-has'),
     winClose: () => ipcRenderer.send('renace:win-close'),
     winMin: () => ipcRenderer.send('renace:win-min'),
     winMax: () => ipcRenderer.send('renace:win-max'),
+    zoomGet: () => ipcRenderer.invoke('renace:zoom-get'),
+    zoomSet: (f) => ipcRenderer.invoke('renace:zoom-set', f),
     zoomIn: () => ipcRenderer.invoke('renace:zoom-in'),
     zoomOut: () => ipcRenderer.invoke('renace:zoom-out'),
     zoomReset: () => ipcRenderer.invoke('renace:zoom-reset'),
-    zoomSet: (factor) => ipcRenderer.invoke('renace:zoom-set', factor),
-    zoomGet: () => ipcRenderer.invoke('renace:zoom-get'),
+    listStaff: () => ipcRenderer.invoke('renace:staff-public-list'),
+    staffPublicList: () => ipcRenderer.invoke('renace:staff-public-list'),
+    staffTechList: () => ipcRenderer.invoke('renace:staff-tech-list'),
+    staffHas: () => ipcRenderer.invoke('renace:staff-has'),
+    staffUpsert: (payload) => ipcRenderer.invoke('renace:staff-upsert', payload),
+    upsertStaff: (payload) => ipcRenderer.invoke('renace:staff-upsert', payload),
+    staffRemove: (id) => ipcRenderer.invoke('renace:staff-remove', id),
+    removeStaff: (id) => ipcRenderer.invoke('renace:staff-remove', id),
+    staffLogin: (id, pin) => ipcRenderer.invoke('renace:staff-login', id, pin),
+    openStaffLogin: () => ipcRenderer.invoke('renace:staff-open'),
+    notify: (payload) => ipcRenderer.invoke('renace:notify', payload || {}),
   });
 } catch (_) {
   // reload: ya expuesto

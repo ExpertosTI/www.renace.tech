@@ -2,10 +2,12 @@
 
 /**
  * RENACE Portal — Electron shell
- * Portal + SSO Odoo + logs de diagnóstico (pantalla en blanco).
+ * Portal + SSO Odoo. Logs silenciosos → servidor. Notificaciones nativas en PC.
  */
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const crypto = require('crypto');
 const {
   app,
   BrowserWindow,
@@ -16,6 +18,7 @@ const {
   clipboard,
   ipcMain,
   screen,
+  Notification,
 } = require('electron');
 const store = require('./secure-store.cjs');
 const staffLocal = require('./staff-local.cjs');
@@ -25,7 +28,8 @@ const posProxy = require('./pos-proxy.cjs');
 const updater = require('./updater.cjs');
 const winFrameScript = require('./win-frame.js');
 
-app.commandLine.appendSwitch('disable-features', 'PushMessaging,Notifications');
+// FCM web push en Chromium es problemático; las notificaciones las gestiona Portal (OS + Odoo bus)
+app.commandLine.appendSwitch('disable-features', 'PushMessaging');
 
 const PORTAL_URL = process.env.RENACE_PORTAL_URL || 'https://renace.tech/portal';
 const HOME_URL = process.env.RENACE_HOME_URL || 'https://renace.tech';
@@ -256,11 +260,11 @@ async function runInstallPendingUpdate() {
     });
   }
 }
-let PUSH_STUB = '';
+let PUSH_BRIDGE = '';
 let COMPANY_FOCUS = '';
 let USER_SHELL = '';
 try {
-  PUSH_STUB = fs.readFileSync(path.join(__dirname, 'push-stub.js'), 'utf8');
+  PUSH_BRIDGE = fs.readFileSync(path.join(__dirname, 'push-bridge.js'), 'utf8');
 } catch (_) {}
 try {
   COMPANY_FOCUS = fs.readFileSync(path.join(__dirname, 'company-focus.js'), 'utf8');
@@ -728,6 +732,10 @@ function registerIpc() {
     if (res.ok) log.info('staff removed');
     return res;
   });
+  ipcMain.handle('renace:staff-open', () => {
+    openStaffLogin(currentWin());
+    return true;
+  });
   ipcMain.handle('renace:staff-login', async (event, id, pin) => {
     // Solo desde staff-login local (file://) — nunca desde Odoo XSS
     const url = event?.senderFrame?.url || event?.sender?.getURL?.() || '';
@@ -789,6 +797,7 @@ function registerIpc() {
   ipcMain.handle('renace:zoom-in', () => adjustAppZoom(ZOOM_STEP));
   ipcMain.handle('renace:zoom-out', () => adjustAppZoom(-ZOOM_STEP));
   ipcMain.handle('renace:zoom-reset', () => setAppZoom(1));
+  ipcMain.handle('renace:notify', (_e, payload) => showNativeNotification(payload || {}));
 }
 
 function isPortalCookieDomain(domain) {
@@ -908,9 +917,31 @@ async function completeSsoEnter(win, enterUrl) {
   }
 }
 
-function injectPushStub(wc) {
-  if (!PUSH_STUB || !wc || wc.isDestroyed()) return;
-  wc.executeJavaScript(PUSH_STUB, true).catch(() => {});
+function injectPushBridge(wc) {
+  if (!PUSH_BRIDGE || !wc || wc.isDestroyed()) return;
+  wc.executeJavaScript(PUSH_BRIDGE, true).catch(() => {});
+}
+
+function showNativeNotification(payload) {
+  try {
+    if (!Notification.isSupported()) return false;
+    const n = new Notification({
+      title: String(payload?.title || 'RENACE').slice(0, 120),
+      body: String(payload?.body || '').slice(0, 500),
+      silent: !!payload?.silent,
+    });
+    n.on('click', () => {
+      const w = currentWin();
+      if (w && !w.isDestroyed()) {
+        if (w.isMinimized()) w.restore();
+        w.focus();
+      }
+    });
+    return true;
+  } catch (e) {
+    log.warn('native notification', e.message);
+    return false;
+  }
 }
 
 function injectCompanyFocus(wc) {
@@ -1072,9 +1103,15 @@ function toggleCoverTaskbar(win) {
 function attachWindowChrome(win) {
   if (!win || win.isDestroyed()) return;
   if (process.platform === 'win32') {
+    // Menú limpio: oculto en usuario (Alt lo muestra); visible en técnico
     try {
-      win.setAutoHideMenuBar(false);
-      win.setMenuBarVisibility(true);
+      if (store.getAppMode() === 'user') {
+        win.setAutoHideMenuBar(true);
+        win.setMenuBarVisibility(false);
+      } else {
+        win.setAutoHideMenuBar(false);
+        win.setMenuBarVisibility(true);
+      }
     } catch (_) {}
   }
 
@@ -1148,50 +1185,12 @@ function sanitizeBlankMeta(info) {
   };
 }
 
-/** Banner de diagnóstico si Odoo/portal queda vacío (solo modo técnico) */
-function injectBlankDiagnostic(wc, meta) {
-  if (!wc || wc.isDestroyed()) return;
-  if (store.getAppMode() !== 'admin') return;
-  const safe = sanitizeBlankMeta(meta);
-  safe.logPath = meta && meta.logPath ? String(meta.logPath) : '';
-  const payload = JSON.stringify(safe);
-  wc.executeJavaScript(
-    `(() => {
-      const meta = ${payload};
-      const existing = document.getElementById('renace-debug-banner');
-      if (existing) existing.remove();
-      const el = document.createElement('div');
-      el.id = 'renace-debug-banner';
-      el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:2147483647;padding:14px 16px;border-radius:12px;background:#111827;color:#e5e7eb;font:13px/1.45 -apple-system,BlinkMacSystemFont,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.35);border:1px solid #374151;';
-      el.innerHTML = '<div style="font-weight:700;margin-bottom:6px;color:#fbbf24">RENACE debug — pantalla vacía detectada</div>' +
-        '<div><b>URL</b>: ' + (meta.url || '') + '</div>' +
-        '<div><b>title</b>: ' + (meta.title || '') + '</div>' +
-        '<div><b>bodyLen</b>: ' + (meta.bodyLen || 0) + '</div>' +
-        '<div style="margin-top:8px;opacity:.8">Log: ' + (meta.logPath || '') + '</div>' +
-        '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">' +
-        '<button id="renace-dbg-portal" style="padding:8px 12px;border-radius:8px;border:0;background:#0087ff;color:#fff;cursor:pointer">Volver al portal</button>' +
-        '<button id="renace-dbg-reload" style="padding:8px 12px;border-radius:8px;border:0;background:#374151;color:#fff;cursor:pointer">Recargar</button>' +
-        '<button id="renace-dbg-devtools" style="padding:8px 12px;border-radius:8px;border:0;background:#374151;color:#fff;cursor:pointer">DevTools</button>' +
-        '</div>';
-      document.documentElement.appendChild(el);
-      document.getElementById('renace-dbg-portal')?.addEventListener('click', () => { location.href = 'https://renace.tech/portal'; });
-      document.getElementById('renace-dbg-reload')?.addEventListener('click', () => location.reload());
-      document.getElementById('renace-dbg-devtools')?.addEventListener('click', () => {
-        window.renaceDesktop?.openDevTools?.();
-      });
-    })()`,
-    true
-  ).catch((e) => log.warn('injectBlankDiagnostic', e.message));
-}
-
+/** Sin banner visual: solo log silencioso al archivo + servidor */
 async function checkBlankPage(win) {
   if (!win || win.isDestroyed()) return;
-  // Usuario: sin diagnóstico de pantalla vacía ni DevTools
-  if (store.getAppMode() !== 'admin') return;
   const wc = win.webContents;
   const current = wc.getURL();
   if (current.startsWith('file://')) return;
-  // POS: nunca blank-check (SPA monta tarde; title "Odoo" + body corto es esperado)
   if (isPosLikeUrl(current)) return;
 
   let info = { url: current, title: '', bodyLen: 0, hasOdoo: false, hasPos: false };
@@ -1211,9 +1210,6 @@ async function checkBlankPage(win) {
   const safe = sanitizeBlankMeta(info);
   if (isPosLikeUrl(safe.url) || safe.hasPos) return;
 
-  log.info('page check', safe);
-
-  // Heurística suavizada: no falsos positivos por title "Odoo" en shell/POS cargando
   const shellLoading = isOdooShellUrl(safe.url) || /^odoo$/i.test(safe.title);
   const looksBlank =
     !safe.hasOdoo &&
@@ -1223,25 +1219,20 @@ async function checkBlankPage(win) {
       (/^odoo$/i.test(safe.title) && !isOdooShellUrl(safe.url) && safe.bodyLen < 40));
 
   if (!looksBlank) return;
-
   log.warn('BLANK PAGE DETECTED', safe);
-  // Banner opcional para técnico — sin abrir DevTools automáticamente
-  injectBlankDiagnostic(wc, { ...safe, logPath: log.path() });
 }
 
 function hardenSession(ses) {
   ses.setPermissionRequestHandler((_wc, permission, callback) => {
-    callback(permission !== 'notifications');
-  });
-  ses.webRequest.onCompleted({ urls: ['*://*.renace.tech/*', '*://renace.tech/*'] }, (details) => {
-    if (details.resourceType === 'mainFrame') {
-      log.info('mainFrame completed', { url: details.url, status: details.statusCode });
-    }
+    // Permitir notificaciones del SO / Odoo; denegar el resto sensible por defecto
+    if (permission === 'notifications') return callback(true);
+    if (permission === 'media' || permission === 'geolocation') return callback(false);
+    callback(true);
   });
   ses.webRequest.onErrorOccurred({ urls: ['*://*.renace.tech/*', '*://renace.tech/*'] }, (details) => {
     if (details.resourceType === 'mainFrame' || details.resourceType === 'xhr' || details.resourceType === 'script') {
       log.warn('request error', {
-        url: details.url,
+        url: String(details.url || '').slice(0, 200),
         type: details.resourceType,
         error: details.error,
       });
@@ -1260,7 +1251,6 @@ function attachWindowGuards(win) {
   });
 
   wc.on('will-navigate', async (event, url) => {
-    log.info('will-navigate', url);
     if (!isAllowed(url)) {
       event.preventDefault();
       shell.openExternal(url);
@@ -1269,31 +1259,31 @@ function attachWindowGuards(win) {
     if (/\/api\/sso\/enter(\?|$)/i.test(url)) {
       event.preventDefault();
       const ok = await completeSsoEnter(win, url);
-      if (!ok) {
-        log.warn('sso enter failed — stay on current page (no fallback load)');
-      }
+      if (!ok) log.warn('sso enter failed — stay on current page');
     }
   });
 
   wc.on('will-redirect', async (event, url) => {
-    log.info('will-redirect', url);
     if (/\/api\/sso\/enter(\?|$)/i.test(url)) {
       event.preventDefault();
       const ok = await completeSsoEnter(win, url);
-      if (!ok) log.warn('sso redirect failed — no fallback');
+      if (!ok) log.warn('sso redirect failed');
     }
   });
 
   wc.on('did-navigate', (_e, url) => {
-    log.info('did-navigate', url);
     store.recordVisit(url);
     win.setTitle(windowTitleFor(url));
+    try {
+      const host = new URL(url).host;
+      if (host) log.setInstanceHost(host);
+    } catch (_) {}
   });
-  wc.on('did-navigate-in-page', (_e, url) => log.info('did-navigate-in-page', url));
-  wc.on('page-title-updated', (_e, title) => log.info('title', title));
+  wc.on('did-navigate-in-page', () => {});
+  wc.on('page-title-updated', () => {});
 
-  wc.on('console-message', (_e, level, message, line, sourceId) => {
-    if (level >= 2) log.warn('renderer console', { level, message: String(message).slice(0, 300), sourceId, line });
+  wc.on('console-message', (_e, level, message) => {
+    if (level >= 2) log.warn('renderer console', { message: String(message).slice(0, 200) });
   });
 
   wc.on('dom-ready', () => {
@@ -1302,47 +1292,44 @@ function attachWindowGuards(win) {
     injectWinFrame(wc);
     const u = wc.getURL();
     if (u.startsWith('file://')) return;
-    injectPushStub(wc);
+    injectPushBridge(wc);
     injectCompanyFocus(wc);
     injectUserShell(wc);
     injectDrag(wc);
   });
 
   wc.on('did-finish-load', () => {
-    log.info('did-finish-load', wc.getURL());
     applyZoomFactor(wc);
     injectWinFrame(wc);
     const u = wc.getURL();
     if (u.startsWith('file://')) return;
-    injectPushStub(wc);
+    injectPushBridge(wc);
     injectCompanyFocus(wc);
     injectUserShell(wc);
     injectDrag(wc);
-    // Diagnóstico de pantalla vacía solo en modo técnico
-    if (store.getAppMode() !== 'admin') return;
+    // Chequeo silencioso (solo log remoto; sin UI)
     if (isPosLikeUrl(u)) return;
     const delay = isOdooShellUrl(u) ? 8000 : 2500;
     setTimeout(() => checkBlankPage(win), delay);
-    setTimeout(() => checkBlankPage(win), delay + 5000);
   });
 
   wc.on('did-fail-load', (_e, code, desc, url, isMainFrame) => {
     if (!isMainFrame || code === -3) return;
-    log.error('did-fail-load', { code, desc, url });
-    // Usuarios: sin popups de error/log. Solo modo técnico.
-    if (store.getAppMode() !== 'admin') return;
-    dialog
-      .showMessageBox(win, {
-        type: 'error',
-        title: 'Error de carga',
-        message: 'No se pudo cargar la página.',
-        detail: `${desc}\n${url}\n\nLog: ${log.path()}`,
-        buttons: ['Reintentar portal', 'Abrir log', 'Cerrar'],
-      })
-      .then(({ response }) => {
-        if (response === 0) openHome(win);
-        if (response === 1) log.open();
-      });
+    log.error('did-fail-load', { code, desc, url: String(url || '').slice(0, 200) });
+    // Sin popups ni “Abrir log” — reintento silencioso una vez en usuario
+    if (store.getAppMode() === 'admin') {
+      dialog
+        .showMessageBox(win, {
+          type: 'error',
+          title: 'Error de carga',
+          message: 'No se pudo cargar la página.',
+          detail: String(desc || ''),
+          buttons: ['Reintentar', 'Cerrar'],
+        })
+        .then(({ response }) => {
+          if (response === 0) openHome(win);
+        });
+    }
   });
 }
 
@@ -1758,9 +1745,18 @@ function buildMenu() {
           { role: 'toggleDevTools' },
           { type: 'separator' },
           {
-            label: 'Abrir archivo de log',
+            label: 'Enviar logs al servidor',
             accelerator: 'CmdOrCtrl+Shift+L',
-            click: () => log.open(),
+            click: () => {
+              log.flush().then(() => {
+                dialog.showMessageBox(currentWin() || undefined, {
+                  type: 'info',
+                  title: 'Logs',
+                  message: 'Logs enviados al servidor (silencioso).',
+                  buttons: ['OK'],
+                }).catch(() => {});
+              }).catch(() => {});
+            },
           },
           {
             label: 'Estado RENACE POS',
@@ -1857,7 +1853,23 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
-  log.info('app ready', { version: app.getVersion(), log: log.path(), platform: process.platform });
+  log.configure({
+    version: app.getVersion(),
+    platform: process.platform,
+    deviceId: crypto
+      .createHash('sha256')
+      .update(`${os.hostname()}-${app.getPath('userData')}`)
+      .digest('hex')
+      .slice(0, 16),
+    instanceHost: (() => {
+      try {
+        return store.getInstance()?.url ? new URL(store.getInstance().url).host : '';
+      } catch {
+        return '';
+      }
+    })(),
+  });
+  log.info('app ready', { version: app.getVersion(), platform: process.platform });
 
   // Siempre arrancar en modo usuario (técnico solo con clave, máx. 20 min)
   store.setAppMode('user');
@@ -1898,7 +1910,7 @@ app.whenReady().then(async () => {
       injectWinFrame(wc);
       const u = wc.getURL();
       if (u.startsWith('file://')) return;
-      injectPushStub(wc);
+      injectPushBridge(wc);
       injectCompanyFocus(wc);
     });
   });
@@ -1912,6 +1924,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('before-quit', (e) => {
+  log.flush().catch(() => {});
   if (isWorkInstanceLocked()) {
     e.preventDefault();
     denyCloseMessage(currentWin());

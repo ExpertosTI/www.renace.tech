@@ -1330,6 +1330,52 @@ app.get('/api/portal/desktop-update', apiLimiter, (req, res) => {
   return res.status(404).json({ error: 'Sin manifiesto de actualización del Portal' });
 });
 
+/** Logs silenciosos del Portal Desktop (Electron) — para análisis */
+app.post('/api/portal/desktop-logs', apiLimiter, (req, res) => {
+  try {
+    const body = req.body || {};
+    const lines = Array.isArray(body.lines) ? body.lines.slice(0, 200) : [];
+    if (!lines.length) return res.json({ ok: true, stored: 0 });
+
+    const dir = path.join(DATA_DIR, 'desktop-logs');
+    fs.mkdirSync(dir, { recursive: true });
+    const day = new Date().toISOString().slice(0, 10);
+    const device = String(body.deviceId || 'unknown').replace(/[^\w.-]/g, '').slice(0, 32) || 'unknown';
+    const file = path.join(dir, `${day}-${device}.jsonl`);
+
+    const meta = {
+      version: String(body.version || '').slice(0, 32),
+      platform: String(body.platform || '').slice(0, 32),
+      hostname: String(body.hostname || '').slice(0, 80),
+      instanceHost: String(body.instanceHost || '').slice(0, 120),
+      deviceId: device,
+      receivedAt: new Date().toISOString(),
+    };
+
+    const out = lines
+      .map((row) => {
+        const level = String(row?.level || 'INFO').slice(0, 12);
+        const msg = String(row?.msg || '').slice(0, 1200);
+        const t = String(row?.t || meta.receivedAt).slice(0, 40);
+        let extra = row?.extra;
+        if (extra != null) {
+          try {
+            extra = JSON.parse(JSON.stringify(extra).slice(0, 2000));
+          } catch {
+            extra = undefined;
+          }
+        }
+        return JSON.stringify({ ...meta, t, level, msg, extra });
+      })
+      .join('\n') + '\n';
+
+    fs.appendFileSync(file, out, { mode: 0o600 });
+    return res.json({ ok: true, stored: lines.length });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: 'log store failed' });
+  }
+});
+
 app.post('/api/portal/lookup', portalLimiter, async (req, res) => {
   const serviceCode = String(req.body?.serviceCode || req.body?.service_code || '').trim().toLowerCase().slice(0, 32);
   if (!serviceCode) {
