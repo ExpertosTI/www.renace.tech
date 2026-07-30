@@ -114,56 +114,50 @@ enum RenaceUserShell {
     if (isUser()) e.preventDefault();
   }, true);
 
-  // Atajos Eleventa → Odoo POS
+  // Atajos Eleventa → Odoo POS (solo dentro del POS; no capturan teclas globales)
   window.addEventListener('keydown', function (e) {
     if (!keys.enabled) return;
-    if (!isPos() && !matchBinding(e, 'sales')) return;
+    if (!isPos()) return;
+    // No interceptar si el foco está en inputs de texto (excepto barcode del POS)
+    var t = e.target;
+    if (t && (t.isContentEditable || /^(TEXTAREA)$/i.test(t.tagName))) return;
+    if (t && /^INPUT$/i.test(t.tagName) && t.type !== 'text' && t.type !== 'search' && t.type !== '') return;
+    // En input de búsqueda/barcode: dejar F-keys pasar solo si son atajos POS conocidos
 
-    // En pantalla de cobro: F1 imprimir/cobrar, F2 sin imprimir, ESC cancelar
     if (isPaymentScreen()) {
       if (matchBinding(e, 'payPrint') || (matchBinding(e, 'sales') && isPaymentScreen())) {
+        if (!doValidate()) return;
         e.preventDefault();
-        e.stopPropagation();
-        doValidate();
         return;
       }
       if (matchBinding(e, 'payNoPrint')) {
+        if (!doValidate()) return;
         e.preventDefault();
-        e.stopPropagation();
-        // Odoo suele imprimir al validar; intentamos validar igual (sin print dedicado en CE)
-        doValidate();
         return;
       }
       if (matchBinding(e, 'cancel')) {
+        if (!doBackCancel()) return;
         e.preventDefault();
-        e.stopPropagation();
-        doBackCancel();
         return;
       }
     }
 
     if (matchBinding(e, 'pay')) {
+      if (!doPay()) return;
       e.preventDefault();
-      e.stopPropagation();
-      doPay();
       return;
     }
 
     if (matchBinding(e, 'sales') && !isPaymentScreen()) {
-      // En POS ya estamos en ventas; enfocar input de búsqueda/barcode
-      e.preventDefault();
       var inp = document.querySelector(
         '.search-bar input, .pos .searchbox input, input[placeholder*="buscar" i], input[placeholder*="search" i], .product-screen input'
       );
-      if (inp) inp.focus();
-      return;
+      if (inp) {
+        e.preventDefault();
+        inp.focus();
+      }
     }
-
-    if (matchBinding(e, 'cancel') && isPaymentScreen()) {
-      e.preventDefault();
-      doBackCancel();
-    }
-  }, true);
+  }, false);
 
   // Exponer para nativo / debug
   window.renaceShell = {

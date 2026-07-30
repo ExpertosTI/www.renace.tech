@@ -17,9 +17,14 @@ function canEncrypt() {
 function readStore() {
   try {
     const raw = fs.readFileSync(FILE(), 'utf8');
-    return JSON.parse(raw);
+    const data = JSON.parse(raw);
+    if (!data.secrets) data.secrets = {};
+    if (!data.usage) data.usage = {};
+    if (!data.pos) data.pos = {};
+    if (!Array.isArray(data.staff)) data.staff = [];
+    return data;
   } catch {
-    return { secrets: {}, usage: {}, instance: null, pos: {} };
+    return { secrets: {}, usage: {}, instance: null, pos: {}, staff: [] };
   }
 }
 
@@ -281,6 +286,70 @@ function topDestinations(limit = 3) {
     .slice(0, Math.max(1, Math.min(8, limit)));
 }
 
+/** Perfiles de personal de este PC (metadatos + hash PIN; passwords en secrets) */
+function listStaff() {
+  const store = readStore();
+  return Array.isArray(store.staff) ? store.staff.slice() : [];
+}
+
+function getStaffById(id) {
+  const sid = String(id || '').trim();
+  if (!sid) return null;
+  return listStaff().find((p) => p && p.id === sid) || null;
+}
+
+function saveStaff(row) {
+  if (!row?.id) return false;
+  const store = readStore();
+  if (!Array.isArray(store.staff)) store.staff = [];
+  const idx = store.staff.findIndex((p) => p && p.id === row.id);
+  if (idx >= 0) store.staff[idx] = row;
+  else store.staff.push(row);
+  writeStore(store);
+  return true;
+}
+
+function removeStaff(id) {
+  const sid = String(id || '').trim();
+  if (!sid) return false;
+  const store = readStore();
+  store.staff = (store.staff || []).filter((p) => p && p.id !== sid);
+  writeStore(store);
+  return true;
+}
+
+function clearStaff() {
+  const store = readStore();
+  store.staff = [];
+  writeStore(store);
+  return true;
+}
+
+/** Zoom de webContents (0.8–1.5). Persistido; no CSS. */
+const ZOOM_MIN = 0.8;
+const ZOOM_MAX = 1.5;
+const ZOOM_DEFAULT = 1.0;
+
+function clampZoomFactor(z) {
+  const n = Number(z);
+  if (!Number.isFinite(n)) return ZOOM_DEFAULT;
+  const rounded = Math.round(n * 100) / 100;
+  return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, rounded));
+}
+
+function getZoomFactor() {
+  const store = readStore();
+  if (store.zoomFactor == null) return ZOOM_DEFAULT;
+  return clampZoomFactor(store.zoomFactor);
+}
+
+function setZoomFactor(z) {
+  const store = readStore();
+  store.zoomFactor = clampZoomFactor(z);
+  writeStore(store);
+  return store.zoomFactor;
+}
+
 module.exports = {
   canEncrypt,
   setSecret,
@@ -305,4 +374,15 @@ module.exports = {
   getKeymap,
   setKeymap,
   defaultKeymap,
+  listStaff,
+  getStaffById,
+  saveStaff,
+  removeStaff,
+  clearStaff,
+  getZoomFactor,
+  setZoomFactor,
+  clampZoomFactor,
+  ZOOM_MIN,
+  ZOOM_MAX,
+  ZOOM_DEFAULT,
 };

@@ -18,6 +18,7 @@ const {
   screen,
 } = require('electron');
 const store = require('./secure-store.cjs');
+const staffLocal = require('./staff-local.cjs');
 const log = require('./log.cjs');
 const { ensurePosAgent, readStartWithWindowsFlag } = require('./posagent-win.cjs');
 const posProxy = require('./pos-proxy.cjs');
@@ -31,10 +32,73 @@ const HOME_URL = process.env.RENACE_HOME_URL || 'https://renace.tech';
 const PARTITION = 'persist:renace-portal';
 const PRELOAD = path.join(__dirname, 'preload.cjs');
 const SETUP_HTML = path.join(__dirname, 'setup.html');
+const STAFF_LOGIN_HTML = path.join(__dirname, 'staff-login.html');
 const TECH_UNLOCK_HTML = path.join(__dirname, 'tech-unlock.html');
 const TECH_PIN = String(process.env.RENACE_TECH_PIN || '101284');
 /** Modo técnico caduca solo; siempre se arranca en usuario */
 const ADMIN_TTL_MS = 20 * 60 * 1000;
+const ZOOM_STEP = 0.1;
+
+function applyZoomFactor(wc, factor) {
+  if (!wc || wc.isDestroyed()) return;
+  const z = store.clampZoomFactor(factor != null ? factor : store.getZoomFactor());
+  try {
+    wc.setZoomFactor(z);
+  } catch (_) {}
+}
+
+function applyZoomToAll(factor) {
+  const z = store.clampZoomFactor(factor != null ? factor : store.getZoomFactor());
+  BrowserWindow.getAllWindows().forEach((w) => {
+    try {
+      applyZoomFactor(w.webContents, z);
+    } catch (_) {}
+  });
+  return z;
+}
+
+function setAppZoom(factor) {
+  const z = store.setZoomFactor(factor);
+  applyZoomToAll(z);
+  return z;
+}
+
+function adjustAppZoom(delta) {
+  return setAppZoom(store.getZoomFactor() + delta);
+}
+
+/** Entradas de menú Ver / zoom (usuario y técnico). Persistidas en secure-store. */
+function zoomMenuTemplate() {
+  const pct = Math.round(store.getZoomFactor() * 100);
+  return [
+    {
+      label: `Zoom + (${pct}%)`,
+      accelerator: 'CmdOrCtrl+=',
+      click: () => adjustAppZoom(ZOOM_STEP),
+    },
+    {
+      label: 'Zoom +',
+      accelerator: 'CmdOrCtrl+Plus',
+      visible: false,
+      acceleratorWorksWhenHidden: true,
+      click: () => adjustAppZoom(ZOOM_STEP),
+    },
+    {
+      label: 'Zoom −',
+      accelerator: 'CmdOrCtrl+-',
+      click: () => adjustAppZoom(-ZOOM_STEP),
+    },
+    {
+      label: 'Zoom 100%',
+      accelerator: 'CmdOrCtrl+0',
+      click: () => setAppZoom(1),
+    },
+    { type: 'separator' },
+    { label: 'Zoom 90%', click: () => setAppZoom(0.9) },
+    { label: 'Zoom 110%', click: () => setAppZoom(1.1) },
+    { label: 'Zoom 125%', click: () => setAppZoom(1.25) },
+  ];
+}
 
 /** Solo se puede salir con allowQuit (técnico confirmó / update) */
 let allowQuit = false;
@@ -269,6 +333,12 @@ function openSetup(win) {
   w.loadFile(SETUP_HTML).catch((e) => log.error('setup load', e.message));
 }
 
+function openStaffLogin(win) {
+  const w = win || currentWin();
+  if (!w) return;
+  w.loadFile(STAFF_LOGIN_HTML).catch((e) => log.error('staff-login load', e.message));
+}
+
 async function hasOdooSessionCookie(inst) {
   if (!inst?.url) return false;
   try {
@@ -277,6 +347,104 @@ async function hasOdooSessionCookie(inst) {
   } catch {
     return false;
   }
+}
+
+function extractOdooCsrf(html) {
+  const raw = String(html || '');
+  const m =
+    raw.match(/name=["']csrf_token["']\s+value=["']([^"']+)["']/i) ||
+    raw.match(/value=["']([^"']+)["']\s+name=["']csrf_token["']/i) ||
+    raw.match(/csrf_token["']?\s*:\s*["']([^"']+)["']/i);
+  return m ? m[1] : null;
+}
+
+/**
+ * Login Odoo en esta partición (cookies del partition). No publica secretos.
+ * No borra cookies previas de otras instancias.
+ */
+async function odooLocalWebLogin(publicBase, login, password) {
+  const base = String(publicBase || '').replace(/\/$/, '');
+  if (!base || !login || !password) throw new Error('Faltan datos de acceso');
+  if (!isAllowed(base)) throw new Error('Instancia no permitida');
+  const ses = portalSession();
+  const loginUrl = `${base}/web/login`;
+
+  const getRes = await ses.fetch(loginUrl, {
+    method: 'GET',
+    headers: { Accept: 'text/html', 'User-Agent': 'RENACE-Portal-Desktop' },
+  });
+  const html = await getRes.text();
+  const csrf = extractOdooCsrf(html);
+
+  if (csrf) {
+    const params = new URLSearchParams();
+    params.set('csrf_token', csrf);
+    params.set('login', login);
+    params.set('password', password);
+    params.set('redirect', '/web');
+    const postRes = await ses.fetch(loginUrl, {
+      method: 'POST',
+      headers: {
+        Accept: 'text/html',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Origin: base,
+        Referer: loginUrl,
+        'User-Agent': 'RENACE-Portal-Desktop',
+      },
+      body: params.toString(),
+      redirect: 'follow',
+    });
+    const finalUrl = String(postRes.url || '');
+    const body = await postRes.text().catch(() => '');
+    const onLogin =
+      /\/web\/login/i.test(finalUrl) || /name=["']password["']/i.test(body || '');
+    if (!onLogin && (postRes.ok || postRes.status === 303 || postRes.status === 302)) {
+      return { ok: true, via: 'web' };
+    }
+  }
+
+  // Fallback JSON-RPC (misma partición → Set-Cookie en session)
+  const authBody = JSON.stringify({
+    jsonrpc: '2.0',
+    method: 'call',
+    id: Date.now(),
+    params: { db: false, login, password },
+  });
+  const authRes = await ses.fetch(`${base}/web/session/authenticate`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      Origin: base,
+      'User-Agent': 'RENACE-Portal-Desktop',
+    },
+    body: authBody,
+  });
+  const authJson = await authRes.json().catch(() => null);
+  const uid = authJson?.result?.uid;
+  if (uid) return { ok: true, via: 'jsonrpc' };
+
+  // Segundo intento con db genérico (instancias single-db)
+  const authBody2 = JSON.stringify({
+    jsonrpc: '2.0',
+    method: 'call',
+    id: Date.now(),
+    params: { db: 'odoo', login, password },
+  });
+  const authRes2 = await ses.fetch(`${base}/web/session/authenticate`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      Origin: base,
+      'User-Agent': 'RENACE-Portal-Desktop',
+    },
+    body: authBody2,
+  });
+  const authJson2 = await authRes2.json().catch(() => null);
+  if (authJson2?.result?.uid) return { ok: true, via: 'jsonrpc-db' };
+
+  throw new Error('Credenciales Odoo rechazadas');
 }
 
 async function openHome(win) {
@@ -292,19 +460,41 @@ async function openHome(win) {
   const loggedIn = await hasOdooSessionCookie(inst);
   // Preferir última URL de la misma instancia (no romper pantalla/formulario al reabrir)
   const last = store.getLastInstanceUrl?.() || null;
-  let start;
-  if (loggedIn && last && isSameOrigin(last, inst.url) && /\/(web|odoo|pos)/i.test(last)) {
-    start = last;
-  } else if (loggedIn) {
-    start = `${inst.url}/web`;
-  } else {
-    start = store.getStartUrl(PORTAL_URL);
+  if (loggedIn) {
+    let start;
+    if (last && isSameOrigin(last, inst.url) && /\/(web|odoo|pos)/i.test(last)) {
+      start = last;
+    } else {
+      start = `${inst.url}/web`;
+    }
+    log.info('openHome', {
+      start,
+      instance: inst.url,
+      companyId: inst.companyId || null,
+      sessionRestored: true,
+    });
+    w.setTitle(`${inst.name} — RENACE`);
+    w.loadURL(start).catch((e) => {
+      log.error('openHome failed', e.message);
+      openSetup(w);
+    });
+    return;
   }
+
+  // Sin sesión: si hay personal local, puerta PIN (no exponer login Odoo al mesero)
+  if (staffLocal.hasProfiles()) {
+    log.info('openHome: staff gate', { instance: inst.url, profiles: staffLocal.publicList().length });
+    w.setTitle(`${inst.name} — Acceso`);
+    openStaffLogin(w);
+    return;
+  }
+
+  const start = store.getStartUrl(PORTAL_URL);
   log.info('openHome', {
     start,
     instance: inst.url,
     companyId: inst.companyId || null,
-    sessionRestored: loggedIn,
+    sessionRestored: false,
   });
   w.setTitle(`${inst.name} — RENACE`);
   w.loadURL(start).catch((e) => {
@@ -336,6 +526,10 @@ async function refreshUiSafe(win) {
     }
     if (url.startsWith('file://') && url.includes('setup.html')) {
       openSetup(w);
+      return;
+    }
+    if (url.startsWith('file://') && url.includes('staff-login.html')) {
+      openStaffLogin(w);
       return;
     }
     wc.reloadIgnoringCache();
@@ -490,6 +684,80 @@ function registerIpc() {
     BrowserWindow.getAllWindows().forEach((w) => injectUserShell(w.webContents));
     return km;
   });
+
+  // Personal ligado a este PC — listado público (solo nombres) para staff-login.html
+  ipcMain.handle('renace:staff-public-list', (event) => {
+    if (!senderIsTrusted(event) && store.getAppMode() !== 'admin') return [];
+    return staffLocal.publicList();
+  });
+  ipcMain.handle('renace:staff-has', () => staffLocal.hasProfiles());
+  ipcMain.handle('renace:staff-tech-list', (event) => {
+    if (store.getAppMode() !== 'admin' && !senderIsTrusted(event)) return [];
+    // setup.html es file:// trusted, pero mutaciones requieren admin salvo setup durante vínculo
+    if (store.getAppMode() !== 'admin' && !String(event?.senderFrame?.url || '').includes('setup.html')) {
+      return [];
+    }
+    return staffLocal.techList();
+  });
+  ipcMain.handle('renace:staff-upsert', (event, payload) => {
+    if (store.getAppMode() !== 'admin' && !senderIsTrusted(event)) {
+      return { ok: false, error: 'Requiere modo técnico' };
+    }
+    // En user mode solo setup local (técnico ya desbloqueó vía open-setup)
+    if (store.getAppMode() !== 'admin') {
+      const url = event?.senderFrame?.url || event?.sender?.getURL?.() || '';
+      if (!String(url).includes('setup.html')) {
+        return { ok: false, error: 'Requiere modo técnico' };
+      }
+    }
+    const res = staffLocal.upsert(payload || {});
+    if (res.ok) log.info('staff upsert', { id: res.profile?.id, name: res.profile?.name });
+    return res;
+  });
+  ipcMain.handle('renace:staff-remove', (event, id) => {
+    if (store.getAppMode() !== 'admin' && !senderIsTrusted(event)) {
+      return { ok: false, error: 'Requiere modo técnico' };
+    }
+    if (store.getAppMode() !== 'admin') {
+      const url = event?.senderFrame?.url || event?.sender?.getURL?.() || '';
+      if (!String(url).includes('setup.html')) {
+        return { ok: false, error: 'Requiere modo técnico' };
+      }
+    }
+    const res = staffLocal.remove(id);
+    if (res.ok) log.info('staff removed');
+    return res;
+  });
+  ipcMain.handle('renace:staff-login', async (event, id, pin) => {
+    // Solo desde staff-login local (file://) — nunca desde Odoo XSS
+    const url = event?.senderFrame?.url || event?.sender?.getURL?.() || '';
+    if (!String(url).startsWith('file://') || !String(url).includes('staff-login.html')) {
+      return { ok: false, error: 'Origen no permitido' };
+    }
+    const inst = store.getInstance();
+    if (!inst?.url) return { ok: false, error: 'Sin instancia vinculada' };
+    const unlocked = staffLocal.unlockWithPin(id, pin);
+    if (!unlocked.ok) {
+      log.warn('staff login denied');
+      return { ok: false, error: unlocked.error || 'PIN incorrecto' };
+    }
+    try {
+      await odooLocalWebLogin(inst.url, unlocked.odooLogin, unlocked.odooPassword);
+      log.info('staff login ok', { name: unlocked.name, host: new URL(inst.url).host });
+      const dest = `${inst.url}/web`;
+      store.recordVisit(dest);
+      const win = BrowserWindow.fromWebContents(event.sender) || currentWin();
+      if (win && !win.isDestroyed()) {
+        win.setTitle(`${inst.name} — RENACE`);
+        await win.loadURL(dest);
+      }
+      return { ok: true };
+    } catch (e) {
+      log.error('staff login odoo failed', e.message);
+      return { ok: false, error: 'No se pudo abrir Odoo con ese perfil' };
+    }
+  });
+
   ipcMain.on('renace:open-devtools', (event) => {
     if (store.getAppMode() === 'user') return;
     const wc = event.sender;
@@ -515,6 +783,12 @@ function registerIpc() {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win && !win.isDestroyed()) toggleCoverTaskbar(win);
   });
+
+  ipcMain.handle('renace:zoom-get', () => store.getZoomFactor());
+  ipcMain.handle('renace:zoom-set', (_e, factor) => setAppZoom(factor));
+  ipcMain.handle('renace:zoom-in', () => adjustAppZoom(ZOOM_STEP));
+  ipcMain.handle('renace:zoom-out', () => adjustAppZoom(-ZOOM_STEP));
+  ipcMain.handle('renace:zoom-reset', () => setAppZoom(1));
 }
 
 function isPortalCookieDomain(domain) {
@@ -537,6 +811,33 @@ async function clearRenaceCookies() {
   log.info('portal cookies cleared (instance Odoo cookies preserved)');
 }
 
+async function clearInstanceSessionCookie() {
+  // Solo session_id de la instancia vinculada (cambio de personal) — no toca portal ni otras hosts
+  const inst = store.getInstance();
+  if (!inst?.url) return false;
+  try {
+    const ses = portalSession();
+    const cookies = await ses.cookies.get({ url: inst.url });
+    await Promise.all(
+      cookies
+        .filter((c) => c.name === 'session_id')
+        .map((c) => {
+          const domain = (c.domain || '').replace(/^\./, '');
+          const pathPart = c.path || '/';
+          const url = domain
+            ? `https://${domain}${pathPart}`
+            : `${inst.url}${pathPart === '/' ? '' : pathPart}`;
+          return ses.cookies.remove(url, c.name);
+        })
+    );
+    log.info('instance session cleared for staff switch', { host: new URL(inst.url).host });
+    return true;
+  } catch (e) {
+    log.warn('clear instance session', e.message);
+    return false;
+  }
+}
+
 async function setOdooSessionCookie(publicUrl, sessionId) {
   const base = String(publicUrl || '').replace(/\/$/, '');
   if (!base || !sessionId) return;
@@ -555,7 +856,7 @@ async function setOdooSessionCookie(publicUrl, sessionId) {
     sameSite: 'no_restriction',
     expirationDate,
   });
-  log.info('odoo session cookie set', { host: new URL(base).host, sidLen: String(sessionId).length });
+  log.info('odoo session cookie set', { host: new URL(base).host });
 }
 
 async function completeSsoEnter(win, enterUrl) {
@@ -642,15 +943,39 @@ function applyUserModeGuards(win) {
   if (!win || win.isDestroyed()) return;
   if (process.platform === 'win32') {
     try {
-      win.setAutoHideMenuBar(true);
-      win.setMenuBarVisibility(false);
+      if (store.getAppMode() === 'user') {
+        win.setAutoHideMenuBar(true);
+        win.setMenuBarVisibility(false);
+      } else {
+        win.setAutoHideMenuBar(false);
+        win.setMenuBarVisibility(true);
+      }
     } catch (_) {}
   }
   const wc = win.webContents;
   wc.removeAllListeners('before-input-event');
   wc.on('before-input-event', (event, input) => {
-    if (store.getAppMode() !== 'user') return;
     if (input.type !== 'keyDown') return;
+    // Zoom siempre (también en modo usuario con menú oculto en Windows)
+    if ((input.meta || input.control) && !input.alt) {
+      const key = String(input.key || '');
+      if (key === '=' || key === '+' || key === 'Add') {
+        event.preventDefault();
+        adjustAppZoom(ZOOM_STEP);
+        return;
+      }
+      if (key === '-' || key === '_' || key === 'Subtract') {
+        event.preventDefault();
+        adjustAppZoom(-ZOOM_STEP);
+        return;
+      }
+      if (key === '0' || key === 'Digit0') {
+        event.preventDefault();
+        setAppZoom(1);
+        return;
+      }
+    }
+    if (store.getAppMode() !== 'user') return;
     const key = String(input.key || '');
     const blocked =
       (input.meta || input.control) &&
@@ -767,10 +1092,69 @@ function attachWindowChrome(win) {
   });
 }
 
-/** Banner de diagnóstico si Odoo/portal queda vacío */
+/**
+ * POS / point_of_sale SPA: HTML inicial corto y title "Odoo" son normales.
+ * No tratar como pantalla en blanco (evita falso positivo + DevTools).
+ */
+function isPosLikeUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  const raw = url.toLowerCase();
+  if (
+    raw.includes('point_of_sale') ||
+    raw.includes('/pos/') ||
+    raw.includes('/pos?') ||
+    raw.includes('/pos#') ||
+    /\/pos$/i.test(raw.split(/[?#]/)[0]) ||
+    /[?&#]action=pos\b/.test(raw) ||
+    /[?&#]model=pos\./.test(raw) ||
+    /\.pos\b/.test(raw) ||
+    /pos\.(ui|config|session|payment)/.test(raw)
+  ) {
+    return true;
+  }
+  try {
+    const u = new URL(url);
+    const hay = `${u.pathname}${u.search}${u.hash}`.toLowerCase();
+    return (
+      /\/pos(\/|$)/.test(u.pathname.toLowerCase()) ||
+      hay.includes('point_of_sale') ||
+      /[?&#]action=pos\b/.test(hay) ||
+      /[?&#]model=pos\./.test(hay)
+    );
+  } catch (_) {
+    return false;
+  }
+}
+
+/** Shell Odoo web (SPA) — title "Odoo" + body corto al montar no implica blank */
+function isOdooShellUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  try {
+    const p = new URL(url).pathname.toLowerCase();
+    return /\/(web|odoo)(\/|$)/.test(p) || p.includes('/web/login');
+  } catch (_) {
+    return /\/(web|odoo)(\/|$|\?|#)/i.test(url);
+  }
+}
+
+/** Solo metadatos seguros para logs / banner (nunca body sample ni secretos de sesión) */
+function sanitizeBlankMeta(info) {
+  return {
+    url: info && info.url ? String(info.url).slice(0, 500) : '',
+    title: info && info.title ? String(info.title).slice(0, 120) : '',
+    bodyLen: Number(info && info.bodyLen) || 0,
+    hasOdoo: !!(info && info.hasOdoo),
+    hasPos: !!(info && info.hasPos),
+  };
+}
+
+/** Banner de diagnóstico si Odoo/portal queda vacío (solo modo técnico) */
 function injectBlankDiagnostic(wc, meta) {
   if (!wc || wc.isDestroyed()) return;
-  const payload = JSON.stringify(meta || {});
+  if (store.getAppMode() !== 'admin') return;
+  const safe = sanitizeBlankMeta(meta);
+  safe.logPath = meta && meta.logPath ? String(meta.logPath) : '';
+  const payload = JSON.stringify(safe);
   wc.executeJavaScript(
     `(() => {
       const meta = ${payload};
@@ -802,35 +1186,47 @@ function injectBlankDiagnostic(wc, meta) {
 
 async function checkBlankPage(win) {
   if (!win || win.isDestroyed()) return;
+  // Usuario: sin diagnóstico de pantalla vacía ni DevTools
+  if (store.getAppMode() !== 'admin') return;
   const wc = win.webContents;
   const current = wc.getURL();
-  if (current.startsWith('file://') && current.includes('setup.html')) return;
-  let info = { url: current, title: '', bodyLen: 0, hasOdoo: false };
+  if (current.startsWith('file://')) return;
+  // POS: nunca blank-check (SPA monta tarde; title "Odoo" + body corto es esperado)
+  if (isPosLikeUrl(current)) return;
+
+  let info = { url: current, title: '', bodyLen: 0, hasOdoo: false, hasPos: false };
   try {
     info = await wc.executeJavaScript(`({
       url: location.href,
       title: document.title || '',
       bodyLen: (document.body && document.body.innerText || '').trim().length,
-      hasOdoo: !!document.querySelector('.o_web_client, .o_main_navbar, .o_home_menu, .oe_login_form, .o_login_form'),
-      sample: (document.body && document.body.innerText || '').trim().slice(0, 120),
+      hasOdoo: !!document.querySelector('.o_web_client, .o_main_navbar, .o_home_menu, .oe_login_form, .o_login_form, .o_action_manager'),
+      hasPos: !!document.querySelector('.o_pos, .pos, .pos-content, .pos-topheader, #pos, .o_pos_kanban'),
     })`);
   } catch (e) {
     log.warn('checkBlankPage eval failed', e.message);
     return;
   }
-  log.info('page check', info);
+
+  const safe = sanitizeBlankMeta(info);
+  if (isPosLikeUrl(safe.url) || safe.hasPos) return;
+
+  log.info('page check', safe);
+
+  // Heurística suavizada: no falsos positivos por title "Odoo" en shell/POS cargando
+  const shellLoading = isOdooShellUrl(safe.url) || /^odoo$/i.test(safe.title);
   const looksBlank =
-    info.bodyLen < 30 ||
-    (/^odoo$/i.test(info.title) && !info.hasOdoo && info.bodyLen < 80);
+    !safe.hasOdoo &&
+    !safe.hasPos &&
+    (safe.bodyLen < 8 ||
+      (!shellLoading && safe.bodyLen < 20) ||
+      (/^odoo$/i.test(safe.title) && !isOdooShellUrl(safe.url) && safe.bodyLen < 40));
+
   if (!looksBlank) return;
-  log.warn('BLANK PAGE DETECTED', info);
-  // Solo modo técnico ve diagnóstico / DevTools en pantalla
-  if (store.getAppMode() !== 'admin') return;
-  injectBlankDiagnostic(wc, { ...info, logPath: log.path() });
-  try {
-    wc.openDevTools({ mode: 'bottom' });
-    log.info('DevTools opened');
-  } catch (_) {}
+
+  log.warn('BLANK PAGE DETECTED', safe);
+  // Banner opcional para técnico — sin abrir DevTools automáticamente
+  injectBlankDiagnostic(wc, { ...safe, logPath: log.path() });
 }
 
 function hardenSession(ses) {
@@ -902,6 +1298,7 @@ function attachWindowGuards(win) {
 
   wc.on('dom-ready', () => {
     log.info('dom-ready', wc.getURL());
+    applyZoomFactor(wc);
     injectWinFrame(wc);
     const u = wc.getURL();
     if (u.startsWith('file://')) return;
@@ -913,6 +1310,7 @@ function attachWindowGuards(win) {
 
   wc.on('did-finish-load', () => {
     log.info('did-finish-load', wc.getURL());
+    applyZoomFactor(wc);
     injectWinFrame(wc);
     const u = wc.getURL();
     if (u.startsWith('file://')) return;
@@ -920,8 +1318,12 @@ function attachWindowGuards(win) {
     injectCompanyFocus(wc);
     injectUserShell(wc);
     injectDrag(wc);
-    setTimeout(() => checkBlankPage(win), 2000);
-    setTimeout(() => checkBlankPage(win), 5000);
+    // Diagnóstico de pantalla vacía solo en modo técnico
+    if (store.getAppMode() !== 'admin') return;
+    if (isPosLikeUrl(u)) return;
+    const delay = isOdooShellUrl(u) ? 8000 : 2500;
+    setTimeout(() => checkBlankPage(win), delay);
+    setTimeout(() => checkBlankPage(win), delay + 5000);
   });
 
   wc.on('did-fail-load', (_e, code, desc, url, isMainFrame) => {
@@ -1163,6 +1565,14 @@ function buildMenu() {
                 { role: 'about' },
                 { type: 'separator' },
                 {
+                  label: 'Cambiar de personal…',
+                  click: async () => {
+                    if (!staffLocal.hasProfiles()) return;
+                    await clearInstanceSessionCookie();
+                    openStaffLogin(currentWin());
+                  },
+                },
+                {
                   label: 'Buscar actualizaciones…',
                   click: () => runUpdateCheck(false),
                 },
@@ -1183,6 +1593,23 @@ function buildMenu() {
           label: 'Archivo',
           submenu: [
             {
+              label: 'Cambiar de personal…',
+              click: async () => {
+                if (!staffLocal.hasProfiles()) {
+                  dialog.showMessageBox(currentWin() || undefined, {
+                    type: 'info',
+                    title: 'Personal',
+                    message: 'No hay perfiles locales en este PC.',
+                    detail: 'El técnico puede añadirlos en Configurar instancia de empresa.',
+                  });
+                  return;
+                }
+                await clearInstanceSessionCookie();
+                openStaffLogin(currentWin());
+              },
+            },
+            { type: 'separator' },
+            {
               label: 'Buscar actualizaciones…',
               click: () => runUpdateCheck(false),
             },
@@ -1199,6 +1626,10 @@ function buildMenu() {
           ],
         },
         { label: 'Editar', submenu: [{ role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
+        {
+          label: 'Ver',
+          submenu: [...zoomMenuTemplate()],
+        },
       ])
     );
     return;
@@ -1258,6 +1689,10 @@ function buildMenu() {
           {
             label: 'Configurar instancia de empresa…',
             accelerator: isMac ? undefined : 'CmdOrCtrl+,',
+            click: () => promptOpenSetup(),
+          },
+          {
+            label: 'Personal de este PC…',
             click: () => promptOpenSetup(),
           },
           {
@@ -1350,9 +1785,7 @@ function buildMenu() {
             click: () => promptKeymapConfig(),
           },
           { type: 'separator' },
-          { role: 'resetZoom' },
-          { role: 'zoomIn' },
-          { role: 'zoomOut' },
+          ...zoomMenuTemplate(),
           { type: 'separator' },
           { role: 'togglefullscreen' },
         ],
@@ -1401,6 +1834,7 @@ function createWindow() {
   attachWindowChrome(win);
   attachWindowGuards(win);
   applyUserModeGuards(win);
+  applyZoomFactor(win.webContents);
   if (process.platform === 'win32') {
     // Pantalla completa al inicio (incluye barra de tareas)
     coverTaskbar(win);
@@ -1458,7 +1892,9 @@ app.whenReady().then(async () => {
   hardenSession(ses);
   // No borrar caché al arrancar: preserva sesión Odoo / recursos del usuario
   app.on('web-contents-created', (_e, wc) => {
+    applyZoomFactor(wc);
     wc.on('dom-ready', () => {
+      applyZoomFactor(wc);
       injectWinFrame(wc);
       const u = wc.getURL();
       if (u.startsWith('file://')) return;

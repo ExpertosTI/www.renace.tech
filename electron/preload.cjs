@@ -87,9 +87,20 @@ try {
     setKeymap: (partial) => ipcRenderer.invoke('renace:keymap-set', partial),
     submitTechUnlock: (password) => ipcRenderer.send('renace:tech-password', String(password || '')),
     cancelTechUnlock: () => ipcRenderer.send('renace:tech-password-cancel'),
+    staffPublicList: () => ipcRenderer.invoke('renace:staff-public-list'),
+    staffTechList: () => ipcRenderer.invoke('renace:staff-tech-list'),
+    staffUpsert: (payload) => ipcRenderer.invoke('renace:staff-upsert', payload),
+    staffRemove: (id) => ipcRenderer.invoke('renace:staff-remove', id),
+    staffLogin: (id, pin) => ipcRenderer.invoke('renace:staff-login', id, pin),
+    staffHasProfiles: () => ipcRenderer.invoke('renace:staff-has'),
     winClose: () => ipcRenderer.send('renace:win-close'),
     winMin: () => ipcRenderer.send('renace:win-min'),
     winMax: () => ipcRenderer.send('renace:win-max'),
+    zoomIn: () => ipcRenderer.invoke('renace:zoom-in'),
+    zoomOut: () => ipcRenderer.invoke('renace:zoom-out'),
+    zoomReset: () => ipcRenderer.invoke('renace:zoom-reset'),
+    zoomSet: (factor) => ipcRenderer.invoke('renace:zoom-set', factor),
+    zoomGet: () => ipcRenderer.invoke('renace:zoom-get'),
   });
 } catch (_) {
   // reload: ya expuesto

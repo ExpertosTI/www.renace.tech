@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Acceso personal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0f1a;
+      --surface: #111827;
+      --border: rgba(148, 163, 184, 0.12);
+      --text: #e8edf5;
+      --muted: #7b8faa;
+      --accent: #00b4d8;
+      --accent-2: #0077b6;
+      --bad: #f87171;
+      --ok: #2dd4bf;
+    }
+    body {
+      font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 20% 15%, rgba(45, 212, 191, 0.08), transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(0, 180, 216, 0.06), transparent 45%);
+      pointer-events: none;
+    }
+    .wrap { position: relative; z-index: 1; width: 100%; max-width: 420px; }
+    h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+    }
+    .sub { color: var(--muted); font-size: 0.875rem; margin-bottom: 22px; line-height: 1.45; }
+    .card {
+      background: linear-gradient(160deg, rgba(17, 24, 39, 0.92), rgba(15, 20, 32, 0.9));
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 22px;
+    }
+    .staff-list { display: grid; gap: 8px; margin-bottom: 8px; }
+    .staff-btn {
+      width: 100%;
+      text-align: left;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(8, 12, 24, 0.65);
+      color: var(--text);
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .staff-btn:hover, .staff-btn.active {
+      border-color: rgba(0, 180, 216, 0.55);
+      background: rgba(0, 180, 216, 0.08);
+    }
+    .pin-panel { display: none; margin-top: 14px; }
+    .pin-panel.on { display: block; }
+    label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+    input[type="password"] {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(8, 12, 24, 0.7);
+      color: var(--text);
+      font-size: 22px;
+      letter-spacing: 0.28em;
+      text-align: center;
+      outline: none;
+    }
+    input:focus { border-color: rgba(0, 180, 216, 0.6); box-shadow: 0 0 0 3px rgba(0, 180, 216, 0.15); }
+    .actions { display: flex; gap: 8px; margin-top: 14px; }
+    button.primary, button.ghost {
+      flex: 1;
+      padding: 11px;
+      border-radius: 10px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      border: 0;
+    }
+    button.primary {
+      background: linear-gradient(135deg, var(--accent-2), var(--accent));
+      color: #0a0f1a;
+      font-family: 'Space Grotesk', sans-serif;
+    }
+    button.ghost {
+      background: rgba(8, 12, 24, 0.5);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-weight: 600;
+    }
+    button:disabled { opacity: 0.55; cursor: wait; }
+    .msg { margin-top: 12px; min-height: 1.2em; font-size: 13px; color: var(--bad); text-align: center; }
+    .msg.ok { color: var(--ok); }
+    .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 12px 0; }
+    .company { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Personal de este PC</h1>
+    <p class="sub">Elige tu perfil e introduce el PIN. Solo funciona en este equipo vinculado.</p>
+    <div class="card">
+      <div class="company" id="company"></div>
+      <div class="staff-list" id="list"></div>
+      <div class="pin-panel" id="pinPanel">
+        <label for="pin">PIN — <span id="who"></span></label>
+        <input id="pin" type="password" inputmode="numeric" maxlength="12" autocomplete="off" />
+        <div class="actions">
+          <button type="button" class="ghost" id="back">Atrás</button>
+          <button type="button" class="primary" id="enter">Entrar</button>
+        </div>
+      </div>
+      <div class="msg" id="msg"></div>
+    </div>
+  </div>
+  <script>
+    const api = window.renaceDesktop;
+    const listEl = document.getElementById('list');
+    const pinPanel = document.getElementById('pinPanel');
+    const pin = document.getElementById('pin');
+    const who = document.getElementById('who');
+    const msg = document.getElementById('msg');
+    const enterBtn = document.getElementById('enter');
+    let selected = null;
+
+    function setMsg(text, ok) {
+      msg.className = ok ? 'msg ok' : 'msg';
+      msg.textContent = text || '';
+    }
+
+    async function boot() {
+      if (!api) {
+        setMsg('Bridge de escritorio no disponible');
+        return;
+      }
+      try {
+        const inst = await api.getInstance?.();
+        document.getElementById('company').textContent = inst?.name
+          ? (inst.name + (inst.url ? ' · ' + inst.url.replace(/^https?:\/\//, '') : ''))
+          : '';
+        const rows = await api.staffPublicList?.() || [];
+        listEl.innerHTML = '';
+        if (!rows.length) {
+          listEl.innerHTML = '<div class="empty">No hay personal configurado. Pide al técnico que añada perfiles.</div>';
+          return;
+        }
+        rows.forEach((row) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'staff-btn';
+          btn.textContent = row.name;
+          btn.addEventListener('click', () => selectStaff(row, btn));
+          listEl.appendChild(btn);
+        });
+      } catch (e) {
+        setMsg(e.message || String(e));
+      }
+    }
+
+    function selectStaff(row, btn) {
+      selected = row;
+      listEl.querySelectorAll('.staff-btn').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      who.textContent = row.name;
+      pinPanel.classList.add('on');
+      pin.value = '';
+      setMsg('');
+      pin.focus();
+    }
+
+    document.getElementById('back').addEventListener('click', () => {
+      selected = null;
+      pinPanel.classList.remove('on');
+      pin.value = '';
+      listEl.querySelectorAll('.staff-btn').forEach((b) => b.classList.remove('active'));
+      setMsg('');
+    });
+
+    async function doLogin() {
+      if (!selected) return;
+      const value = String(pin.value || '');
+      if (!value) {
+        setMsg('Introduce tu PIN');
+        return;
+      }
+      enterBtn.disabled = true;
+      setMsg('Entrando…', true);
+      try {
+        const res = await api.staffLogin?.(selected.id, value);
+        if (!res?.ok) {
+          setMsg(res?.error || 'No se pudo iniciar sesión');
+          pin.value = '';
+          pin.focus();
+          return;
+        }
+        setMsg('Listo', true);
+      } catch (e) {
+        setMsg(e.message || String(e));
+      } finally {
+        enterBtn.disabled = false;
+      }
+    }
+
+    enterBtn.addEventListener('click', doLogin);
+    pin.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') doLogin();
+    });
+
+    boot();
+  </script>
+</body>
+</html>
