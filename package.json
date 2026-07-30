@@ -14,7 +14,8 @@
     "mac:pack": "npm run icons && electron-builder --mac dmg zip --arm64 --publish never",
     "mac:pack:intel": "npm run icons && electron-builder --mac dmg zip --x64 --publish never",
     "mac:pack:all": "npm run icons && electron-builder --mac dmg zip --arm64 --x64 --publish never",
-    "win:pack": "./scripts/vendor-posagent.sh && ./scripts/vendor-vcredist.sh && npm run icons && electron-builder --win nsis zip --x64 --publish never",
+    "win:pack": "./scripts/vendor-posagent.sh && ./scripts/vendor-vcredist.sh && npm run icons && electron-builder --win nsis --x64 --publish never",
+    "win:pack:fast": "./scripts/win-pack-fast.sh",
     "win:pack:zip": "./scripts/vendor-posagent.sh && ./scripts/vendor-vcredist.sh && npm run icons && electron-builder --win zip --x64 --publish never",
     "win:store": "./scripts/vendor-posagent.sh && ./scripts/vendor-vcredist.sh && npm run icons && electron-builder --win appx --x64 --publish never",
     "electron:dev": "electron electron/main.cjs",
@@ -49,8 +50,8 @@
   },
   "devDependencies": {
     "@capacitor/cli": "8.2.0",
-    "electron": "^37.10.3",
-    "electron-builder": "^26.0.12"
+    "electron": "37.10.3",
+    "electron-builder": "26.15.3"
   },
   "build": {
     "appId": "tech.renace.portal.desktop",
@@ -58,6 +59,7 @@
     "directories": {
       "output": "dist-electron"
     },
+    "compression": "normal",
     "afterPack": "./electron/afterPack.cjs",
     "icon": "build/icon.icns",
     "files": [
@@ -90,16 +92,11 @@
           "arch": [
             "x64"
           ]
-        },
-        {
-          "target": "zip",
-          "arch": [
-            "x64"
-          ]
         }
       ],
       "icon": "build/icon.ico",
       "artifactName": "RENACE-Portal-${version}-${os}-${arch}.${ext}",
+      "signAndEditExecutable": false,
       "extraResources": [
         {
           "from": "vendor/posagent/app",
