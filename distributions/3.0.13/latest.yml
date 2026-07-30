@@ -1,0 +1,8 @@
+version: 3.0.13
+files:
+  - url: RENACE-Portal-3.0.13-win-x64.exe
+    sha512: ontjczaGzZb73lkmnqAOYXfDkG/JbX76xdOGbiC/2JPxM6UaplDDerAJPmcJhY9bkiEFUCAV1hHu0qinexL8DA==
+    size: 127688372
+path: RENACE-Portal-3.0.13-win-x64.exe
+sha512: ontjczaGzZb73lkmnqAOYXfDkG/JbX76xdOGbiC/2JPxM6UaplDDerAJPmcJhY9bkiEFUCAV1hHu0qinexL8DA==
+releaseDate: '2026-07-30T18:31:17.828Z'

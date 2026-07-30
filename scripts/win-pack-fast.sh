@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Build Windows rápido (Mac → NSIS): sin zip, sin firma Wine, sin regenerar icons/vendor si ya existen.
+# Build rápido SIN firma (Edge seguirá avisando "no confiable" — usar win:pack:signed para producción)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-echo "══ win:pack:fast $(node -p "require('./package.json').version") ══"
+echo "══ win:pack:fast $(node -p "require('./package.json').version") (SIN firma) ══"
+echo "⚠ Edge/SmartScreen avisará hasta firmar con: npm run win:pack:signed"
 
 if [[ ! -d node_modules/electron || ! -x node_modules/.bin/electron-builder ]]; then
   echo "→ npm ci (faltan electron / electron-builder locales)…"

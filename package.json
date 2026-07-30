@@ -2,7 +2,7 @@
   "name": "renace-tech",
   "version": "3.0.13",
   "private": true,
-  "description": "RENACE.TECH — Platform for business digitalization",
+  "description": "RENACE.TECH \u2014 Platform for business digitalization",
   "author": "RENACE.TECH",
   "main": "electron/main.cjs",
   "scripts": {
@@ -16,6 +16,7 @@
     "mac:pack:all": "npm run icons && electron-builder --mac dmg zip --arm64 --x64 --publish never",
     "win:pack": "./scripts/vendor-posagent.sh && ./scripts/vendor-vcredist.sh && npm run icons && electron-builder --win nsis --x64 --publish never",
     "win:pack:fast": "./scripts/win-pack-fast.sh",
+    "win:pack:signed": "./scripts/win-pack-signed.sh",
     "win:pack:zip": "./scripts/vendor-posagent.sh && ./scripts/vendor-vcredist.sh && npm run icons && electron-builder --win zip --x64 --publish never",
     "win:store": "./scripts/vendor-posagent.sh && ./scripts/vendor-vcredist.sh && npm run icons && electron-builder --win appx --x64 --publish never",
     "electron:dev": "electron electron/main.cjs",
@@ -153,7 +154,7 @@
         "CFBundleSpokenName": "RENACE Portal",
         "CFBundleIdentifier": "tech.renace.portal.desktop",
         "LSApplicationCategoryType": "public.app-category.business",
-        "NSHumanReadableCopyright": "Copyright © RENACE.TECH",
+        "NSHumanReadableCopyright": "Copyright \u00a9 RENACE.TECH",
         "NSHighResolutionCapable": true,
         "NSSupportsAutomaticTermination": false,
         "NSSupportsSuddenTermination": false

@@ -1,0 +1,11 @@
+version: 3.0.13
+files:
+  - url: RENACE-Portal-3.0.13-arm64-mac.zip
+    sha512: MqeJWkpnVV1AtLWSfClWM1NlxRQ/lPbPSJ1aP3YSe5VtR1y4Pb+HqNEaRu1Or7EI3RjjUDhOLVfNZh4jtu9wHw==
+    size: 109231641
+  - url: RENACE-Portal-3.0.13-arm64.dmg
+    sha512: vKoAhvaWKYCTX0xUERAhjsqmAo9lx2CVQUnETB6DpXyX49DiP6FW5ObRhhFDIM/dNoXee/NP79ifw7FjSoHlSg==
+    size: 111210632
+path: RENACE-Portal-3.0.13-arm64-mac.zip
+sha512: MqeJWkpnVV1AtLWSfClWM1NlxRQ/lPbPSJ1aP3YSe5VtR1y4Pb+HqNEaRu1Or7EI3RjjUDhOLVfNZh4jtu9wHw==
+releaseDate: '2026-07-30T18:30:03.966Z'

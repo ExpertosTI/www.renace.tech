@@ -1,0 +1,8 @@
+227fba28e30012d4a5785458ca4a7e2222b25f452efecf1726fea649439bcb8a  RENACE-Portal-3.0.13-android-unsigned.apk
+e21e31391cb6be22e95b6a2ba8422f97fa6944db5b2200f6ddc07e9b90966f3e  RENACE-Portal-3.0.13-android.aab
+b3c1c1a632ef136bd8e4d13048c0e718bfb910af5d43e13afa26878770be83a0  RENACE-Portal-3.0.13-ios.ipa
+d95556c431a9cf1c9e125be9b88a00e8d8292410083fcc89d2738b80eb2c9980  RENACE-Portal-3.0.13-mac-arm64.dmg
+dce7d3b751510a4c60cb6188dd9600d8853d25ef3a23494f7df9088cf8bb74a2  RENACE-Portal-3.0.13-mac-arm64.zip
+2533e3658ae117e99e05a077ad514a6b6fa2795590bfd9af64ef1b966bca676e  RENACE-Portal-3.0.13-win-x64.exe
+8faeed8ca00ae8a3c04aa48eb735485568125b8135483da114036beadaeacccc  latest-mac.yml
+691116de2416016a23a7e2c7ff2eac4e7b211ba34955da4e1c95dedd974d766f  latest.yml

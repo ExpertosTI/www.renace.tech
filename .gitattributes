@@ -1,0 +1,6 @@
+distributions/**/*.exe filter=lfs diff=lfs merge=lfs -text
+distributions/**/*.ipa filter=lfs diff=lfs merge=lfs -text
+distributions/**/*.aab filter=lfs diff=lfs merge=lfs -text
+distributions/**/*.apk filter=lfs diff=lfs merge=lfs -text
+distributions/**/*.dmg filter=lfs diff=lfs merge=lfs -text
+distributions/**/*.zip filter=lfs diff=lfs merge=lfs -text
