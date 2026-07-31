@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Build Windows rápido (Mac → NSIS): sin zip, sin firma Wine, sin regenerar icons/vendor si ya existen.
+# Build Windows rápido (Mac → NSIS): sin zip, sin Authenticode.
+# Icono/metadata del EXE vía resedit (signExecutable:false — NO signAndEditExecutable:false).
+# Regenera icons; skip vendor si ya existen.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -22,11 +24,9 @@ else
   echo "· vcredist OK (skip)"
 fi
 
-if [[ ! -f build/icon.ico ]]; then
-  npm run icons
-else
-  echo "· icons OK (skip)"
-fi
+# Always regenerate from images/icon-512.png — skip previously left salon/Citas .ico in builds
+echo "→ regenerando icons (RENACE navy R)…"
+npm run icons
 
 export CSC_IDENTITY_AUTO_DISCOVERY=false
 export WIN_CSC_LINK=

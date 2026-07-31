@@ -2,16 +2,29 @@
 
 /**
  * Chrome Windows limpio:
- * - Franja superior con espacio para clics (no tapa menús Odoo)
+ * - Franja superior compacta (no tapa menús Odoo / logout)
  * - Controles a la izquierda + zoom
  * - Arrastre solo en la franja, no sobre la navbar
+ * - Altura responsive: más baja en pantallas altas para no empujar botones POS
  */
 module.exports = function winFrameScript() {
   return `(() => {
-    const TOP = 40;       /* altura franja / safe area */
     const CHROME_W = 240; /* botones izq + zoom */
-    const cssText = \`
-      :root { --renace-top: \${TOP}px; --renace-chrome-w: \${CHROME_W}px; }
+    /* Antes: TOP fijo 40px — franja demasiado alta; en 1080p+ empujaba el pago POS */
+    const TOP_TALL = 26;  /* ≥1080px alto */
+    const TOP_MID = 28;   /* ≥900px */
+    const TOP_SHORT = 30; /* ventanas bajas — hit target usable */
+
+    function computeTop() {
+      const h = window.innerHeight || 900;
+      if (h >= 1080) return TOP_TALL;
+      if (h >= 900) return TOP_MID;
+      return TOP_SHORT;
+    }
+
+    function cssText(top) {
+      return \`
+      :root { --renace-top: \${top}px; --renace-chrome-w: \${CHROME_W}px; }
 
       #renace-win-chrome{
         position:fixed;top:0;left:0;z-index:2147483646;
@@ -24,11 +37,11 @@ module.exports = function winFrameScript() {
       }
       #renace-win-chrome button{
         width:46px;border:0;background:transparent;color:#c5d0e0;
-        font-size:13px;line-height:var(--renace-top);cursor:pointer;padding:0;
+        font-size:12px;line-height:var(--renace-top);cursor:pointer;padding:0;
         -webkit-app-region:no-drag;
       }
       #renace-win-chrome button.renace-zoom-btn{
-        font-size:12px;font-weight:600;letter-spacing:-0.02em;width:46px;
+        font-size:11px;font-weight:600;letter-spacing:-0.02em;width:46px;
       }
       #renace-win-chrome button:hover{background:rgba(255,255,255,.08);color:#fff}
       #renace-win-chrome button[data-act="close"]:hover{background:#e81123;color:#fff}
@@ -50,15 +63,6 @@ module.exports = function winFrameScript() {
       html.renace-win-pad body{
         padding-top:var(--renace-top) !important;
       }
-      html.renace-win-pad .o_web_client,
-      html.renace-win-pad .o_action_manager,
-      html.renace-win-pad .o_main_navbar,
-      html.renace-win-pad .o_home_menu,
-      html.renace-win-pad .o_pos,
-      html.renace-win-pad .pos,
-      html.renace-win-pad .o_pos_kanban{
-        /* navbar ya no queda bajo el drag */
-      }
       html.renace-win-pad .o_main_navbar{
         padding-left:12px !important;
         top:var(--renace-top) !important;
@@ -69,6 +73,8 @@ module.exports = function winFrameScript() {
         margin-top:8px;
       }
     \`;
+    }
+
     document.documentElement.classList.add('renace-win-pad');
 
     let css = document.getElementById('renace-win-chrome-style');
@@ -77,7 +83,11 @@ module.exports = function winFrameScript() {
       css.id = 'renace-win-chrome-style';
       document.documentElement.appendChild(css);
     }
-    css.textContent = cssText;
+
+    function applyTop() {
+      css.textContent = cssText(computeTop());
+    }
+    applyTop();
 
     let bar = document.getElementById('renace-win-chrome');
     if (bar && !bar.querySelector('[data-act="zoom-out"]')) {
@@ -111,6 +121,15 @@ module.exports = function winFrameScript() {
       drag = document.createElement('div');
       drag.id = 'renace-win-drag';
       document.documentElement.appendChild(drag);
+    }
+
+    if (!window.__renaceWinFrameResize) {
+      let t = 0;
+      window.__renaceWinFrameResize = true;
+      window.addEventListener('resize', () => {
+        clearTimeout(t);
+        t = setTimeout(applyTop, 80);
+      });
     }
   })();`;
 };
