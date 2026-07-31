@@ -1,0 +1,55 @@
+---
+description: Protocolo oficial de deploy www.renace.tech (git + comando en servidor)
+alwaysApply: true
+---
+
+# Deploy protocol — www.renace.tech
+
+Mismo patrón que citas / EnvíosRH: **push a git en la Mac**, **deploy en el servidor**. No inventar flujos alternativos.
+
+## Flujo por defecto (SIEMPRE)
+
+### 1) Mac — solo código
+- Commit + push a `origin/main`
+- NO subir instaladores ni correr `ship-portal-downloads.sh` como deploy normal
+- NO hacer scp masivo de DMG/EXE/IPA/APK en cada release web
+
+### 2) Servidor — el usuario ejecuta (SSH)
+```bash
+cd /opt/www.renace.tech
+docker system prune -af
+docker builder prune -af
+df -h /
+git fetch origin main && git reset --hard origin/main
+./scripts/update-app-only.sh
+git rev-parse --short HEAD
+curl -fsSL https://renace.tech/api/health
+```
+
+- `update-app-only.sh` = deploy seguro solo `renace_app` (equivalente a `./deploy.sh` en citas)
+- NUNCA `docker stack deploy` del stack completo salvo emergencia documentada
+
+### 3) Verificación
+- HEAD del servidor = commit pusheado
+- Health OK
+- Si aplica: `curl -sS https://renace.tech/api/portal/desktop-update`
+
+## Excepción — solo binarios Portal nuevos (gitignored)
+
+Los `docs/RENACE-Portal-*.{exe,dmg,ipa,apk}` NO van en git. Solo cuando hay instalador nuevo:
+
+1. Push del código/manifiesto (`portal-desktop-update.json`) a `main`
+2. En el servidor: deploy de arriba
+3. Luego **solo** los archivos nuevos + restore (no “ship todo”):
+```bash
+# desde la Mac, solo el/los archivo(s) nuevos
+scp docs/RENACE-Portal-win-x64.exe docs/portal-desktop-update.json root@45.9.191.18:/tmp/renace-portal-ship/
+ssh root@45.9.191.18 "cd /opt/www.renace.tech && ./scripts/restore-download-files.sh /tmp/renace-portal-ship"
+```
+
+`./scripts/ship-portal-downloads.sh` NO es el protocolo de deploy. Es un helper excepcional de paquetes; no sugerirlo como flujo normal.
+
+## Qué debe hacer el agente
+- Al pedir deploy: push git (si pidió commit/push) + dar el bloque de comandos del **servidor**
+- No asumir scp de todos los instaladores
+- No cambiar este protocolo por atajos “files-only” o “ship completo” sin que el usuario lo pida explícitamente
