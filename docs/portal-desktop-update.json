@@ -1,12 +1,12 @@
 {
-  "version": "3.0.13",
-  "releasedAt": "2026-07-30T18:20:46.471Z",
-  "notes": "RENACE Portal 3.0.13",
+  "version": "3.0.16",
+  "releasedAt": "2026-07-31T01:55:55.652Z",
+  "notes": "RENACE Portal 3.0.16 — usuarios guardados + predeterminado; fix atajo modo técnico (Ctrl+Shift+Alt+T)",
   "platforms": {
     "win32-x64": {
       "url": "https://renace.tech/docs/RENACE-Portal-win-x64.exe",
-      "size": 127688373,
-      "sha256": "16dbe6effdaf77dd95011fb0ef52d628d3f3b3678957162348a5949f262ef7d1"
+      "size": 133636487,
+      "sha256": "40ebaeb3296890c95de3570a243efb63812678e0952f7d66e9e2ef4e0f502d6b"
     },
     "darwin-arm64": {
       "url": "https://renace.tech/docs/RENACE-Portal-mac-arm64.dmg",

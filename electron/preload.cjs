@@ -26,6 +26,7 @@ try {
     setInstance: (payload) => ipcRenderer.invoke('renace:instance-set', payload),
     clearInstance: () => ipcRenderer.invoke('renace:instance-clear'),
     openInstance: () => ipcRenderer.invoke('renace:instance-open'),
+    saveInstance: (payload) => ipcRenderer.invoke('renace:instance-save', payload),
     saveAndOpenInstance: (payload) => ipcRenderer.invoke('renace:instance-save-open', payload),
     openPortal: () => ipcRenderer.invoke('renace:open-portal'),
     openSetup: () => ipcRenderer.invoke('renace:open-setup'),
@@ -52,7 +53,9 @@ try {
     upsertStaff: (payload) => ipcRenderer.invoke('renace:staff-upsert', payload),
     staffRemove: (id) => ipcRenderer.invoke('renace:staff-remove', id),
     removeStaff: (id) => ipcRenderer.invoke('renace:staff-remove', id),
-    staffLogin: (id, pin) => ipcRenderer.invoke('renace:staff-login', id, pin),
+    staffSetDefault: (id) => ipcRenderer.invoke('renace:staff-set-default', id),
+    staffGetDefault: () => ipcRenderer.invoke('renace:staff-get-default'),
+    staffLogin: (id, pin, opts) => ipcRenderer.invoke('renace:staff-login', id, pin, opts || {}),
     openStaffLogin: () => ipcRenderer.invoke('renace:staff-open'),
     notify: (payload) => ipcRenderer.invoke('renace:notify', payload || {}),
   });

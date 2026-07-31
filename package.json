@@ -1,8 +1,8 @@
 {
   "name": "renace-tech",
-  "version": "3.0.13",
+  "version": "3.0.16",
   "private": true,
-  "description": "RENACE.TECH \u2014 Platform for business digitalization",
+  "description": "RENACE.TECH — Platform for business digitalization",
   "author": "RENACE.TECH",
   "main": "electron/main.cjs",
   "scripts": {
@@ -154,7 +154,7 @@
         "CFBundleSpokenName": "RENACE Portal",
         "CFBundleIdentifier": "tech.renace.portal.desktop",
         "LSApplicationCategoryType": "public.app-category.business",
-        "NSHumanReadableCopyright": "Copyright \u00a9 RENACE.TECH",
+        "NSHumanReadableCopyright": "Copyright © RENACE.TECH",
         "NSHighResolutionCapable": true,
         "NSSupportsAutomaticTermination": false,
         "NSSupportsSuddenTermination": false
