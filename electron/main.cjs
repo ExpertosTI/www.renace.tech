@@ -20,6 +20,7 @@ const {
   screen,
   Notification,
   globalShortcut,
+  nativeImage,
 } = require('electron');
 const store = require('./secure-store.cjs');
 const staffLocal = require('./staff-local.cjs');
@@ -39,10 +40,21 @@ const PRELOAD = path.join(__dirname, 'preload.cjs');
 const SETUP_HTML = path.join(__dirname, 'setup.html');
 const STAFF_LOGIN_HTML = path.join(__dirname, 'staff-login.html');
 const TECH_UNLOCK_HTML = path.join(__dirname, 'tech-unlock.html');
+const APP_ICON_PNG = path.join(__dirname, 'brand', 'icon-512.png');
 const TECH_PIN = String(process.env.RENACE_TECH_PIN || '101284');
 /** Modo técnico caduca solo; siempre se arranca en usuario */
 const ADMIN_TTL_MS = 20 * 60 * 1000;
 const ZOOM_STEP = 0.1;
+
+function resolveAppIcon() {
+  try {
+    if (fs.existsSync(APP_ICON_PNG)) {
+      const img = nativeImage.createFromPath(APP_ICON_PNG);
+      if (!img.isEmpty()) return img;
+    }
+  } catch (_) {}
+  return undefined;
+}
 
 function applyZoomFactor(wc, factor) {
   if (!wc || wc.isDestroyed()) return;
@@ -1469,6 +1481,7 @@ function promptTechPassword() {
       show: false,
       backgroundColor: '#0a0f1a',
       autoHideMenuBar: true,
+      icon: resolveAppIcon(),
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
@@ -1946,6 +1959,7 @@ function createWindow() {
     show: true,
     backgroundColor: '#0a0f1a',
     title: 'RENACE Portal',
+    icon: resolveAppIcon(),
     ...windowChromeOptions(),
     webPreferences: {
       contextIsolation: true,
@@ -2000,6 +2014,13 @@ app.whenReady().then(async () => {
     })(),
   });
   log.info('app ready', { version: app.getVersion(), platform: process.platform });
+
+  try {
+    const appIcon = resolveAppIcon();
+    if (appIcon && process.platform === 'darwin' && app.dock) {
+      app.dock.setIcon(appIcon);
+    }
+  } catch (_) {}
 
   // Siempre arrancar en modo usuario (técnico solo con clave, máx. 20 min)
   store.setAppMode('user');

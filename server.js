@@ -4146,6 +4146,15 @@ app.get('/docs/:filename', (req, res) => {
   return sendAttachmentFile(res, resolved.abs, filename);
 });
 
+// Browsers request /favicon.ico by default; always serve RENACE brand icon
+app.get('/favicon.ico', (req, res) => {
+  const ico = path.join(__dirname, 'images', 'favicon.ico');
+  if (!fs.existsSync(ico)) return res.status(404).end();
+  res.type('image/x-icon');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  return res.sendFile(ico);
+});
+
 app.use(express.static(path.join(__dirname), {
   index: 'index.html',
   extensions: ['html'],

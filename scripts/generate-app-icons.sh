@@ -32,29 +32,12 @@ make_png 512 "$ICONSET/icon_256x256@2x.png"
 make_png 512 "$ICONSET/icon_512x512.png"
 make_png 1024 "$ICONSET/icon_512x512@2x.png"
 
-iconutil -c icns "$ICONSET" -o "$BUILD/icon.icns" || {
-  echo "⚠ iconutil falló — reintentando con iconos mínimos"
-  rm -rf "$ICONSET"
-  mkdir -p "$ICONSET"
-  make_png 16  "$ICONSET/icon_16x16.png"
-  make_png 32  "$ICONSET/icon_16x16@2x.png"
-  make_png 32  "$ICONSET/icon_32x32.png"
-  make_png 64  "$ICONSET/icon_32x32@2x.png"
-  make_png 128 "$ICONSET/icon_128x128.png"
-  make_png 256 "$ICONSET/icon_128x128@2x.png"
-  make_png 256 "$ICONSET/icon_256x256.png"
-  make_png 512 "$ICONSET/icon_256x256@2x.png"
-  make_png 512 "$ICONSET/icon_512x512.png"
-  make_png 1024 "$ICONSET/icon_512x512@2x.png"
-  iconutil -c icns "$ICONSET" -o "$BUILD/icon.icns"
-}
+# Copy PNG targets first so a failed iconutil never leaves salon/wrong icons behind
 cp "$IMG" "$BUILD/icon-512.png"
 cp images/icon-192.png "$BUILD/icon-192.png" 2>/dev/null || make_png 192 "$BUILD/icon-192.png"
 cp images/apple-touch-icon-180.png "$BUILD/apple-touch-icon-180.png" 2>/dev/null || true
 
-python3 scripts/generate-dmg-background.py
-
-# Windows .ico para electron-builder NSIS
+# Windows .ico para electron-builder NSIS (antes de iconutil)
 python3 - <<'PY'
 from pathlib import Path
 try:
@@ -71,5 +54,29 @@ imgs[-1].save("build/icon.ico", format="ICO", sizes=[(i.width, i.height) for i i
 print("✓ build/icon.ico")
 PY
 
-echo "✓ build/icon.icns (RENACE — images/icon-512.png)"
-echo "✓ Sin assets de carpetas externas (ALTAMAR, etc.)"
+if iconutil -c icns "$ICONSET" -o "$BUILD/icon.icns"; then
+  echo "✓ build/icon.icns (RENACE — images/icon-512.png)"
+else
+  echo "⚠ iconutil falló — reintentando con iconos mínimos"
+  rm -rf "$ICONSET"
+  mkdir -p "$ICONSET"
+  make_png 16  "$ICONSET/icon_16x16.png"
+  make_png 32  "$ICONSET/icon_16x16@2x.png"
+  make_png 32  "$ICONSET/icon_32x32.png"
+  make_png 64  "$ICONSET/icon_32x32@2x.png"
+  make_png 128 "$ICONSET/icon_128x128.png"
+  make_png 256 "$ICONSET/icon_128x128@2x.png"
+  make_png 256 "$ICONSET/icon_256x256.png"
+  make_png 512 "$ICONSET/icon_256x256@2x.png"
+  make_png 512 "$ICONSET/icon_512x512.png"
+  make_png 1024 "$ICONSET/icon_512x512@2x.png"
+  if ! iconutil -c icns "$ICONSET" -o "$BUILD/icon.icns"; then
+    echo "⚠ iconutil no disponible; se mantiene build/icon.icns previo si existe"
+  else
+    echo "✓ build/icon.icns (RENACE — images/icon-512.png)"
+  fi
+fi
+
+python3 scripts/generate-dmg-background.py
+
+echo "✓ Sin assets de otras apps / carpetas externas"

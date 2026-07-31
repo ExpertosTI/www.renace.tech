@@ -1,4 +1,4 @@
-const CACHE_NAME = 'renace-v1';
+const CACHE_NAME = 'renace-v20260731';
 const ASSETS = [
   '/',
   '/index.html',
@@ -8,6 +8,8 @@ const ASSETS = [
   '/js/rar-tools.js',
   '/js/odoo-shop.js',
   '/images/logo.svg',
+  '/images/icon-192.png',
+  '/images/favicon.ico',
   '/images/support.png'
 ];
 
