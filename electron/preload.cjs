@@ -45,6 +45,8 @@ try {
     zoomIn: () => ipcRenderer.invoke('renace:zoom-in'),
     zoomOut: () => ipcRenderer.invoke('renace:zoom-out'),
     zoomReset: () => ipcRenderer.invoke('renace:zoom-reset'),
+    ensurePosZoom: () => ipcRenderer.invoke('renace:ensure-pos-zoom'),
+    leavePosZoom: () => ipcRenderer.invoke('renace:leave-pos-zoom'),
     listStaff: () => ipcRenderer.invoke('renace:staff-public-list'),
     staffPublicList: () => ipcRenderer.invoke('renace:staff-public-list'),
     staffTechList: () => ipcRenderer.invoke('renace:staff-tech-list'),

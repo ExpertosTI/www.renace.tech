@@ -45,6 +45,10 @@ const TECH_PIN = String(process.env.RENACE_TECH_PIN || '101284');
 /** Modo técnico caduca solo; siempre se arranca en usuario */
 const ADMIN_TTL_MS = 20 * 60 * 1000;
 const ZOOM_STEP = 0.1;
+/** En POS no permitir zoom “alejado” (UI chica / botón pagar difícil). */
+const POS_ZOOM_FLOOR = 1.0;
+/** Monitores anchos: piso ligeramente por encima de 100%. */
+const POS_ZOOM_FLOOR_LARGE = 1.1;
 
 function resolveAppIcon() {
   try {
@@ -56,22 +60,51 @@ function resolveAppIcon() {
   return undefined;
 }
 
+/** Piso de zoom en POS: 100% normal, 110% en pantallas ≥1920px de ancho útil. */
+function posZoomFloor(wc) {
+  try {
+    const win = wc && !wc.isDestroyed() ? BrowserWindow.fromWebContents(wc) : BrowserWindow.getFocusedWindow();
+    const bounds = win && !win.isDestroyed() ? win.getBounds() : null;
+    const display = bounds
+      ? screen.getDisplayMatching(bounds)
+      : screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+    const w = display?.workAreaSize?.width || display?.size?.width || 0;
+    if (w >= 1920) return POS_ZOOM_FLOOR_LARGE;
+  } catch (_) {}
+  return POS_ZOOM_FLOOR;
+}
+
+function isPosContext(wc) {
+  if (!wc || wc.isDestroyed()) return false;
+  try {
+    if (isPosLikeUrl(wc.getURL())) return true;
+  } catch (_) {}
+  return !!wc.__renacePosUi;
+}
+
+function resolveZoomForWc(wc, factor) {
+  let z = store.clampZoomFactor(factor != null ? factor : store.getZoomFactor());
+  if (isPosContext(wc)) {
+    z = Math.max(z, posZoomFloor(wc));
+  }
+  return z;
+}
+
 function applyZoomFactor(wc, factor) {
   if (!wc || wc.isDestroyed()) return;
-  const z = store.clampZoomFactor(factor != null ? factor : store.getZoomFactor());
+  const z = resolveZoomForWc(wc, factor);
   try {
     wc.setZoomFactor(z);
   } catch (_) {}
 }
 
 function applyZoomToAll(factor) {
-  const z = store.clampZoomFactor(factor != null ? factor : store.getZoomFactor());
   BrowserWindow.getAllWindows().forEach((w) => {
     try {
-      applyZoomFactor(w.webContents, z);
+      applyZoomFactor(w.webContents, factor);
     } catch (_) {}
   });
-  return z;
+  return store.clampZoomFactor(factor != null ? factor : store.getZoomFactor());
 }
 
 function setAppZoom(factor) {
@@ -81,7 +114,34 @@ function setAppZoom(factor) {
 }
 
 function adjustAppZoom(delta) {
+  const win = BrowserWindow.getFocusedWindow();
+  const wc = win && !win.isDestroyed() ? win.webContents : null;
+  if (wc && isPosContext(wc)) {
+    const floor = posZoomFloor(wc);
+    const effective = Math.max(store.getZoomFactor(), floor);
+    const next = store.clampZoomFactor(effective + delta);
+    return setAppZoom(Math.max(next, floor));
+  }
   return setAppZoom(store.getZoomFactor() + delta);
+}
+
+/**
+ * Al entrar al POS: si el zoom guardado quedó muy lejos (p.ej. 80%),
+ * sube al piso POS (y persiste) para que Pagar sea usable en pantallas grandes.
+ */
+function ensurePosZoom(wc) {
+  const target = wc && !wc.isDestroyed() ? wc : BrowserWindow.getFocusedWindow()?.webContents;
+  if (target && !target.isDestroyed()) {
+    target.__renacePosUi = true;
+  }
+  const floor = posZoomFloor(target);
+  const current = store.getZoomFactor();
+  if (current < floor) {
+    return setAppZoom(floor);
+  }
+  if (target) applyZoomFactor(target);
+  else applyZoomToAll();
+  return Math.max(current, floor);
 }
 
 /** Entradas de menú Ver / zoom (usuario y técnico). Persistidas en secure-store. */
@@ -911,6 +971,13 @@ function registerIpc() {
   ipcMain.handle('renace:zoom-in', () => adjustAppZoom(ZOOM_STEP));
   ipcMain.handle('renace:zoom-out', () => adjustAppZoom(-ZOOM_STEP));
   ipcMain.handle('renace:zoom-reset', () => setAppZoom(1));
+  ipcMain.handle('renace:ensure-pos-zoom', (e) => ensurePosZoom(e.sender));
+  ipcMain.handle('renace:leave-pos-zoom', (e) => {
+    const wc = e.sender;
+    if (wc && !wc.isDestroyed()) wc.__renacePosUi = false;
+    applyZoomFactor(wc);
+    return store.getZoomFactor();
+  });
   ipcMain.handle('renace:notify', (_e, payload) => showNativeNotification(payload || {}));
 }
 
@@ -1405,6 +1472,12 @@ function attachWindowGuards(win) {
       const host = new URL(url).host;
       if (host) log.setInstanceHost(host);
     } catch (_) {}
+    if (isPosLikeUrl(url)) {
+      ensurePosZoom(wc);
+    } else if (wc.__renacePosUi) {
+      wc.__renacePosUi = false;
+      applyZoomFactor(wc);
+    }
   });
   wc.on('did-navigate-in-page', () => {});
   wc.on('page-title-updated', () => {});

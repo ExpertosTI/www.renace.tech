@@ -5,8 +5,8 @@
  * - Franja superior compacta (no tapa menús Odoo / logout)
  * - Controles a la izquierda + zoom
  * - Arrastre solo en la franja, no sobre la navbar
- * - Altura responsive; en POS online se relaja el padding del body
- *   para no empujar botones de pago fuera de pantalla
+ * - POS online: chrome mínimo + un solo safe-area (sin apilar 100vh/padding
+ *   en capas internas — eso empujaba el botón Pagar fuera del viewport)
  */
 module.exports = function winFrameScript() {
   return `(() => {
@@ -40,20 +40,69 @@ module.exports = function winFrameScript() {
     function cssText(top, posMode) {
       const posRules = posMode
         ? \`
-      /* POS online: no padding en body (eso encogía el viewport y tapaba el pago).
-         El chrome flota; el root POS usa box-sizing con safe-area. */
+      /* POS: body sin padding — el chrome flota; un solo safe-area en la raíz POS */
+      html.renace-win-pad.renace-pos-mode,
       html.renace-win-pad.renace-pos-mode body{
+        height:100% !important;
+        max-height:100% !important;
+        overflow:hidden !important;
+        margin:0 !important;
         padding-top:0 !important;
       }
+      html.renace-win-pad.renace-pos-mode .o_action_manager,
+      html.renace-win-pad.renace-pos-mode .o_web_client,
+      html.renace-win-pad.renace-pos-mode #wrapwrap{
+        height:100% !important;
+        max-height:100% !important;
+        min-height:0 !important;
+        overflow:hidden !important;
+        box-sizing:border-box !important;
+      }
+      /* Una sola capa con padding del chrome — no repetir en .pos-content */
       html.renace-win-pad.renace-pos-mode .o_pos,
-      html.renace-win-pad.renace-pos-mode .pos,
-      html.renace-win-pad.renace-pos-mode .pos-content,
-      html.renace-win-pad.renace-pos-mode .o_action_manager > .o_pos{
+      html.renace-win-pad.renace-pos-mode .pos{
         box-sizing:border-box !important;
         padding-top:var(--renace-top) !important;
-        min-height:100vh !important;
-        height:100vh !important;
-        max-height:100vh !important;
+        height:100% !important;
+        max-height:100% !important;
+        min-height:0 !important;
+        overflow:hidden !important;
+        display:flex !important;
+        flex-direction:column !important;
+      }
+      html.renace-win-pad.renace-pos-mode .o_pos > .pos,
+      html.renace-win-pad.renace-pos-mode .pos-content,
+      html.renace-win-pad.renace-pos-mode .o_pos .pos-content{
+        box-sizing:border-box !important;
+        padding-top:0 !important;
+        flex:1 1 auto !important;
+        height:auto !important;
+        max-height:100% !important;
+        min-height:0 !important;
+        overflow:hidden !important;
+      }
+      /* Paneles internos: llenan sin bandas vacías ni scroll fantasma */
+      html.renace-win-pad.renace-pos-mode .product-screen,
+      html.renace-win-pad.renace-pos-mode .payment-screen,
+      html.renace-win-pad.renace-pos-mode .ticket-screen,
+      html.renace-win-pad.renace-pos-mode .floor-screen,
+      html.renace-win-pad.renace-pos-mode .leftpane,
+      html.renace-win-pad.renace-pos-mode .rightpane,
+      html.renace-win-pad.renace-pos-mode .review-container,
+      html.renace-win-pad.renace-pos-mode .order-container{
+        min-height:0 !important;
+        max-height:100% !important;
+        box-sizing:border-box !important;
+      }
+      /* Pagar / Validar siempre en viewport (no encoger ni empujar abajo) */
+      html.renace-win-pad.renace-pos-mode .actionpad,
+      html.renace-win-pad.renace-pos-mode .pads,
+      html.renace-win-pad.renace-pos-mode .pay-order-button,
+      html.renace-win-pad.renace-pos-mode .button.pay,
+      html.renace-win-pad.renace-pos-mode .validation-button,
+      html.renace-win-pad.renace-pos-mode .button.next,
+      html.renace-win-pad.renace-pos-mode .payment-screen .next{
+        flex-shrink:0 !important;
       }
       html.renace-win-pad.renace-pos-mode .o_main_navbar{
         display:none !important;
@@ -123,10 +172,21 @@ module.exports = function winFrameScript() {
       document.documentElement.appendChild(css);
     }
 
+    function syncPosZoom(entering) {
+      try {
+        if (entering) window.renaceDesktop?.ensurePosZoom?.();
+        else window.renaceDesktop?.leavePosZoom?.();
+      } catch (_) {}
+    }
+
     function applyTop() {
       const pos = isPosUi();
+      const wasPos = document.documentElement.classList.contains('renace-pos-mode');
       document.documentElement.classList.toggle('renace-pos-mode', pos);
       css.textContent = cssText(computeTop(), pos);
+      if (pos && !wasPos) syncPosZoom(true);
+      else if (!pos && wasPos) syncPosZoom(false);
+      else if (pos) syncPosZoom(true);
     }
     applyTop();
 
