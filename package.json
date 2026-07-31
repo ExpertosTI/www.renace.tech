@@ -1,6 +1,6 @@
 {
   "name": "renace-tech",
-  "version": "3.0.17",
+  "version": "3.0.18",
   "private": true,
   "description": "RENACE.TECH — Platform for business digitalization",
   "author": "RENACE.TECH",
@@ -71,11 +71,13 @@
     },
     "nsis": {
       "oneClick": true,
+      "perMachine": false,
       "allowElevation": true,
       "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "RENACE Portal",
+      "uninstallDisplayName": "RENACE Portal",
       "include": "build/installer.nsh",
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",

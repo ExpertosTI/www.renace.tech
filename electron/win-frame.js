@@ -5,7 +5,8 @@
  * - Franja superior compacta (no tapa menús Odoo / logout)
  * - Controles a la izquierda + zoom
  * - Arrastre solo en la franja, no sobre la navbar
- * - Altura responsive: más baja en pantallas altas para no empujar botones POS
+ * - Altura responsive; en POS online se relaja el padding del body
+ *   para no empujar botones de pago fuera de pantalla
  */
 module.exports = function winFrameScript() {
   return `(() => {
@@ -14,15 +15,60 @@ module.exports = function winFrameScript() {
     const TOP_TALL = 26;  /* ≥1080px alto */
     const TOP_MID = 28;   /* ≥900px */
     const TOP_SHORT = 30; /* ventanas bajas — hit target usable */
+    const TOP_POS = 22;   /* POS online: chrome mínimo, sin robar altura al pago */
+
+    function isPosUi() {
+      try {
+        if (document.querySelector('.o_pos, .pos, .pos-content, .pos-topheader, #pos, .point-of-sale')) {
+          return true;
+        }
+        const hay = String(location.href || '') + String(location.hash || '');
+        return /\\/pos\\b|point_of_sale|action=pos|model=pos\\./i.test(hay);
+      } catch (_) {
+        return false;
+      }
+    }
 
     function computeTop() {
+      if (isPosUi()) return TOP_POS;
       const h = window.innerHeight || 900;
       if (h >= 1080) return TOP_TALL;
       if (h >= 900) return TOP_MID;
       return TOP_SHORT;
     }
 
-    function cssText(top) {
+    function cssText(top, posMode) {
+      const posRules = posMode
+        ? \`
+      /* POS online: no padding en body (eso encogía el viewport y tapaba el pago).
+         El chrome flota; el root POS usa box-sizing con safe-area. */
+      html.renace-win-pad.renace-pos-mode body{
+        padding-top:0 !important;
+      }
+      html.renace-win-pad.renace-pos-mode .o_pos,
+      html.renace-win-pad.renace-pos-mode .pos,
+      html.renace-win-pad.renace-pos-mode .pos-content,
+      html.renace-win-pad.renace-pos-mode .o_action_manager > .o_pos{
+        box-sizing:border-box !important;
+        padding-top:var(--renace-top) !important;
+        min-height:100vh !important;
+        height:100vh !important;
+        max-height:100vh !important;
+      }
+      html.renace-win-pad.renace-pos-mode .o_main_navbar{
+        display:none !important;
+      }
+      \`
+        : \`
+      html.renace-win-pad body{
+        padding-top:var(--renace-top) !important;
+      }
+      html.renace-win-pad .o_main_navbar{
+        padding-left:12px !important;
+        top:var(--renace-top) !important;
+      }
+      \`;
+
       return \`
       :root { --renace-top: \${top}px; --renace-chrome-w: \${CHROME_W}px; }
 
@@ -55,21 +101,14 @@ module.exports = function winFrameScript() {
         border-bottom:1px solid rgba(148,163,184,.08);
       }
 
-      /* Empujar TODO el UI de Odoo debajo de la franja — clics arriba funcionan */
       html.renace-win-pad,
       html.renace-win-pad body{
         box-sizing:border-box !important;
       }
-      html.renace-win-pad body{
-        padding-top:var(--renace-top) !important;
-      }
-      html.renace-win-pad .o_main_navbar{
-        padding-left:12px !important;
-        top:var(--renace-top) !important;
-      }
+      \${posRules}
       /* Login / setup locales */
-      html.renace-win-pad .oe_login_form,
-      html.renace-win-pad .o_database_form{
+      html.renace-win-pad:not(.renace-pos-mode) .oe_login_form,
+      html.renace-win-pad:not(.renace-pos-mode) .o_database_form{
         margin-top:8px;
       }
     \`;
@@ -85,7 +124,9 @@ module.exports = function winFrameScript() {
     }
 
     function applyTop() {
-      css.textContent = cssText(computeTop());
+      const pos = isPosUi();
+      document.documentElement.classList.toggle('renace-pos-mode', pos);
+      css.textContent = cssText(computeTop(), pos);
     }
     applyTop();
 
@@ -130,6 +171,26 @@ module.exports = function winFrameScript() {
         clearTimeout(t);
         t = setTimeout(applyTop, 80);
       });
+    }
+
+    /* Odoo POS es SPA: detectar entrada/salida a /pos sin recarga completa */
+    if (!window.__renaceWinFramePosWatch) {
+      window.__renaceWinFramePosWatch = true;
+      let lastPos = isPosUi();
+      const tick = () => {
+        const now = isPosUi();
+        if (now !== lastPos) {
+          lastPos = now;
+          applyTop();
+        }
+      };
+      setInterval(tick, 1200);
+      try {
+        const obs = new MutationObserver(() => tick());
+        if (document.documentElement) {
+          obs.observe(document.documentElement, { childList: true, subtree: true });
+        }
+      } catch (_) {}
     }
   })();`;
 };

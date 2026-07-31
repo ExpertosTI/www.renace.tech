@@ -560,17 +560,24 @@ async function openHome(win) {
 
 /**
  * Actualiza la interfaz (caché HTTP) sin tocar instancia, cookies ni secretos.
+ * En POS online: NO clearCache / reloadIgnoringCache — Odoo POS usa su propia
+ * caché de assets/productos; un wipe agresivo rompe la sesión de caja.
  */
 async function refreshUiSafe(win) {
   const w = win || currentWin();
   if (!w || w.isDestroyed()) return;
   const wc = w.webContents;
   const url = wc.getURL();
-  try {
-    await portalSession().clearCache();
-    log.info('ui refresh: cache cleared (instance preserved)');
-  } catch (e) {
-    log.warn('ui refresh cache', e.message);
+  const onPos = isPosLikeUrl(url);
+  if (!onPos) {
+    try {
+      await portalSession().clearCache();
+      log.info('ui refresh: cache cleared (instance preserved)');
+    } catch (e) {
+      log.warn('ui refresh cache', e.message);
+    }
+  } else {
+    log.info('ui refresh: POS online — preserving browser/POS cache');
   }
   try {
     if (!url || url === 'about:blank') {
@@ -587,7 +594,11 @@ async function refreshUiSafe(win) {
       openStaffLogin(w);
       return;
     }
-    wc.reloadIgnoringCache();
+    if (onPos) {
+      wc.reload();
+    } else {
+      wc.reloadIgnoringCache();
+    }
   } catch (e) {
     log.warn('ui refresh reload', e.message);
     try { wc.reload(); } catch (_) {}
@@ -1051,6 +1062,10 @@ function injectCompanyFocus(wc) {
   if (!wc || wc.isDestroyed()) return;
   const inst = store.getInstance();
   if (!inst) return;
+  // En /pos no inyectamos forzado de empresa — el script también no-opea en POS
+  try {
+    if (isPosLikeUrl(wc.getURL())) return;
+  } catch (_) {}
   const cfg = JSON.stringify({
     url: inst.url,
     name: inst.name,
@@ -1335,9 +1350,12 @@ function hardenSession(ses) {
   ses.setPermissionRequestHandler((_wc, permission, callback) => {
     // Permitir notificaciones del SO / Odoo; denegar el resto sensible por defecto
     if (permission === 'notifications') return callback(true);
+    // POS / IoT a veces pide dispositivos; no bloquear de más
     if (permission === 'media' || permission === 'geolocation') return callback(false);
     callback(true);
   });
+  // No registrar handlers que bloqueen Service Workers ni caché HTTP de la instancia:
+  // Odoo POS online depende de su propia caché de assets en esta partición persistente.
   ses.webRequest.onErrorOccurred({ urls: ['*://*.renace.tech/*', '*://renace.tech/*'] }, (details) => {
     if (details.resourceType === 'mainFrame' || details.resourceType === 'xhr' || details.resourceType === 'script') {
       log.warn('request error', {

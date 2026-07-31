@@ -1,7 +1,9 @@
 ; RENACE Portal — NSIS hooks
 ; - Cierra procesos abiertos UNA vez antes de instalar
-; - NO desinstala a mano en upgrades: electron-builder ya gestiona el GUID
-;   (evitar “instalar dos veces la misma instancia”)
+; - Upgrade normal: electron-builder llama uninstallOldVersion (mismo appId/GUID)
+;   con --updated → desinstala versión anterior SIN borrar userData/Odoo sessions
+; - NUNCA re-ejecutar uninstall a mano sobre el mismo INSTDIR (doble install)
+; - Orphans: solo limpia copias en OTRA carpeta (p.ej. restos per-user viejos)
 ; - Silent (/S): no pregunta autostart; no relanza POS (lo hace Portal al abrir)
 ; Payload: resources/posagent y resources/vcredist
 
@@ -16,18 +18,36 @@
   Sleep 800
 !macroend
 
-; Solo para restos huérfanos (otra carpeta), NUNCA en customInit de upgrade normal
-!macro RenaceUninstallOrphan
-  StrCpy $R1 "$LOCALAPPDATA\Programs\RENACE Portal\Uninstall RENACE Portal.exe"
-  ${If} ${FileExists} "$R1"
-    ; Si el uninstall apunta al mismo INSTDIR, electron-builder ya lo gestiona — no tocar
-    ${If} "$INSTDIR" == "$LOCALAPPDATA\Programs\RENACE Portal"
-      DetailPrint "Upgrade in-place — omitiendo uninstall manual."
+; Ejecuta uninstall silencioso de una ruta distinta a $INSTDIR (orphan)
+!macro RenaceRunOrphanUninstall UNEXE INSTPATH
+  ${If} ${FileExists} "${UNEXE}"
+    ${If} "${INSTPATH}" == "$INSTDIR"
+      DetailPrint "Misma carpeta que upgrade — omitiendo uninstall manual (lo hace electron-builder)."
     ${Else}
-      DetailPrint "Limpiando instalacion huerfana (per-user)..."
-      ExecWait '"$R1" /S _?=$LOCALAPPDATA\Programs\RENACE Portal' $R0
+      DetailPrint "Desinstalando copia anterior huerfana: ${INSTPATH}"
+      ; /KEEP_APP_DATA + --updated: no borra userData ni sesiones Odoo
+      ExecWait '"${UNEXE}" /S /KEEP_APP_DATA --updated _?=${INSTPATH}' $R0
       Sleep 1000
     ${EndIf}
+  ${EndIf}
+!macroend
+
+; Solo restos huérfanos (otra carpeta). NUNCA mismo INSTDIR.
+!macro RenaceUninstallOrphan
+  ; Per-user típico electron-builder oneClick
+  StrCpy $R1 "$LOCALAPPDATA\Programs\RENACE Portal\Uninstall RENACE Portal.exe"
+  StrCpy $R2 "$LOCALAPPDATA\Programs\RENACE Portal"
+  !insertmacro RenaceRunOrphanUninstall "$R1" "$R2"
+
+  ; Variante Program Files (si alguna vez se instaló elevated / all-users)
+  StrCpy $R1 "$PROGRAMFILES\RENACE Portal\Uninstall RENACE Portal.exe"
+  StrCpy $R2 "$PROGRAMFILES\RENACE Portal"
+  !insertmacro RenaceRunOrphanUninstall "$R1" "$R2"
+
+  ${If} ${RunningX64}
+    StrCpy $R1 "$PROGRAMFILES64\RENACE Portal\Uninstall RENACE Portal.exe"
+    StrCpy $R2 "$PROGRAMFILES64\RENACE Portal"
+    !insertmacro RenaceRunOrphanUninstall "$R1" "$R2"
   ${EndIf}
 !macroend
 
@@ -48,8 +68,12 @@
 !macroend
 
 !macro customInit
-  ; Una sola pasada — no uninstall+reinstall duplicado
+  ; 1) Cerrar apps
   !insertmacro RenaceCloseRunningApps
+  ; 2) Limpiar SOLO installs huerfanos en otra ruta
+  ;    La versión registrada (mismo GUID/appId) la desinstala electron-builder
+  ;    en installSection vía uninstallOldVersion + --updated (preserva AppData)
+  !insertmacro RenaceUninstallOrphan
 !macroend
 
 !macro customUnInit
@@ -78,6 +102,10 @@
       ${EndIf}
     ${EndIf}
   ${EndIf}
+
+  ; Quitar accesos directos basura (icono Electron genérico de builds viejos)
+  Delete "$DESKTOP\Electron.lnk"
+  Delete "$SMPROGRAMS\Electron.lnk"
 
   ; --- Inicio con Windows ---
   ${If} ${Silent}
@@ -121,7 +149,7 @@
     ${If} $R7 == 1
       WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "RENACE POS Agent PRO" '"$0"'
     ${EndIf}
-    ; Solo arrancar POS en instalacion interactiva (no en update /S → evita doble proceso)
+    ; Solo arrancar POS Agent en instalacion interactiva (no en update /S → evita doble proceso)
     ${IfNot} ${Silent}
       SetOutPath "$INSTDIR\resources\posagent"
       Exec '"$0"'
@@ -135,6 +163,9 @@
 !macro customUnInstall
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "RENACE Portal"
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "RENACE POS Agent PRO"
+  Delete "$DESKTOP\Electron.lnk"
+  Delete "$SMPROGRAMS\Electron.lnk"
+  ; En upgrade (${isUpdated}) preservar Software\RENACE\Portal (autostart prefs, etc.)
   ${ifNot} ${isUpdated}
     DeleteRegKey HKCU "Software\RENACE\Portal"
   ${endIf}

@@ -56,12 +56,25 @@
     }
   }
 
+  function isPosRoute() {
+    try {
+      if (document.querySelector('.o_pos, .pos, .pos-content, .pos-topheader, #pos')) return true;
+      var hay = String(location.href || '') + String(location.hash || '');
+      return /\/pos\b|point_of_sale|action=pos|model=pos\./i.test(hay);
+    } catch (_) {
+      return false;
+    }
+  }
+
   function softTouch() {
     var c = cfg();
     if (!c || !c.url) return;
     try {
       if (location.origin !== new URL(c.url).origin) return;
     } catch (_) { return; }
+
+    // POS online: no tocar cookies/logo — Odoo POS tiene su propia sesión y caché
+    if (isPosRoute()) return;
 
     var path = location.pathname || '';
     var onLogin = /\/web\/login/i.test(path) || !!document.querySelector('.oe_login_form, form[action*="web/login"]');
@@ -77,6 +90,7 @@
     softTouch();
     try {
       var obs = new MutationObserver(function () {
+        if (isPosRoute()) return;
         var c = cfg();
         var path = location.pathname || '';
         if (c && c.companyId && /\/web\/login/i.test(path)) applyLoginLogo(c.companyId);
