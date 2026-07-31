@@ -325,7 +325,8 @@
           Modo Usuario (sin atrás / actualizar)
         </label>
 
-        <button type="button" class="btn-submit" id="save">Continuar</button>
+        <button type="button" class="btn-submit" id="save">Guardar vínculo</button>
+        <button type="button" class="btn-ghost" id="openCompany" style="margin-top:10px;display:none">Abrir empresa</button>
 
         <div class="divider"><span>o</span></div>
 
@@ -335,7 +336,7 @@
       <div class="card" id="staffCard" style="margin-top:18px;display:none">
         <div class="login-title" style="font-size:1.05rem;margin-bottom:6px">Personal de este PC</div>
         <p class="login-subtitle" style="margin-bottom:16px">
-          PIN local por persona. La contraseña fuerte de Odoo queda cifrada solo en este equipo; los meseros no la usan en la web.
+          Guarda cada usuario aquí. En el acceso elegirán su nombre e introducirán el PIN. La contraseña fuerte de Odoo queda cifrada solo en este equipo.
         </p>
         <div id="staffRows" style="display:grid;gap:8px;margin-bottom:14px"></div>
         <div class="field">
@@ -366,7 +367,11 @@
             <input id="staffPin" type="password" inputmode="numeric" maxlength="12" placeholder="Solo en este PC" autocomplete="off" style="padding-left:38px" />
           </div>
         </div>
-        <button type="button" class="btn-ghost" id="staffAdd">Añadir / actualizar personal</button>
+        <label class="lock">
+          <input id="staffDefault" type="checkbox" />
+          Guardar como usuario predeterminado
+        </label>
+        <button type="button" class="btn-ghost" id="staffAdd">Guardar usuario</button>
         <div class="msg" id="staffMsg"></div>
       </div>
 
@@ -377,10 +382,21 @@
   <script>
     const msg = document.getElementById('msg');
     const staffMsg = document.getElementById('staffMsg');
+    const openCompanyBtn = document.getElementById('openCompany');
     const api = window.renaceDesktop;
 
     if (!api) {
       msg.textContent = 'Error: bridge de escritorio no disponible. Reinstala la app.';
+    }
+
+    function instancePayload() {
+      return {
+        url: (document.getElementById('url').value || '').trim(),
+        name: (document.getElementById('name').value || '').trim(),
+        companyId: null,
+        locked: document.getElementById('locked').checked,
+        mode: document.getElementById('modeUser').checked ? 'user' : 'admin',
+      };
     }
 
     async function refreshStaff() {
@@ -390,22 +406,64 @@
         const inst = await api?.getInstance?.();
         if (!inst?.url) {
           card.style.display = 'none';
+          openCompanyBtn.style.display = 'none';
           return;
         }
         card.style.display = 'block';
+        openCompanyBtn.style.display = 'block';
         const rows = await api?.staffTechList?.() || [];
         rowsEl.innerHTML = '';
         if (!rows.length) {
-          rowsEl.innerHTML = '<div style="font-size:13px;color:var(--muted)">Ningún perfil aún. Añade cajeros/meseros abajo.</div>';
+          rowsEl.innerHTML = '<div style="font-size:13px;color:var(--muted)">Ningún usuario guardado aún. Añade cajeros/meseros abajo; luego abre la empresa.</div>';
           return;
         }
         rows.forEach((r) => {
           const row = document.createElement('div');
           row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:rgba(8,12,24,.5)';
-          row.innerHTML = '<div><div style="font-weight:600;font-size:14px"></div><div style="font-size:12px;color:var(--muted)"></div></div><button type="button" class="btn-ghost" style="width:auto;padding:6px 10px;font-size:12px">Quitar</button>';
-          row.children[0].children[0].textContent = r.name;
-          row.children[0].children[1].textContent = r.odooLogin + (r.hasPassword ? '' : ' · sin clave');
-          row.querySelector('button').addEventListener('click', async () => {
+          const left = document.createElement('div');
+          left.style.cssText = 'min-width:0;flex:1';
+          const title = document.createElement('div');
+          title.style.cssText = 'font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap';
+          title.appendChild(document.createTextNode(r.name));
+          if (r.isDefault) {
+            const badge = document.createElement('span');
+            badge.textContent = 'Predeterminado';
+            badge.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#0a0f1a;background:linear-gradient(135deg,#0077b6,#00b4d8);padding:2px 7px;border-radius:999px';
+            title.appendChild(badge);
+          }
+          const sub = document.createElement('div');
+          sub.style.cssText = 'font-size:12px;color:var(--muted)';
+          sub.textContent = r.odooLogin + (r.hasPassword ? '' : ' · sin clave');
+          left.appendChild(title);
+          left.appendChild(sub);
+
+          const actions = document.createElement('div');
+          actions.style.cssText = 'display:flex;gap:6px;flex-shrink:0';
+          if (!r.isDefault) {
+            const defBtn = document.createElement('button');
+            defBtn.type = 'button';
+            defBtn.className = 'btn-ghost';
+            defBtn.style.cssText = 'width:auto;padding:6px 10px;font-size:12px';
+            defBtn.textContent = 'Predeterminar';
+            defBtn.addEventListener('click', async () => {
+              staffMsg.className = 'msg';
+              const res = await api.staffSetDefault?.(r.id);
+              if (!res?.ok) {
+                staffMsg.textContent = res?.error || 'No se pudo marcar';
+                return;
+              }
+              staffMsg.className = 'msg ok';
+              staffMsg.textContent = 'Usuario predeterminado actualizado';
+              refreshStaff();
+            });
+            actions.appendChild(defBtn);
+          }
+          const rm = document.createElement('button');
+          rm.type = 'button';
+          rm.className = 'btn-ghost';
+          rm.style.cssText = 'width:auto;padding:6px 10px;font-size:12px';
+          rm.textContent = 'Quitar';
+          rm.addEventListener('click', async () => {
             staffMsg.className = 'msg';
             const res = await api.staffRemove?.(r.id);
             if (!res?.ok) {
@@ -416,6 +474,9 @@
             staffMsg.textContent = 'Eliminado';
             refreshStaff();
           });
+          actions.appendChild(rm);
+          row.appendChild(left);
+          row.appendChild(actions);
           rowsEl.appendChild(row);
         });
       } catch (e) {
@@ -440,25 +501,43 @@
     document.getElementById('save').addEventListener('click', async () => {
       msg.className = 'msg';
       msg.textContent = '';
-      if (!api?.saveAndOpenInstance && !api?.setInstance) {
+      if (!api?.saveInstance && !api?.setInstance) {
         msg.textContent = 'Error: bridge no disponible';
         return;
       }
-      const url = (document.getElementById('url').value || '').trim();
-      const name = (document.getElementById('name').value || '').trim();
-      if (!url) {
+      const payload = instancePayload();
+      if (!payload.url) {
         msg.textContent = 'Indica la URL de Odoo';
         document.getElementById('url').focus();
         return;
       }
       try {
-        const payload = {
-          url,
-          name,
-          companyId: null,
-          locked: document.getElementById('locked').checked,
-          mode: document.getElementById('modeUser').checked ? 'user' : 'admin',
-        };
+        const res = api.saveInstance
+          ? await api.saveInstance(payload)
+          : await api.setInstance(payload);
+        if (!res?.ok) {
+          msg.textContent = res?.error || 'No se pudo guardar';
+          return;
+        }
+        msg.className = 'msg ok';
+        msg.textContent = 'Vínculo guardado. Ahora puedes guardar usuarios abajo.';
+        await refreshStaff();
+        document.getElementById('staffCard')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+      } catch (e) {
+        msg.textContent = e.message || String(e);
+      }
+    });
+
+    openCompanyBtn.addEventListener('click', async () => {
+      msg.className = 'msg';
+      msg.textContent = '';
+      try {
+        const payload = instancePayload();
+        if (!payload.url) {
+          msg.textContent = 'Indica la URL de Odoo';
+          return;
+        }
+        // Asegura vínculo actualizado y abre (staff gate si hay perfiles)
         const res = api.saveAndOpenInstance
           ? await api.saveAndOpenInstance(payload)
           : await (async () => {
@@ -467,12 +546,11 @@
               return r;
             })();
         if (!res?.ok) {
-          msg.textContent = res?.error || 'No se pudo guardar';
+          msg.textContent = res?.error || 'No se pudo abrir';
           return;
         }
         msg.className = 'msg ok';
-        msg.textContent = 'Listo';
-        await refreshStaff();
+        msg.textContent = 'Abriendo…';
       } catch (e) {
         msg.textContent = e.message || String(e);
       }
@@ -485,8 +563,25 @@
       const odooLogin = (document.getElementById('staffLogin').value || '').trim();
       const odooPassword = document.getElementById('staffPass').value || '';
       const pin = document.getElementById('staffPin').value || '';
+      const isDefault = document.getElementById('staffDefault').checked;
+      // Si aún no hay vínculo, guardar URL primero
       try {
-        const res = await api?.staffUpsert?.({ name, odooLogin, odooPassword, pin });
+        const inst = await api?.getInstance?.();
+        if (!inst?.url) {
+          const payload = instancePayload();
+          if (!payload.url) {
+            staffMsg.textContent = 'Guarda primero el vínculo de empresa (URL de Odoo)';
+            return;
+          }
+          const saved = api.saveInstance
+            ? await api.saveInstance(payload)
+            : await api.setInstance(payload);
+          if (!saved?.ok) {
+            staffMsg.textContent = saved?.error || 'No se pudo guardar el vínculo';
+            return;
+          }
+        }
+        const res = await api?.staffUpsert?.({ name, odooLogin, odooPassword, pin, isDefault });
         if (!res?.ok) {
           staffMsg.textContent = res?.error || 'No se pudo guardar';
           return;
@@ -495,8 +590,11 @@
         document.getElementById('staffLogin').value = '';
         document.getElementById('staffPass').value = '';
         document.getElementById('staffPin').value = '';
+        document.getElementById('staffDefault').checked = false;
         staffMsg.className = 'msg ok';
-        staffMsg.textContent = 'Personal guardado en este PC';
+        staffMsg.textContent = res.profile?.isDefault
+          ? 'Usuario guardado y marcado como predeterminado'
+          : 'Usuario guardado en este PC';
         await refreshStaff();
       } catch (e) {
         staffMsg.textContent = e.message || String(e);

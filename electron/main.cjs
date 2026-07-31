@@ -19,6 +19,7 @@ const {
   ipcMain,
   screen,
   Notification,
+  globalShortcut,
 } = require('electron');
 const store = require('./secure-store.cjs');
 const staffLocal = require('./staff-local.cjs');
@@ -107,7 +108,45 @@ function zoomMenuTemplate() {
 /** Solo se puede salir con allowQuit (técnico confirmó / update) */
 let allowQuit = false;
 let techPromptOpen = false;
+let techUnlockInFlight = false;
 let adminExpireTimer = null;
+/** Atajo modo técnico — menú oculto / frameless en Windows no dispara accelerators */
+const TECH_UNLOCK_ACCELERATOR = 'CommandOrControl+Shift+Alt+T';
+
+function isTechUnlockChord(input) {
+  if (!input || input.type !== 'keyDown' || input.isAutoRepeat) return false;
+  const key = String(input.key || '');
+  const code = String(input.code || '');
+  const isT = key === 't' || key === 'T' || code === 'KeyT';
+  if (!isT) return false;
+  const mod = !!(input.control || input.meta);
+  return mod && !!input.shift && !!input.alt;
+}
+
+function requestTechUnlockFromShortcut() {
+  if (store.getAppMode() === 'admin') return;
+  unlockAdmin().catch((e) => log.warn('unlockAdmin shortcut', e && e.message));
+}
+
+function registerTechUnlockGlobalShortcut() {
+  try {
+    globalShortcut.unregister(TECH_UNLOCK_ACCELERATOR);
+  } catch (_) {}
+  try {
+    const ok = globalShortcut.register(TECH_UNLOCK_ACCELERATOR, () => {
+      requestTechUnlockFromShortcut();
+    });
+    if (!ok) log.warn('tech unlock globalShortcut register failed');
+  } catch (e) {
+    log.warn('tech unlock globalShortcut', e.message);
+  }
+}
+
+function unregisterTechUnlockGlobalShortcut() {
+  try {
+    globalShortcut.unregister(TECH_UNLOCK_ACCELERATOR);
+  } catch (_) {}
+}
 
 function requestQuitForUpdate() {
   allowQuit = true;
@@ -627,6 +666,32 @@ function registerIpc() {
     await openHome(currentWin());
     return true;
   });
+  /** Guarda vínculo de empresa sin salir de setup (para poder añadir personal). */
+  ipcMain.handle('renace:instance-save', (event, payload) => {
+    if (!senderIsTrusted(event) && store.getAppMode() !== 'admin') {
+      return { ok: false, error: 'No autorizado' };
+    }
+    const res = store.setInstance(payload || {});
+    log.info('instance-save', {
+      ok: res.ok,
+      error: res.error || null,
+      url: res.instance?.url || null,
+      companyId: res.instance?.companyId || null,
+    });
+    if (!res.ok) return res;
+    // Preferir modo usuario tras vincular; técnico puede reabrir con PIN
+    const wantUser = payload?.mode !== 'admin';
+    if (wantUser) {
+      store.setAppMode('user');
+      clearAdminExpireTimer();
+    }
+    buildMenu();
+    BrowserWindow.getAllWindows().forEach((w) => {
+      applyUserModeGuards(w);
+      applyClosableState(w);
+    });
+    return { ...res, mode: store.getAppMode() };
+  });
   ipcMain.handle('renace:instance-save-open', async (event, payload) => {
     if (!senderIsTrusted(event) && store.getAppMode() !== 'admin') {
       return { ok: false, error: 'No autorizado' };
@@ -732,11 +797,31 @@ function registerIpc() {
     if (res.ok) log.info('staff removed');
     return res;
   });
+  ipcMain.handle('renace:staff-set-default', (event, id) => {
+    // setup / staff-login (file://) o modo técnico
+    if (store.getAppMode() !== 'admin' && !senderIsTrusted(event)) {
+      return { ok: false, error: 'No autorizado' };
+    }
+    if (store.getAppMode() !== 'admin') {
+      const url = event?.senderFrame?.url || event?.sender?.getURL?.() || '';
+      const u = String(url);
+      if (!u.includes('setup.html') && !u.includes('staff-login.html')) {
+        return { ok: false, error: 'No autorizado' };
+      }
+    }
+    const res = staffLocal.setDefault(id);
+    if (res.ok) log.info('staff default', { id: res.defaultStaffId || null });
+    return res;
+  });
+  ipcMain.handle('renace:staff-get-default', (event) => {
+    if (!senderIsTrusted(event) && store.getAppMode() !== 'admin') return null;
+    return staffLocal.getDefault();
+  });
   ipcMain.handle('renace:staff-open', () => {
     openStaffLogin(currentWin());
     return true;
   });
-  ipcMain.handle('renace:staff-login', async (event, id, pin) => {
+  ipcMain.handle('renace:staff-login', async (event, id, pin, opts) => {
     // Solo desde staff-login local (file://) — nunca desde Odoo XSS
     const url = event?.senderFrame?.url || event?.sender?.getURL?.() || '';
     if (!String(url).startsWith('file://') || !String(url).includes('staff-login.html')) {
@@ -750,6 +835,12 @@ function registerIpc() {
       return { ok: false, error: unlocked.error || 'PIN incorrecto' };
     }
     try {
+      if (opts && opts.setDefault === true) {
+        staffLocal.setDefault(id);
+      } else if (opts && opts.setDefault === false) {
+        const cur = staffLocal.getDefault();
+        if (cur?.id === id) staffLocal.setDefault(null);
+      }
       await odooLocalWebLogin(inst.url, unlocked.odooLogin, unlocked.odooPassword);
       log.info('staff login ok', { name: unlocked.name, host: new URL(inst.url).host });
       const dest = `${inst.url}/web`;
@@ -987,6 +1078,12 @@ function applyUserModeGuards(win) {
   wc.removeAllListeners('before-input-event');
   wc.on('before-input-event', (event, input) => {
     if (input.type !== 'keyDown') return;
+    // Modo técnico: no depende del menú (oculto en usuario / frameless Windows)
+    if (isTechUnlockChord(input)) {
+      event.preventDefault();
+      requestTechUnlockFromShortcut();
+      return;
+    }
     // Zoom siempre (también en modo usuario con menú oculto en Windows)
     if ((input.meta || input.control) && !input.alt) {
       const key = String(input.key || '');
@@ -1368,6 +1465,7 @@ function promptTechPassword() {
       minimizable: false,
       maximizable: false,
       fullscreenable: false,
+      alwaysOnTop: true,
       show: false,
       backgroundColor: '#0a0f1a',
       autoHideMenuBar: true,
@@ -1394,20 +1492,37 @@ function promptTechPassword() {
       } catch (_) {}
       resolve(value);
     };
-    const onSubmit = (_e, password) => finish(String(password || ''));
-    const onCancel = () => finish(null);
+    const onSubmit = (e, password) => {
+      if (!box || box.isDestroyed() || e.sender !== box.webContents) return;
+      finish(String(password || ''));
+    };
+    const onCancel = (e) => {
+      if (e && box && !box.isDestroyed() && e.sender !== box.webContents) return;
+      finish(null);
+    };
 
     ipcMain.on('renace:tech-password', onSubmit);
     ipcMain.on('renace:tech-password-cancel', onCancel);
     box.on('closed', () => finish(null));
     box.loadFile(TECH_UNLOCK_HTML).catch((e) => {
       log.warn('tech unlock load', e.message);
+      techPromptOpen = false;
+      dialog
+        .showMessageBox(parent || undefined, {
+          type: 'error',
+          title: 'Modo técnico',
+          message: 'No se pudo abrir el diálogo de contraseña.',
+          detail: String(e && e.message ? e.message : e || ''),
+          buttons: ['OK'],
+        })
+        .catch(() => {});
       finish(null);
     });
     box.once('ready-to-show', () => {
       try {
         box.show();
         box.focus();
+        box.webContents.focus();
       } catch (_) {}
     });
   });
@@ -1467,36 +1582,49 @@ async function toggleOpenAtLogin() {
 }
 
 async function unlockAdmin() {
-  const password = await promptTechPassword();
-  if (password == null) return false;
-  if (String(password) !== TECH_PIN) {
-    dialog.showMessageBox(currentWin() || undefined, {
-      type: 'error',
-      title: 'Modo técnico',
-      message: 'Contraseña incorrecta.',
-      buttons: ['OK'],
-    });
-    return false;
+  if (store.getAppMode() === 'admin') {
+    scheduleAdminExpiry();
+    return true;
   }
-  store.setAppMode('admin');
-  scheduleAdminExpiry();
-  buildMenu();
-  BrowserWindow.getAllWindows().forEach((w) => {
-    applyUserModeGuards(w);
-    applyClosableState(w);
-    injectUserShell(w.webContents);
-  });
-  log.info('tech mode unlocked', { ttlMin: ADMIN_TTL_MS / 60000 });
-  dialog
-    .showMessageBox(currentWin() || undefined, {
-      type: 'info',
-      title: 'Modo técnico',
-      message: 'Modo técnico activo.',
-      detail: 'Por seguridad vuelve a modo usuario a los 20 minutos (o antes si eliges Modo Usuario).',
-      buttons: ['OK'],
-    })
-    .catch(() => {});
-  return true;
+  if (techPromptOpen || techUnlockInFlight) return false;
+  techUnlockInFlight = true;
+  try {
+    const password = await promptTechPassword();
+    if (password == null) return false;
+    if (String(password) !== TECH_PIN) {
+      await dialog
+        .showMessageBox(currentWin() || undefined, {
+          type: 'error',
+          title: 'Modo técnico',
+          message: 'Contraseña incorrecta.',
+          buttons: ['OK'],
+        })
+        .catch(() => {});
+      return false;
+    }
+    store.setAppMode('admin');
+    scheduleAdminExpiry();
+    buildMenu();
+    BrowserWindow.getAllWindows().forEach((w) => {
+      applyUserModeGuards(w);
+      applyClosableState(w);
+      injectUserShell(w.webContents);
+    });
+    log.info('tech mode unlocked', { ttlMin: ADMIN_TTL_MS / 60000 });
+    dialog
+      .showMessageBox(currentWin() || undefined, {
+        type: 'info',
+        title: 'Modo técnico',
+        message: 'Modo técnico activo.',
+        detail:
+          'Menú Archivo disponible. Salir: Ctrl+Shift+Q (o Archivo → Salir…).\nPor seguridad vuelve a modo usuario a los 20 minutos.',
+        buttons: ['OK'],
+      })
+      .catch(() => {});
+    return true;
+  } finally {
+    techUnlockInFlight = false;
+  }
 }
 
 /** Configurar atajos tipo Eleventa (migraciones POS) */
@@ -1571,6 +1699,7 @@ function buildMenu() {
                 {
                   label: 'Modo técnico…',
                   accelerator: 'CmdOrCtrl+Shift+Alt+T',
+                  acceleratorWorksWhenHidden: true,
                   click: () => unlockAdmin(),
                 },
               ],
@@ -1608,6 +1737,7 @@ function buildMenu() {
             {
               label: 'Modo técnico…',
               accelerator: 'CmdOrCtrl+Shift+Alt+T',
+              acceleratorWorksWhenHidden: true,
               click: () => unlockAdmin(),
             },
           ],
@@ -1729,7 +1859,7 @@ function buildMenu() {
                 { type: 'separator' },
                 {
                   label: 'Salir…',
-                  accelerator: 'Alt+F4',
+                  accelerator: 'CmdOrCtrl+Shift+Q',
                   click: () => requestQuitFromTech(),
                 },
               ]
@@ -1916,14 +2046,25 @@ app.whenReady().then(async () => {
   });
   registerIpc();
   buildMenu();
+  registerTechUnlockGlobalShortcut();
   createWindow();
   updater.startAutoUpdateLoop(updaterOpts());
+  app.on('browser-window-focus', () => {
+    registerTechUnlockGlobalShortcut();
+  });
+  app.on('browser-window-blur', () => {
+    // Mantener atajo solo mientras alguna ventana de la app tiene foco
+    setTimeout(() => {
+      if (!BrowserWindow.getFocusedWindow()) unregisterTechUnlockGlobalShortcut();
+    }, 50);
+  });
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
 app.on('before-quit', (e) => {
+  unregisterTechUnlockGlobalShortcut();
   log.flush().catch(() => {});
   if (isWorkInstanceLocked()) {
     e.preventDefault();

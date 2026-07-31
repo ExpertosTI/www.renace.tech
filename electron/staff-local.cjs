@@ -40,21 +40,36 @@ function makeSalt() {
   return crypto.randomBytes(16).toString('base64');
 }
 
+function defaultId() {
+  return store.getDefaultStaffId();
+}
+
+function withDefaultFlag(rows) {
+  const def = defaultId();
+  return rows
+    .map((p) => ({ ...p, isDefault: Boolean(def && p.id === def) }))
+    .sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || String(a.name).localeCompare(String(b.name), 'es'));
+}
+
 function publicList() {
-  return store.listStaff().map((p) => ({
-    id: p.id,
-    name: p.name,
-  }));
+  return withDefaultFlag(
+    store.listStaff().map((p) => ({
+      id: p.id,
+      name: p.name,
+    })),
+  );
 }
 
 function techList() {
-  return store.listStaff().map((p) => ({
-    id: p.id,
-    name: p.name,
-    odooLogin: p.odooLogin,
-    hasPassword: Boolean(store.getSecret(passKey(p.id))),
-    createdAt: p.createdAt || null,
-  }));
+  return withDefaultFlag(
+    store.listStaff().map((p) => ({
+      id: p.id,
+      name: p.name,
+      odooLogin: p.odooLogin,
+      hasPassword: Boolean(store.getSecret(passKey(p.id))),
+      createdAt: p.createdAt || null,
+    })),
+  );
 }
 
 function hasProfiles() {
@@ -63,8 +78,9 @@ function hasProfiles() {
 
 /**
  * Alta / edición (solo técnico). password Odoo se guarda cifrada; pin solo como hash.
+ * @param {{ id?: string, name: string, odooLogin: string, pin?: string, odooPassword?: string, isDefault?: boolean }} payload
  */
-function upsert({ id, name, odooLogin, pin, odooPassword }) {
+function upsert({ id, name, odooLogin, pin, odooPassword, isDefault }) {
   const displayName = String(name || '').trim().slice(0, 80);
   const login = String(odooLogin || '').trim().slice(0, 120);
   if (!displayName) return { ok: false, error: 'Nombre requerido' };
@@ -112,9 +128,23 @@ function upsert({ id, name, odooLogin, pin, odooPassword }) {
     updatedAt: new Date().toISOString(),
   };
   store.saveStaff(row);
+
+  // Primer perfil → predeterminado automático; o si el técnico lo marca
+  const markDefault = isDefault === true || (!existing && !defaultId() && list.length === 0);
+  if (markDefault) {
+    store.setDefaultStaffId(staffId);
+  } else if (isDefault === false && defaultId() === staffId) {
+    store.setDefaultStaffId(null);
+  }
+
   return {
     ok: true,
-    profile: { id: row.id, name: row.name, odooLogin: row.odooLogin },
+    profile: {
+      id: row.id,
+      name: row.name,
+      odooLogin: row.odooLogin,
+      isDefault: defaultId() === row.id,
+    },
   };
 }
 
@@ -124,6 +154,23 @@ function remove(id) {
   store.setSecret(passKey(id), '');
   store.removeStaff(id);
   return { ok: true };
+}
+
+function setDefault(id) {
+  const sid = id != null ? String(id).trim() : '';
+  if (!sid) {
+    store.setDefaultStaffId(null);
+    return { ok: true, defaultStaffId: null };
+  }
+  return store.setDefaultStaffId(sid);
+}
+
+function getDefault() {
+  const id = defaultId();
+  if (!id) return null;
+  const row = store.getStaffById(id);
+  if (!row) return null;
+  return { id: row.id, name: row.name };
 }
 
 /**
@@ -167,6 +214,8 @@ module.exports = {
   hasProfiles,
   upsert,
   remove,
+  setDefault,
+  getDefault,
   unlockWithPin,
   validPin,
   PIN_MIN,

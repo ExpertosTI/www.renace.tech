@@ -72,10 +72,25 @@
       font-weight: 600;
       cursor: pointer;
       transition: border-color 0.15s, background 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
     }
     .staff-btn:hover, .staff-btn.active {
       border-color: rgba(0, 180, 216, 0.55);
       background: rgba(0, 180, 216, 0.08);
+    }
+    .badge {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #0a0f1a;
+      background: linear-gradient(135deg, var(--accent-2), var(--accent));
+      padding: 2px 7px;
+      border-radius: 999px;
+      flex-shrink: 0;
     }
     .pin-panel { display: none; margin-top: 14px; }
     .pin-panel.on { display: block; }
@@ -93,6 +108,24 @@
       outline: none;
     }
     input:focus { border-color: rgba(0, 180, 216, 0.6); box-shadow: 0 0 0 3px rgba(0, 180, 216, 0.15); }
+    .default-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      user-select: none;
+    }
+    .default-row input {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
     .actions { display: flex; gap: 8px; margin-top: 14px; }
     button.primary, button.ghost {
       flex: 1;
@@ -124,13 +157,17 @@
 <body>
   <div class="wrap">
     <h1>Personal de este PC</h1>
-    <p class="sub">Elige tu perfil e introduce el PIN. Solo funciona en este equipo vinculado.</p>
+    <p class="sub">Elige tu usuario e introduce el PIN. El predeterminado se selecciona al abrir.</p>
     <div class="card">
       <div class="company" id="company"></div>
       <div class="staff-list" id="list"></div>
       <div class="pin-panel" id="pinPanel">
         <label for="pin">PIN — <span id="who"></span></label>
         <input id="pin" type="password" inputmode="numeric" maxlength="12" autocomplete="off" />
+        <label class="default-row">
+          <input type="checkbox" id="asDefault" />
+          Guardar este usuario como predeterminado
+        </label>
         <div class="actions">
           <button type="button" class="ghost" id="back">Atrás</button>
           <button type="button" class="primary" id="enter">Entrar</button>
@@ -147,11 +184,25 @@
     const who = document.getElementById('who');
     const msg = document.getElementById('msg');
     const enterBtn = document.getElementById('enter');
+    const asDefault = document.getElementById('asDefault');
     let selected = null;
+    let staffButtons = [];
 
     function setMsg(text, ok) {
       msg.className = ok ? 'msg ok' : 'msg';
       msg.textContent = text || '';
+    }
+
+    function selectStaff(row, btn) {
+      selected = row;
+      staffButtons.forEach((b) => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      who.textContent = row.name;
+      pinPanel.classList.add('on');
+      pin.value = '';
+      asDefault.checked = !!row.isDefault;
+      setMsg('');
+      pin.focus();
     }
 
     async function boot() {
@@ -166,39 +217,46 @@
           : '';
         const rows = await api.staffPublicList?.() || [];
         listEl.innerHTML = '';
+        staffButtons = [];
         if (!rows.length) {
-          listEl.innerHTML = '<div class="empty">No hay personal configurado. Pide al técnico que añada perfiles.</div>';
+          listEl.innerHTML = '<div class="empty">No hay usuarios guardados. Pide al técnico que los añada en la configuración.</div>';
           return;
         }
+        let defaultBtn = null;
+        let defaultRow = null;
         rows.forEach((row) => {
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'staff-btn';
-          btn.textContent = row.name;
+          const name = document.createElement('span');
+          name.textContent = row.name;
+          btn.appendChild(name);
+          if (row.isDefault) {
+            const badge = document.createElement('span');
+            badge.className = 'badge';
+            badge.textContent = 'Predeterminado';
+            btn.appendChild(badge);
+            defaultBtn = btn;
+            defaultRow = row;
+          }
           btn.addEventListener('click', () => selectStaff(row, btn));
           listEl.appendChild(btn);
+          staffButtons.push(btn);
         });
+        if (defaultRow && defaultBtn) {
+          selectStaff(defaultRow, defaultBtn);
+        }
       } catch (e) {
         setMsg(e.message || String(e));
       }
-    }
-
-    function selectStaff(row, btn) {
-      selected = row;
-      listEl.querySelectorAll('.staff-btn').forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
-      who.textContent = row.name;
-      pinPanel.classList.add('on');
-      pin.value = '';
-      setMsg('');
-      pin.focus();
     }
 
     document.getElementById('back').addEventListener('click', () => {
       selected = null;
       pinPanel.classList.remove('on');
       pin.value = '';
-      listEl.querySelectorAll('.staff-btn').forEach((b) => b.classList.remove('active'));
+      asDefault.checked = false;
+      staffButtons.forEach((b) => b.classList.remove('active'));
       setMsg('');
     });
 
@@ -212,7 +270,7 @@
       enterBtn.disabled = true;
       setMsg('Entrando…', true);
       try {
-        const res = await api.staffLogin?.(selected.id, value);
+        const res = await api.staffLogin?.(selected.id, value, { setDefault: !!asDefault.checked });
         if (!res?.ok) {
           setMsg(res?.error || 'No se pudo iniciar sesión');
           pin.value = '';

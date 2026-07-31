@@ -314,6 +314,9 @@ function removeStaff(id) {
   if (!sid) return false;
   const store = readStore();
   store.staff = (store.staff || []).filter((p) => p && p.id !== sid);
+  if (store.defaultStaffId && String(store.defaultStaffId) === sid) {
+    store.defaultStaffId = null;
+  }
   writeStore(store);
   return true;
 }
@@ -321,8 +324,34 @@ function removeStaff(id) {
 function clearStaff() {
   const store = readStore();
   store.staff = [];
+  store.defaultStaffId = null;
   writeStore(store);
   return true;
+}
+
+/** Perfil de personal predeterminado en este PC (solo id; null = ninguno) */
+function getDefaultStaffId() {
+  const store = readStore();
+  const id = store.defaultStaffId != null ? String(store.defaultStaffId).trim() : '';
+  if (!id) return null;
+  if (!getStaffById(id)) return null;
+  return id;
+}
+
+function setDefaultStaffId(id) {
+  const store = readStore();
+  const sid = id != null ? String(id).trim() : '';
+  if (!sid) {
+    store.defaultStaffId = null;
+    writeStore(store);
+    return { ok: true, defaultStaffId: null };
+  }
+  if (!getStaffById(sid)) {
+    return { ok: false, error: 'Perfil no encontrado' };
+  }
+  store.defaultStaffId = sid;
+  writeStore(store);
+  return { ok: true, defaultStaffId: sid };
 }
 
 /** Zoom de webContents (0.8–1.5). Persistido; no CSS. */
@@ -379,6 +408,8 @@ module.exports = {
   saveStaff,
   removeStaff,
   clearStaff,
+  getDefaultStaffId,
+  setDefaultStaffId,
   getZoomFactor,
   setZoomFactor,
   clampZoomFactor,
