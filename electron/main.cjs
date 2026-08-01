@@ -260,10 +260,14 @@ function revertToUserMode(reason) {
   if (store.getAppMode() !== 'admin') return;
   store.setAppMode('user');
   buildMenu();
+  // Windows frameless: hay que recrear sin frame nativo y ocultar menú
+  syncWindowsChromeForMode();
   BrowserWindow.getAllWindows().forEach((w) => {
+    if (w.getParentWindow()) return;
     applyUserModeGuards(w);
     applyClosableState(w);
     injectUserShell(w.webContents);
+    injectWinFrame(w.webContents);
   });
   log.info('tech mode locked', reason || 'manual');
   if (reason === 'ttl') {
@@ -273,7 +277,7 @@ function revertToUserMode(reason) {
         type: 'info',
         title: 'Modo técnico',
         message: 'Sesión técnica finalizada (20 min).',
-        detail: 'Volviste a modo usuario. Para técnico otra vez: Archivo → Modo técnico… (clave).',
+        detail: 'Volviste a modo usuario. Para técnico otra vez: Ctrl+Shift+Alt+T (clave).',
         buttons: ['Entendido'],
       })
       .catch(() => {});
@@ -1173,19 +1177,151 @@ function injectUserShell(wc) {
   );
 }
 
+/** Windows: menú nativo solo existe si la ventana tiene frame (no frameless). */
+function winWantsNativeFrame() {
+  return process.platform === 'win32' && store.getAppMode() === 'admin';
+}
+
+/** Evita que destroy/recreate dispare bloqueo de cierre o quit. */
+let chromeSwapInProgress = false;
+
+function isMainPortalWindow(win) {
+  if (!win || win.isDestroyed()) return false;
+  try {
+    if (win.getParentWindow()) return false;
+  } catch (_) {
+    return false;
+  }
+  return true;
+}
+
+function applyMenuBarVisibility(win) {
+  if (!win || win.isDestroyed() || process.platform !== 'win32') return;
+  try {
+    if (store.getAppMode() === 'user') {
+      win.setAutoHideMenuBar(true);
+      win.setMenuBarVisibility(false);
+    } else {
+      // Técnico: menú siempre visible; Alt también puede enfocarlo
+      win.setAutoHideMenuBar(false);
+      win.setMenuBarVisibility(true);
+    }
+  } catch (_) {}
+}
+
+/**
+ * En Windows frameless el menú nativo NUNCA se pinta (setMenuBarVisibility no-op).
+ * Al pasar a modo técnico recreamos con frame:true; al volver a usuario, frameless.
+ */
+function recreatePortalWindow(oldWin, wantFrame) {
+  if (!oldWin || oldWin.isDestroyed()) return null;
+  let url = '';
+  try {
+    url = oldWin.webContents.getURL() || '';
+  } catch (_) {}
+  let bounds;
+  try {
+    bounds = oldWin.getBounds();
+  } catch (_) {
+    bounds = { x: 0, y: 0, width: 1280, height: 860 };
+  }
+  const wasCovered = !!oldWin.__renaceCovered;
+  const prevBounds = oldWin.__renacePrevBounds;
+
+  chromeSwapInProgress = true;
+  let win;
+  try {
+    win = new BrowserWindow({
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height: bounds.height,
+      minWidth: 960,
+      minHeight: 640,
+      show: true,
+      backgroundColor: '#0a0f1a',
+      title: 'RENACE Portal',
+      icon: resolveAppIcon(),
+      ...windowChromeOptions(),
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+        partition: PARTITION,
+        preload: PRELOAD,
+        backgroundThrottling: false,
+      },
+    });
+    win.__renaceNativeFrame = !!wantFrame;
+    if (prevBounds) win.__renacePrevBounds = prevBounds;
+    win.__renaceCovered = wasCovered;
+
+    attachWindowChrome(win);
+    attachWindowGuards(win);
+    applyUserModeGuards(win);
+    applyZoomFactor(win.webContents);
+
+    if (process.platform === 'win32') {
+      win.on('show', () => {
+        if (!win.__renaceCovered) coverTaskbar(win);
+      });
+      if (wasCovered) {
+        try {
+          coverTaskbar(win);
+        } catch (_) {}
+      }
+    }
+
+    if (url && url !== 'about:blank') {
+      win.loadURL(url).catch((e) => {
+        log.warn('chrome swap loadURL', e.message);
+        openHome(win);
+      });
+    } else if (store.getInstance()) {
+      openHome(win);
+    } else {
+      openSetup(win);
+    }
+
+    try {
+      oldWin.removeAllListeners('close');
+    } catch (_) {}
+    try {
+      if (!oldWin.isDestroyed()) oldWin.destroy();
+    } catch (_) {}
+
+    try {
+      win.focus();
+    } catch (_) {}
+    log.info('chrome swap', { nativeFrame: !!wantFrame, url: String(url).slice(0, 120) });
+    return win;
+  } catch (e) {
+    log.warn('chrome swap failed', e.message);
+    return null;
+  } finally {
+    chromeSwapInProgress = false;
+  }
+}
+
+function syncWindowsChromeForMode() {
+  if (process.platform !== 'win32') return;
+  const wantFrame = winWantsNativeFrame();
+  const mains = BrowserWindow.getAllWindows().filter(isMainPortalWindow);
+  for (const old of mains) {
+    const hasFrame = !!old.__renaceNativeFrame;
+    if (hasFrame === wantFrame) {
+      applyMenuBarVisibility(old);
+      continue;
+    }
+    recreatePortalWindow(old, wantFrame);
+  }
+  // Asegurar visibilidad tras setApplicationMenu en ventanas ya correctas / nuevas
+  BrowserWindow.getAllWindows().filter(isMainPortalWindow).forEach(applyMenuBarVisibility);
+}
+
 function applyUserModeGuards(win) {
   if (!win || win.isDestroyed()) return;
-  if (process.platform === 'win32') {
-    try {
-      if (store.getAppMode() === 'user') {
-        win.setAutoHideMenuBar(true);
-        win.setMenuBarVisibility(false);
-      } else {
-        win.setAutoHideMenuBar(false);
-        win.setMenuBarVisibility(true);
-      }
-    } catch (_) {}
-  }
+  applyMenuBarVisibility(win);
   const wc = win.webContents;
   wc.removeAllListeners('before-input-event');
   wc.on('before-input-event', (event, input) => {
@@ -1262,11 +1398,34 @@ function injectDrag(wc) {
 
 function injectWinFrame(wc) {
   if (process.platform !== 'win32' || !wc || wc.isDestroyed()) return;
+  const owner = BrowserWindow.fromWebContents(wc);
+  // Modo técnico con frame nativo: quitar chrome custom (menú Archivo va arriba)
+  if (owner && owner.__renaceNativeFrame) {
+    wc.executeJavaScript(
+      `(() => {
+        try {
+          document.documentElement.classList.remove('renace-win-pad', 'renace-pos-mode');
+          document.getElementById('renace-win-chrome')?.remove();
+          document.getElementById('renace-win-drag')?.remove();
+          document.getElementById('renace-win-chrome-style')?.remove();
+        } catch (_) {}
+      })()`,
+      true
+    ).catch(() => {});
+    return;
+  }
   wc.executeJavaScript(winFrameScript(), true).catch((e) => log.warn('injectWinFrame', e.message));
 }
 
 function windowChromeOptions() {
   if (process.platform === 'win32') {
+    // Usuario: frameless + win-frame. Técnico: frame nativo para menú Archivo/etc.
+    if (winWantsNativeFrame()) {
+      return {
+        frame: true,
+        autoHideMenuBar: false,
+      };
+    }
     return {
       frame: false,
       autoHideMenuBar: false,
@@ -1311,22 +1470,15 @@ function toggleCoverTaskbar(win) {
 
 function attachWindowChrome(win) {
   if (!win || win.isDestroyed()) return;
-  if (process.platform === 'win32') {
-    // Menú limpio: oculto en usuario (Alt lo muestra); visible en técnico
-    try {
-      if (store.getAppMode() === 'user') {
-        win.setAutoHideMenuBar(true);
-        win.setMenuBarVisibility(false);
-      } else {
-        win.setAutoHideMenuBar(false);
-        win.setMenuBarVisibility(true);
-      }
-    } catch (_) {}
+  if (win.__renaceNativeFrame == null) {
+    win.__renaceNativeFrame = winWantsNativeFrame();
   }
+  applyMenuBarVisibility(win);
 
   applyClosableState(win);
 
   win.on('close', (e) => {
+    if (chromeSwapInProgress) return;
     if (!isWorkInstanceLocked()) return;
     e.preventDefault();
     try {
@@ -1794,10 +1946,14 @@ async function unlockAdmin() {
     store.setAppMode('admin');
     scheduleAdminExpiry();
     buildMenu();
+    // Windows: recrear con frame nativo → menú Archivo visible de inmediato
+    syncWindowsChromeForMode();
     BrowserWindow.getAllWindows().forEach((w) => {
+      if (w.getParentWindow()) return;
       applyUserModeGuards(w);
       applyClosableState(w);
       injectUserShell(w.webContents);
+      injectWinFrame(w.webContents);
     });
     log.info('tech mode unlocked', { ttlMin: ADMIN_TTL_MS / 60000 });
     dialog
@@ -1806,7 +1962,7 @@ async function unlockAdmin() {
         title: 'Modo técnico',
         message: 'Modo técnico activo.',
         detail:
-          'Menú Archivo disponible. Salir: Ctrl+Shift+Q (o Archivo → Salir…).\nPor seguridad vuelve a modo usuario a los 20 minutos.',
+          'Menú Archivo disponible arriba. Salir: Ctrl+Shift+Q (o Archivo → Salir…).\nPor seguridad vuelve a modo usuario a los 20 minutos.',
         buttons: ['OK'],
       })
       .catch(() => {});
@@ -2148,6 +2304,7 @@ function createWindow() {
       backgroundThrottling: false,
     },
   });
+  win.__renaceNativeFrame = winWantsNativeFrame();
 
   attachWindowChrome(win);
   attachWindowGuards(win);
@@ -2290,6 +2447,7 @@ app.on('before-quit', (e) => {
 
 app.on('window-all-closed', () => {
   if (process.platform === 'darwin') return;
+  if (chromeSwapInProgress) return;
   if (isWorkInstanceLocked()) {
     // No salir: recrear ventana si alguien logró cerrarla
     setTimeout(() => {
