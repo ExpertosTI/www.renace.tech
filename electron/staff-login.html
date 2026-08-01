@@ -157,7 +157,7 @@
 <body>
   <div class="wrap">
     <h1>Personal de este PC</h1>
-    <p class="sub">Elige tu usuario e introduce el PIN. El predeterminado se selecciona al abrir.</p>
+    <p class="sub">Elige tu usuario e introduce el PIN. El <strong style="color:var(--text);font-weight:600">usuario fijo</strong> ya viene seleccionado; tras el PIN se entra a Odoo con sus credenciales (no hace falta escribir la contraseña fuerte).</p>
     <div class="card">
       <div class="company" id="company"></div>
       <div class="staff-list" id="list"></div>
@@ -166,7 +166,7 @@
         <input id="pin" type="password" inputmode="numeric" maxlength="12" autocomplete="off" />
         <label class="default-row">
           <input type="checkbox" id="asDefault" />
-          Guardar este usuario como predeterminado
+          Guardar como usuario fijo de este PC
         </label>
         <div class="actions">
           <button type="button" class="ghost" id="back">Atrás</button>
@@ -234,7 +234,7 @@
           if (row.isDefault) {
             const badge = document.createElement('span');
             badge.className = 'badge';
-            badge.textContent = 'Predeterminado';
+            badge.textContent = 'Usuario fijo';
             btn.appendChild(badge);
             defaultBtn = btn;
             defaultRow = row;

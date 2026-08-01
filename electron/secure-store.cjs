@@ -317,6 +317,9 @@ function removeStaff(id) {
   if (store.defaultStaffId && String(store.defaultStaffId) === sid) {
     store.defaultStaffId = null;
   }
+  if (store.activeStaffId && String(store.activeStaffId) === sid) {
+    store.activeStaffId = null;
+  }
   writeStore(store);
   return true;
 }
@@ -325,6 +328,7 @@ function clearStaff() {
   const store = readStore();
   store.staff = [];
   store.defaultStaffId = null;
+  store.activeStaffId = null;
   writeStore(store);
   return true;
 }
@@ -352,6 +356,35 @@ function setDefaultStaffId(id) {
   store.defaultStaffId = sid;
   writeStore(store);
   return { ok: true, defaultStaffId: sid };
+}
+
+/**
+ * Quién desbloqueó la sesión Odoo actual vía PIN local.
+ * Sin esto, una cookie session_id suelta (p. ej. tras setup/técnico) hace que
+ * openHome salte la puerta de personal y no aplique el usuario fijo.
+ */
+function getActiveStaffId() {
+  const store = readStore();
+  const id = store.activeStaffId != null ? String(store.activeStaffId).trim() : '';
+  if (!id) return null;
+  if (!getStaffById(id)) return null;
+  return id;
+}
+
+function setActiveStaffId(id) {
+  const store = readStore();
+  const sid = id != null ? String(id).trim() : '';
+  if (!sid) {
+    store.activeStaffId = null;
+    writeStore(store);
+    return { ok: true, activeStaffId: null };
+  }
+  if (!getStaffById(sid)) {
+    return { ok: false, error: 'Perfil no encontrado' };
+  }
+  store.activeStaffId = sid;
+  writeStore(store);
+  return { ok: true, activeStaffId: sid };
 }
 
 /** Zoom de webContents (0.8–1.5). Persistido; no CSS.
@@ -412,6 +445,8 @@ module.exports = {
   clearStaff,
   getDefaultStaffId,
   setDefaultStaffId,
+  getActiveStaffId,
+  setActiveStaffId,
   getZoomFactor,
   setZoomFactor,
   clampZoomFactor,

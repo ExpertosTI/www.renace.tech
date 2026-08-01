@@ -34,6 +34,7 @@ const {
 const posProxy = require('./pos-proxy.cjs');
 const updater = require('./updater.cjs');
 const winFrameScript = require('./win-frame.js');
+const { techToolbarScript, techToolbarRemoveScript } = require('./tech-toolbar.js');
 
 // Una sola instancia: segundo arranque (autostart duplicado, doble clic) enfoca la existente.
 // app.exit(0) fuerza salida inmediata — app.quit() a veces deja el proceso vivo un momento.
@@ -264,10 +265,7 @@ function revertToUserMode(reason) {
   syncWindowsChromeForMode();
   BrowserWindow.getAllWindows().forEach((w) => {
     if (w.getParentWindow()) return;
-    applyUserModeGuards(w);
-    applyClosableState(w);
-    injectUserShell(w.webContents);
-    injectWinFrame(w.webContents);
+    refreshTechChrome(w);
   });
   log.info('tech mode locked', reason || 'manual');
   if (reason === 'ttl') {
@@ -594,7 +592,20 @@ async function openHome(win) {
     return;
   }
   await applyInstanceCidsCookie(inst);
-  const loggedIn = await hasOdooSessionCookie(inst);
+  const hasStaff = staffLocal.hasProfiles();
+  const activeStaffId = store.getActiveStaffId?.() || null;
+  const cookieSession = await hasOdooSessionCookie(inst);
+  // Solo restaurar sesión si fue abierta vía personal local (PIN → Odoo).
+  // Cookie suelta (setup/técnico/sesión caduca mal) → puerta PIN + usuario fijo.
+  const loggedIn = cookieSession && (!hasStaff || Boolean(activeStaffId));
+  if (hasStaff && cookieSession && !activeStaffId) {
+    log.info('openHome: cookie Odoo sin personal activo → puerta PIN', {
+      instance: inst.url,
+      profiles: staffLocal.publicList().length,
+      defaultStaffId: store.getDefaultStaffId?.() || null,
+    });
+    await clearInstanceSessionCookie();
+  }
   // Preferir última URL de la misma instancia (no romper pantalla/formulario al reabrir)
   const last = store.getLastInstanceUrl?.() || null;
   if (loggedIn) {
@@ -609,6 +620,7 @@ async function openHome(win) {
       instance: inst.url,
       companyId: inst.companyId || null,
       sessionRestored: true,
+      activeStaffId: activeStaffId || null,
     });
     w.setTitle(`${inst.name} — RENACE`);
     w.loadURL(start).catch((e) => {
@@ -618,9 +630,13 @@ async function openHome(win) {
     return;
   }
 
-  // Sin sesión: si hay personal local, puerta PIN (no exponer login Odoo al mesero)
-  if (staffLocal.hasProfiles()) {
-    log.info('openHome: staff gate', { instance: inst.url, profiles: staffLocal.publicList().length });
+  // Sin sesión de personal: puerta PIN (no exponer login Odoo al mesero)
+  if (hasStaff) {
+    log.info('openHome: staff gate', {
+      instance: inst.url,
+      profiles: staffLocal.publicList().length,
+      defaultStaffId: store.getDefaultStaffId?.() || null,
+    });
     w.setTitle(`${inst.name} — Acceso`);
     openStaffLogin(w);
     return;
@@ -849,6 +865,38 @@ function registerIpc() {
     log.info('app mode', 'user');
     return store.getAppMode();
   });
+  ipcMain.handle('renace:tech-action', async (_e, action) => {
+    if (store.getAppMode() !== 'admin') {
+      return { ok: false, error: 'Modo técnico requerido' };
+    }
+    const act = String(action || '');
+    try {
+      if (act === 'instance') {
+        await openHome(currentWin());
+        return { ok: true };
+      }
+      if (act === 'personal' || act === 'setup') {
+        openSetup(currentWin());
+        return { ok: true };
+      }
+      if (act === 'updates') {
+        runUpdateCheck(false);
+        return { ok: true };
+      }
+      if (act === 'user') {
+        revertToUserMode('toolbar');
+        return { ok: true };
+      }
+      if (act === 'quit') {
+        await requestQuitFromTech();
+        return { ok: true };
+      }
+      return { ok: false, error: 'Acción desconocida' };
+    } catch (e) {
+      log.warn('tech-action', act, e && e.message);
+      return { ok: false, error: String(e && e.message ? e.message : e) };
+    }
+  });
   ipcMain.handle('renace:keymap-get', () => store.getKeymap());
   ipcMain.handle('renace:keymap-set', (event, partial) => {
     if (store.getAppMode() !== 'admin' && !senderIsTrusted(event)) {
@@ -946,8 +994,16 @@ function registerIpc() {
         const cur = staffLocal.getDefault();
         if (cur?.id === id) staffLocal.setDefault(null);
       }
+      // Quitar cookie previa para que el login use sí o sí las credenciales del perfil
+      await clearInstanceSessionCookie({ clearActive: false });
       await odooLocalWebLogin(inst.url, unlocked.odooLogin, unlocked.odooPassword);
-      log.info('staff login ok', { name: unlocked.name, host: new URL(inst.url).host });
+      store.setActiveStaffId?.(id);
+      log.info('staff login ok', {
+        name: unlocked.name,
+        host: new URL(inst.url).host,
+        staffId: id,
+        isDefault: store.getDefaultStaffId?.() === id,
+      });
       const dest = `${inst.url}/web`;
       store.recordVisit(dest);
       const win = BrowserWindow.fromWebContents(event.sender) || currentWin();
@@ -957,6 +1013,7 @@ function registerIpc() {
       }
       return { ok: true };
     } catch (e) {
+      store.setActiveStaffId?.(null);
       log.error('staff login odoo failed', e.message);
       return { ok: false, error: 'No se pudo abrir Odoo con ese perfil' };
     }
@@ -1023,11 +1080,16 @@ async function clearRenaceCookies() {
   log.info('portal cookies cleared (instance Odoo cookies preserved)');
 }
 
-async function clearInstanceSessionCookie() {
+async function clearInstanceSessionCookie(opts = {}) {
   // Solo session_id de la instancia vinculada (cambio de personal) — no toca portal ni otras hosts
+  const clearActive = opts.clearActive !== false;
   const inst = store.getInstance();
-  if (!inst?.url) return false;
+  if (!inst?.url) {
+    if (clearActive) store.setActiveStaffId?.(null);
+    return false;
+  }
   try {
+    if (clearActive) store.setActiveStaffId?.(null);
     const ses = portalSession();
     const cookies = await ses.cookies.get({ url: inst.url });
     await Promise.all(
@@ -1212,21 +1274,50 @@ function applyMenuBarVisibility(win) {
 /**
  * En Windows frameless el menú nativo NUNCA se pinta (setMenuBarVisibility no-op).
  * Al pasar a modo técnico recreamos con frame:true; al volver a usuario, frameless.
+ *
+ * Bug 3.0.24: tras recreate se re-aplicaba coverTaskbar (display.bounds) en el show
+ * handler → ventana framed a pantalla completa, menú Archivo fuera de vista / inútil.
+ * Técnico: workArea + sin cover. Usuario: cover a display.bounds como createWindow.
  */
+function displayForBounds(bounds) {
+  try {
+    if (bounds && typeof bounds.x === 'number') {
+      return screen.getDisplayMatching(bounds) || screen.getPrimaryDisplay();
+    }
+  } catch (_) {}
+  return screen.getPrimaryDisplay();
+}
+
 function recreatePortalWindow(oldWin, wantFrame) {
   if (!oldWin || oldWin.isDestroyed()) return null;
   let url = '';
   try {
     url = oldWin.webContents.getURL() || '';
   } catch (_) {}
-  let bounds;
+  let oldBounds;
   try {
-    bounds = oldWin.getBounds();
+    oldBounds = oldWin.getBounds();
   } catch (_) {
-    bounds = { x: 0, y: 0, width: 1280, height: 860 };
+    oldBounds = { x: 0, y: 0, width: 1280, height: 860 };
   }
-  const wasCovered = !!oldWin.__renaceCovered;
+  const display = displayForBounds(oldBounds);
   const prevBounds = oldWin.__renacePrevBounds;
+  // Framed (técnico): workArea para que title+menú queden on-screen. Nunca cover.
+  // Frameless (usuario): display.bounds + cover como arranque normal.
+  let bounds;
+  let coverAfter = false;
+  if (wantFrame) {
+    const wa = display.workArea || display.bounds;
+    bounds = { x: wa.x, y: wa.y, width: wa.width, height: wa.height };
+  } else {
+    bounds = {
+      x: display.bounds.x,
+      y: display.bounds.y,
+      width: display.bounds.width,
+      height: display.bounds.height,
+    };
+    coverAfter = true;
+  }
 
   chromeSwapInProgress = true;
   let win;
@@ -1254,22 +1345,42 @@ function recreatePortalWindow(oldWin, wantFrame) {
     });
     win.__renaceNativeFrame = !!wantFrame;
     if (prevBounds) win.__renacePrevBounds = prevBounds;
-    win.__renaceCovered = wasCovered;
+    win.__renaceCovered = false;
 
     attachWindowChrome(win);
     attachWindowGuards(win);
     applyUserModeGuards(win);
     applyZoomFactor(win.webContents);
 
+    // Menú nativo en la ventana nueva (setApplicationMenu solo no basta tras swap)
+    try {
+      const appMenu = Menu.getApplicationMenu();
+      if (wantFrame && appMenu) {
+        win.setMenu(appMenu);
+        win.setAutoHideMenuBar(false);
+        win.setMenuBarVisibility(true);
+      } else if (!wantFrame) {
+        win.setMenu(null);
+        win.setAutoHideMenuBar(true);
+        win.setMenuBarVisibility(false);
+      }
+    } catch (e) {
+      log.warn('chrome swap setMenu', e.message);
+    }
+
     if (process.platform === 'win32') {
-      win.on('show', () => {
-        if (!win.__renaceCovered) coverTaskbar(win);
-      });
-      if (wasCovered) {
+      if (coverAfter) {
+        // Solo usuario frameless: mantener pantalla completa sobre taskbar
+        win.on('show', () => {
+          if (!win.isDestroyed() && !win.__renaceNativeFrame && !win.__renaceCovered) {
+            coverTaskbar(win);
+          }
+        });
         try {
           coverTaskbar(win);
         } catch (_) {}
       }
+      // Técnico framed: NUNCA coverTaskbar — deja menú Archivo usable
     }
 
     if (url && url !== 'about:blank') {
@@ -1293,7 +1404,11 @@ function recreatePortalWindow(oldWin, wantFrame) {
     try {
       win.focus();
     } catch (_) {}
-    log.info('chrome swap', { nativeFrame: !!wantFrame, url: String(url).slice(0, 120) });
+    log.info('chrome swap', {
+      nativeFrame: !!wantFrame,
+      covered: !!win.__renaceCovered,
+      url: String(url).slice(0, 120),
+    });
     return win;
   } catch (e) {
     log.warn('chrome swap failed', e.message);
@@ -1311,11 +1426,19 @@ function syncWindowsChromeForMode() {
     const hasFrame = !!old.__renaceNativeFrame;
     if (hasFrame === wantFrame) {
       applyMenuBarVisibility(old);
+      try {
+        const appMenu = Menu.getApplicationMenu();
+        if (wantFrame && appMenu) {
+          old.setMenu(appMenu);
+        }
+      } catch (_) {}
       continue;
     }
-    recreatePortalWindow(old, wantFrame);
+    const created = recreatePortalWindow(old, wantFrame);
+    if (!created) {
+      log.warn('chrome swap skipped — keeping previous window', { wantFrame });
+    }
   }
-  // Asegurar visibilidad tras setApplicationMenu en ventanas ya correctas / nuevas
   BrowserWindow.getAllWindows().filter(isMainPortalWindow).forEach(applyMenuBarVisibility);
 }
 
@@ -1415,6 +1538,30 @@ function injectWinFrame(wc) {
     return;
   }
   wc.executeJavaScript(winFrameScript(), true).catch((e) => log.warn('injectWinFrame', e.message));
+}
+
+/** Barra técnica in-app — funciona con o sin menú nativo / frame. */
+function injectTechToolbar(wc) {
+  if (!wc || wc.isDestroyed()) return;
+  if (store.getAppMode() !== 'admin') {
+    removeTechToolbar(wc);
+    return;
+  }
+  wc.executeJavaScript(techToolbarScript(), true).catch((e) => log.warn('injectTechToolbar', e.message));
+}
+
+function removeTechToolbar(wc) {
+  if (!wc || wc.isDestroyed()) return;
+  wc.executeJavaScript(techToolbarRemoveScript(), true).catch(() => {});
+}
+
+function refreshTechChrome(win) {
+  if (!win || win.isDestroyed()) return;
+  applyUserModeGuards(win);
+  applyClosableState(win);
+  injectUserShell(win.webContents);
+  injectWinFrame(win.webContents);
+  injectTechToolbar(win.webContents);
 }
 
 function windowChromeOptions() {
@@ -1695,6 +1842,7 @@ function attachWindowGuards(win) {
     log.info('dom-ready', wc.getURL());
     applyZoomFactor(wc);
     injectWinFrame(wc);
+    injectTechToolbar(wc);
     const u = wc.getURL();
     if (u.startsWith('file://')) return;
     injectPushBridge(wc);
@@ -1706,6 +1854,7 @@ function attachWindowGuards(win) {
   wc.on('did-finish-load', () => {
     applyZoomFactor(wc);
     injectWinFrame(wc);
+    injectTechToolbar(wc);
     const u = wc.getURL();
     if (u.startsWith('file://')) return;
     injectPushBridge(wc);
@@ -1946,14 +2095,11 @@ async function unlockAdmin() {
     store.setAppMode('admin');
     scheduleAdminExpiry();
     buildMenu();
-    // Windows: recrear con frame nativo → menú Archivo visible de inmediato
+    // Windows: recrear con frame nativo → menú Archivo (sin coverTaskbar)
     syncWindowsChromeForMode();
     BrowserWindow.getAllWindows().forEach((w) => {
       if (w.getParentWindow()) return;
-      applyUserModeGuards(w);
-      applyClosableState(w);
-      injectUserShell(w.webContents);
-      injectWinFrame(w.webContents);
+      refreshTechChrome(w);
     });
     log.info('tech mode unlocked', { ttlMin: ADMIN_TTL_MS / 60000 });
     dialog
@@ -1962,7 +2108,9 @@ async function unlockAdmin() {
         title: 'Modo técnico',
         message: 'Modo técnico activo.',
         detail:
-          'Menú Archivo disponible arriba. Salir: Ctrl+Shift+Q (o Archivo → Salir…).\nPor seguridad vuelve a modo usuario a los 20 minutos.',
+          'Barra técnica arriba (Instancia / Personal / Updates / Salir).\n' +
+          'En Windows también menú Archivo si la ventana tiene marco.\n' +
+          'Salir: Ctrl+Shift+Q. Vuelve a modo usuario a los 20 minutos.',
         buttons: ['OK'],
       })
       .catch(() => {});
@@ -2311,12 +2459,18 @@ function createWindow() {
   applyUserModeGuards(win);
   applyZoomFactor(win.webContents);
   if (process.platform === 'win32') {
-    // Pantalla completa al inicio (incluye barra de tareas)
-    coverTaskbar(win);
-    win.once('ready-to-show', () => coverTaskbar(win));
-    win.on('show', () => {
-      if (!win.__renaceCovered) coverTaskbar(win);
-    });
+    // Pantalla completa al inicio (incluye barra de tareas) — solo frameless usuario
+    if (!win.__renaceNativeFrame) {
+      coverTaskbar(win);
+      win.once('ready-to-show', () => {
+        if (!win.isDestroyed() && !win.__renaceNativeFrame) coverTaskbar(win);
+      });
+      win.on('show', () => {
+        if (!win.isDestroyed() && !win.__renaceNativeFrame && !win.__renaceCovered) {
+          coverTaskbar(win);
+        }
+      });
+    }
   }
   win.focus();
 
@@ -2398,6 +2552,7 @@ app.whenReady().then(async () => {
     wc.on('dom-ready', () => {
       applyZoomFactor(wc);
       injectWinFrame(wc);
+      injectTechToolbar(wc);
       const u = wc.getURL();
       if (u.startsWith('file://')) return;
       injectPushBridge(wc);

@@ -60,6 +60,7 @@ try {
     staffLogin: (id, pin, opts) => ipcRenderer.invoke('renace:staff-login', id, pin, opts || {}),
     openStaffLogin: () => ipcRenderer.invoke('renace:staff-open'),
     notify: (payload) => ipcRenderer.invoke('renace:notify', payload || {}),
+    techAction: (action) => ipcRenderer.invoke('renace:tech-action', String(action || '')),
   });
 } catch (_) {
   // reload: ya expuesto
