@@ -1,21 +1,20 @@
 'use strict';
 
 /**
- * Chrome Windows limpio:
- * - Franja superior compacta (no tapa menús Odoo / logout)
- * - Controles a la izquierda + zoom
- * - Arrastre solo en la franja, no sobre la navbar
- * - POS online: chrome mínimo + un solo safe-area (sin apilar 100vh/padding
- *   en capas internas — eso empujaba el botón Pagar fuera del viewport)
+ * Chrome Windows limpio (modelo navegador):
+ * - Franja overlay fija; NO suma altura al documento
+ * - Área de contenido = ventana − chrome (calc(100dvh − TOP))
+ * - Bug clásico evitado: padding-top + height:100vh → scroll forzado
+ * - Controles izq + zoom; arrastre solo en la franja
+ * - POS: chrome mínimo + un solo safe-area en la raíz POS
  */
 module.exports = function winFrameScript() {
   return `(() => {
     const CHROME_W = 240; /* botones izq + zoom */
-    /* Antes: TOP fijo 40px — franja demasiado alta; en 1080p+ empujaba el pago POS */
     const TOP_TALL = 26;  /* ≥1080px alto */
     const TOP_MID = 28;   /* ≥900px */
     const TOP_SHORT = 30; /* ventanas bajas — hit target usable */
-    const TOP_POS = 22;   /* POS online: chrome mínimo, sin robar altura al pago */
+    const TOP_POS = 22;   /* POS online: chrome mínimo */
 
     function isPosUi() {
       try {
@@ -40,14 +39,15 @@ module.exports = function winFrameScript() {
     function cssText(top, posMode) {
       const posRules = posMode
         ? \`
-      /* POS: body sin padding — el chrome flota; un solo safe-area en la raíz POS */
+      /* POS: viewport fijo; chrome restado en .o_pos (border-box), no en body */
       html.renace-win-pad.renace-pos-mode,
       html.renace-win-pad.renace-pos-mode body{
-        height:100% !important;
-        max-height:100% !important;
+        height:100dvh !important;
+        max-height:100dvh !important;
         overflow:hidden !important;
         margin:0 !important;
-        padding-top:0 !important;
+        padding:0 !important;
+        box-sizing:border-box !important;
       }
       html.renace-win-pad.renace-pos-mode .o_action_manager,
       html.renace-win-pad.renace-pos-mode .o_web_client,
@@ -55,6 +55,8 @@ module.exports = function winFrameScript() {
         height:100% !important;
         max-height:100% !important;
         min-height:0 !important;
+        margin:0 !important;
+        padding:0 !important;
         overflow:hidden !important;
         box-sizing:border-box !important;
       }
@@ -81,7 +83,6 @@ module.exports = function winFrameScript() {
         min-height:0 !important;
         overflow:hidden !important;
       }
-      /* Paneles internos: llenan sin bandas vacías ni scroll fantasma */
       html.renace-win-pad.renace-pos-mode .product-screen,
       html.renace-win-pad.renace-pos-mode .payment-screen,
       html.renace-win-pad.renace-pos-mode .ticket-screen,
@@ -94,7 +95,6 @@ module.exports = function winFrameScript() {
         max-height:100% !important;
         box-sizing:border-box !important;
       }
-      /* Pagar / Validar siempre en viewport (no encoger ni empujar abajo) */
       html.renace-win-pad.renace-pos-mode .actionpad,
       html.renace-win-pad.renace-pos-mode .pads,
       html.renace-win-pad.renace-pos-mode .pay-order-button,
@@ -109,12 +109,47 @@ module.exports = function winFrameScript() {
       }
       \`
         : \`
-      html.renace-win-pad body{
-        padding-top:var(--renace-top) !important;
+      /*
+       * Backend / web: como el navegador — el documento NO crece por el chrome.
+       * html/body = 100dvh sin padding extra; la raíz Odoo mide ventana − TOP.
+       */
+      html.renace-win-pad:not(.renace-pos-mode),
+      html.renace-win-pad:not(.renace-pos-mode) body{
+        height:100dvh !important;
+        max-height:100dvh !important;
+        overflow:hidden !important;
+        margin:0 !important;
+        padding:0 !important;
+        box-sizing:border-box !important;
       }
-      html.renace-win-pad .o_main_navbar{
+      html.renace-win-pad:not(.renace-pos-mode) .o_web_client,
+      html.renace-win-pad:not(.renace-pos-mode) #wrapwrap,
+      html.renace-win-pad:not(.renace-pos-mode) .o_home_menu_wrapper{
+        box-sizing:border-box !important;
+        height:calc(100dvh - var(--renace-top)) !important;
+        max-height:calc(100dvh - var(--renace-top)) !important;
+        min-height:0 !important;
+        margin:var(--renace-top) 0 0 0 !important;
+        padding-top:0 !important;
+        overflow:hidden !important;
+      }
+      html.renace-win-pad:not(.renace-pos-mode) .o_action_manager{
+        box-sizing:border-box !important;
+        min-height:0 !important;
+        max-height:100% !important;
+      }
+      /* Navbar fija: debajo del chrome (viewport), sin sumar padding al body */
+      html.renace-win-pad:not(.renace-pos-mode) .o_main_navbar{
         padding-left:12px !important;
         top:var(--renace-top) !important;
+      }
+      /* Páginas sin .o_web_client (login/db): reservar franja sin inflar 100vh */
+      html.renace-win-pad:not(.renace-pos-mode) body:not(:has(.o_web_client)):not(:has(#wrapwrap)){
+        padding-top:var(--renace-top) !important;
+        box-sizing:border-box !important;
+        height:100dvh !important;
+        max-height:100dvh !important;
+        overflow:auto !important;
       }
       \`;
 
@@ -141,7 +176,6 @@ module.exports = function winFrameScript() {
       #renace-win-chrome button:hover{background:rgba(255,255,255,.08);color:#fff}
       #renace-win-chrome button[data-act="close"]:hover{background:#e81123;color:#fff}
 
-      /* Solo arrastre a la derecha de los botones, dentro de la franja */
       #renace-win-drag{
         position:fixed;top:0;left:var(--renace-chrome-w);right:0;
         height:var(--renace-top);z-index:2147483645;
@@ -150,12 +184,7 @@ module.exports = function winFrameScript() {
         border-bottom:1px solid rgba(148,163,184,.08);
       }
 
-      html.renace-win-pad,
-      html.renace-win-pad body{
-        box-sizing:border-box !important;
-      }
       \${posRules}
-      /* Login / setup locales */
       html.renace-win-pad:not(.renace-pos-mode) .oe_login_form,
       html.renace-win-pad:not(.renace-pos-mode) .o_database_form{
         margin-top:8px;
@@ -233,7 +262,6 @@ module.exports = function winFrameScript() {
       });
     }
 
-    /* Odoo POS es SPA: detectar entrada/salida a /pos sin recarga completa */
     if (!window.__renaceWinFramePosWatch) {
       window.__renaceWinFramePosWatch = true;
       let lastPos = isPosUi();

@@ -1310,6 +1310,13 @@ app.get('/descargas', (req, res) => {
 });
 app.get('/descargas.html', (req, res) => res.redirect(301, '/descargas'));
 
+app.get('/pollera-scale-agent', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.sendFile('pollera-scale-agent.html', { root: __dirname });
+});
+app.get('/pollera-scale-agent/', (req, res) => res.redirect(301, '/pollera-scale-agent'));
+app.get('/pollera-scale-agent.html', (req, res) => res.redirect(301, '/pollera-scale-agent'));
+
 /** Manifiesto de actualizaciones del Portal Desktop (Electron) */
 app.get('/api/portal/desktop-update', apiLimiter, (req, res) => {
   const candidates = [

@@ -43,7 +43,7 @@ for f in "$SRC_DIR"/*; do
   base=$(basename "$f")
   # Solo Portal + tools conocidos (evitar basura)
   case "$base" in
-    RENACE-Portal-*|posagent-win64.exe|Rufus*|rufus*|VC_redist*|EnviosRH*|Envíos*|portal-desktop-update.json) ;;
+    RENACE-Portal-*|posagent-win64.exe|Rufus*|rufus*|VC_redist*|EnviosRH*|Envíos*|RenacePolleraScaleAgentSetup.exe|portal-desktop-update.json) ;;
     *)
       echo "· omitiendo $base"
       continue
@@ -90,6 +90,7 @@ const known = {
   'RENACE-Portal-win-x64.exe': { name: 'RENACE Portal — Windows', type: 'EXE', category: 'apps' },
   'RENACE-Portal-ios.ipa': { name: 'RENACE Portal — iOS', type: 'IPA', category: 'apps' },
   'RENACE-Portal-android.apk': { name: 'RENACE Portal — Android', type: 'APK', category: 'apps' },
+  'RenacePolleraScaleAgentSetup.exe': { name: 'RENACE Pollera Scale Agent — Windows', type: 'EXE', category: 'apps' },
 };
 const files = fs.readdirSync('/app/data/docs');
 for (const base of files) {

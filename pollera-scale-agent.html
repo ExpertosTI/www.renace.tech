@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Pollera Scale Agent — Renace Tech</title>
+  <link rel="icon" href="/images/favicon.ico?v=20260731" sizes="any">
+  <link rel="icon" type="image/png" href="/images/icon-192.png?v=20260731" sizes="192x192">
+  <style>
+    :root {
+      --navy: #00204E;
+      --blue: #2E8BC3;
+      --cyan: #00D2FF;
+      --bg: #071525;
+      --card: #0f2340;
+      --text: #eaf3fb;
+      --muted: #8aa4bd;
+      --line: rgba(0, 210, 255, 0.22);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(ellipse 90% 55% at 15% -5%, rgba(0,210,255,.18), transparent),
+        radial-gradient(ellipse 70% 45% at 100% 0%, rgba(46,139,195,.22), transparent),
+        var(--bg);
+    }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 48px 20px 80px; }
+    .brand {
+      font-size: 12px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--cyan);
+    }
+    h1 {
+      font-size: clamp(1.8rem, 4vw, 2.5rem);
+      margin: 10px 0 8px;
+      color: #fff;
+    }
+    .lead {
+      color: var(--muted);
+      font-size: 1.05rem;
+      line-height: 1.5;
+      margin-bottom: 28px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 28px;
+      margin-bottom: 20px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, var(--blue), var(--cyan));
+      color: var(--navy);
+      font-weight: 700;
+      text-decoration: none;
+      padding: 14px 22px;
+      border-radius: 10px;
+      font-size: 1.05rem;
+    }
+    .btn:hover { filter: brightness(1.05); }
+    .meta { margin-top: 14px; color: var(--muted); font-size: .9rem; }
+    ol { margin: 0; padding-left: 1.2rem; color: var(--muted); line-height: 1.7; }
+    code {
+      background: rgba(0,0,0,.35);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--cyan);
+    }
+    a.back { color: var(--muted); text-decoration: none; font-size: .9rem; }
+    a.back:hover { color: var(--cyan); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <a class="back" href="/descargas">← Descargas</a>
+    <p class="brand" style="margin-top:18px;">Renace Tech · Pollos Keisy</p>
+    <h1>Pollera Scale Agent</h1>
+    <p class="lead">
+      Instalador Windows con branding Renace. Corre en la bandeja del sistema,
+      lee la báscula LP7516 por puerto COM (RS232) y alimenta Odoo POS en
+      <code>127.0.0.1:9070</code>.
+    </p>
+    <div class="card">
+      <a class="btn" href="/downloads/RenacePolleraScaleAgentSetup.exe">Descargar instalador Windows</a>
+      <div class="meta">RenacePolleraScaleAgentSetup.exe · Windows 10/11 x64 · Electron · v1.0.0</div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0;color:#fff;">En la caja</h3>
+      <ol>
+        <li>Instale el Setup en la Dell de caja.</li>
+        <li>Deje el icono Renace en la bandeja (inicio con Windows).</li>
+        <li>Configure el puerto <strong>COMx</strong> (no LPT) · baud 9600.</li>
+        <li>Odoo → báscula LP7516 → Agente local → puerto <code>9070</code>.</li>
+        <li>POSAgent de impresora sigue en <code>9069</code> (sin cambios).</li>
+      </ol>
+    </div>
+  </div>
+</body>
+</html>

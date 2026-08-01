@@ -13,6 +13,16 @@ const { app } = require('electron');
 const log = require('./log.cjs');
 
 const RUN_VALUE = 'RENACE POS Agent PRO';
+/** Misma clave que build/installer.nsh — un solo arranque con Windows. */
+const PORTAL_RUN_VALUE = 'RENACE Portal';
+/** Nombres que Electron setLoginItemSettings u builds viejos pueden registrar (doble instancia). */
+const PORTAL_RUN_DUPES = [
+  'renace-tech',
+  'RENACE Portal.exe',
+  'Electron',
+  'tech.renace.portal.desktop',
+  'com.electron.renace-tech',
+];
 
 function bundledDir() {
   // empaquetado: resources/posagent ; dev: vendor/posagent/app
@@ -160,6 +170,113 @@ function regDeleteRun() {
   });
 }
 
+function regDeleteRunValue(name) {
+  return new Promise((resolve) => {
+    if (!name) return resolve(true);
+    execFile(
+      'reg',
+      ['delete', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run', '/v', String(name), '/f'],
+      { windowsHide: true },
+      () => resolve(true)
+    );
+  });
+}
+
+function regAddPortalRun(exe) {
+  return new Promise((resolve) => {
+    const quoted = `"${exe}"`;
+    execFile(
+      'reg',
+      [
+        'add',
+        'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run',
+        '/v',
+        PORTAL_RUN_VALUE,
+        '/t',
+        'REG_SZ',
+        '/d',
+        quoted,
+        '/f',
+      ],
+      { windowsHide: true },
+      (err, _stdout, stderr) => {
+        if (err) log.warn('portal Run registry', err.message, String(stderr || '').slice(0, 200));
+        else log.info('portal Run registry ok');
+        resolve(!err);
+      }
+    );
+  });
+}
+
+function regDeletePortalRun() {
+  return regDeleteRunValue(PORTAL_RUN_VALUE);
+}
+
+function startupDirs() {
+  const dirs = [];
+  const appData = process.env.APPDATA || '';
+  const programData = process.env.ProgramData || 'C:\\ProgramData';
+  if (appData) {
+    dirs.push(
+      path.join(appData, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup')
+    );
+  }
+  dirs.push(
+    path.join(programData, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup')
+  );
+  return dirs;
+}
+
+/** Quita claves Run / accesos Startup que duplican el arranque del Portal. */
+async function clearDuplicatePortalAutostart(extraNames = []) {
+  const names = new Set([
+    ...PORTAL_RUN_DUPES,
+    ...extraNames.filter(Boolean),
+  ]);
+  // Nunca borrar la clave canónica aquí — solo duplicados
+  names.delete(PORTAL_RUN_VALUE);
+  for (const name of names) {
+    await regDeleteRunValue(name);
+  }
+  const lnkBases = [
+    PORTAL_RUN_VALUE,
+    'renace-tech',
+    'RENACE Portal',
+    'Electron',
+    'tech.renace.portal.desktop',
+  ];
+  for (const dir of startupDirs()) {
+    for (const base of lnkBases) {
+      try {
+        const lnk = path.join(dir, `${base}.lnk`);
+        if (fs.existsSync(lnk)) {
+          fs.unlinkSync(lnk);
+          log.info('removed startup shortcut', lnk);
+        }
+      } catch (e) {
+        log.warn('startup shortcut cleanup', e.message);
+      }
+    }
+  }
+}
+
+/**
+ * Un solo path de autostart en Windows: HKCU Run "RENACE Portal" (como el instalador).
+ * @param {boolean} enabled
+ * @param {string} [exe] process.execPath
+ */
+async function setPortalOpenAtLogin(enabled, exe) {
+  const on = !!enabled;
+  await clearDuplicatePortalAutostart([typeof app.getName === 'function' ? app.getName() : '']);
+  if (on) {
+    const target = exe || process.execPath;
+    if (!target) return false;
+    return regAddPortalRun(target);
+  }
+  await regDeletePortalRun();
+  return true;
+}
+
 function readStartWithWindowsFlag() {
   return new Promise((resolve) => {
     execFile(
@@ -219,4 +336,7 @@ module.exports = {
   regAddRun,
   regDeleteRun,
   readStartWithWindowsFlag,
+  setPortalOpenAtLogin,
+  clearDuplicatePortalAutostart,
+  PORTAL_RUN_VALUE,
 };

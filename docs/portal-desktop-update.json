@@ -1,12 +1,12 @@
 {
-  "version": "3.0.19",
-  "releasedAt": "2026-07-31T18:00:37.083Z",
-  "notes": "RENACE Portal 3.0.19",
+  "version": "3.0.23",
+  "releasedAt": "2026-08-01T00:34:25.361Z",
+  "notes": "RENACE Portal 3.0.23",
   "platforms": {
     "win32-x64": {
       "url": "https://renace.tech/docs/RENACE-Portal-win-x64.exe",
-      "size": 133355340,
-      "sha256": "9258d330c7f281b3564c5ae695edb111715fe7edfe6b931219dbd04f241cacf0"
+      "size": 133357384,
+      "sha256": "6494e2e2edefdf18a5011c8d52b60224d05c28b1b11cb56a4c17b1f5c49f8397"
     },
     "darwin-arm64": {
       "url": "https://renace.tech/docs/RENACE-Portal-mac-arm64.dmg",

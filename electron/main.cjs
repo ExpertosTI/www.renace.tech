@@ -25,10 +25,28 @@ const {
 const store = require('./secure-store.cjs');
 const staffLocal = require('./staff-local.cjs');
 const log = require('./log.cjs');
-const { ensurePosAgent, readStartWithWindowsFlag } = require('./posagent-win.cjs');
+const {
+  ensurePosAgent,
+  readStartWithWindowsFlag,
+  setPortalOpenAtLogin,
+  clearDuplicatePortalAutostart,
+} = require('./posagent-win.cjs');
 const posProxy = require('./pos-proxy.cjs');
 const updater = require('./updater.cjs');
 const winFrameScript = require('./win-frame.js');
+
+// Una sola instancia: segundo arranque (autostart duplicado, doble clic) enfoca la existente.
+// app.exit(0) fuerza salida inmediata — app.quit() a veces deja el proceso vivo un momento.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.exit(0);
+} else {
+  app.on('second-instance', (_event, _argv, _cwd) => {
+    try {
+      focusExistingPortalWindow();
+    } catch (_) {}
+  });
+}
 
 // FCM web push en Chromium es problemático; las notificaciones las gestiona Portal (OS + Odoo bus)
 app.commandLine.appendSwitch('disable-features', 'PushMessaging');
@@ -1434,8 +1452,43 @@ function hardenSession(ses) {
   });
 }
 
+/**
+ * Menú contextual Editar (ES): Copiar / Pegar / Cortar / Seleccionar todo.
+ * Sustituye el menú Chromium (Atrás/Recargar) sin romper modo técnico ni POS.
+ */
+function attachEditContextMenu(wc) {
+  if (!wc || wc.isDestroyed() || wc.__renaceEditContextMenu) return;
+  wc.__renaceEditContextMenu = true;
+  wc.on('context-menu', (_event, params) => {
+    const flags = params.editFlags || {};
+    const editable = Boolean(params.isEditable);
+    const canCopy = Boolean(flags.canCopy);
+    if (!editable && !canCopy) return;
+
+    const items = [];
+    if (editable) {
+      items.push({ label: 'Cortar', role: 'cut', enabled: Boolean(flags.canCut) });
+    }
+    items.push({ label: 'Copiar', role: 'copy', enabled: canCopy });
+    if (editable) {
+      items.push({ label: 'Pegar', role: 'paste', enabled: Boolean(flags.canPaste) });
+    }
+    items.push({ type: 'separator' });
+    items.push({
+      label: 'Seleccionar todo',
+      role: 'selectAll',
+      enabled: Boolean(flags.canSelectAll),
+    });
+
+    const menu = Menu.buildFromTemplate(items);
+    const owner = BrowserWindow.fromWebContents(wc);
+    menu.popup(owner && !owner.isDestroyed() ? { window: owner } : undefined);
+  });
+}
+
 function attachWindowGuards(win) {
   const wc = win.webContents;
+  attachEditContextMenu(wc);
 
   wc.setWindowOpenHandler(({ url }) => {
     log.info('window open', url);
@@ -1632,24 +1685,53 @@ function promptTechPassword() {
   });
 }
 
+function focusExistingPortalWindow() {
+  const wins = BrowserWindow.getAllWindows().filter((w) => w && !w.isDestroyed());
+  const win = wins[0] || null;
+  if (!win) return;
+  try {
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+  } catch (_) {}
+}
+
 async function applyOpenAtLogin(enabled) {
   const on = !!enabled;
   store.setOpenAtLogin(on);
-  try {
-    app.setLoginItemSettings({
-      openAtLogin: on,
-      openAsHidden: false,
-      path: process.execPath,
-      args: [],
-    });
-  } catch (e) {
-    log.warn('setLoginItemSettings', e.message);
-  }
   if (process.platform === 'win32') {
+    // Un solo path: HKCU Run "RENACE Portal" (igual que installer.nsh).
+    // setLoginItemSettings registra otra clave (p.ej. "renace-tech") → 2 instancias al login.
+    try {
+      app.setLoginItemSettings({
+        openAtLogin: false,
+        openAsHidden: false,
+        path: process.execPath,
+        args: [],
+      });
+    } catch (e) {
+      log.warn('clear Electron login item', e.message);
+    }
+    try {
+      await setPortalOpenAtLogin(on, process.execPath);
+    } catch (e) {
+      log.warn('portal Run registry', e.message);
+    }
     try {
       await ensurePosAgent({ openAtLogin: on });
     } catch (e) {
       log.warn('posagent autostart sync', e.message);
+    }
+  } else {
+    try {
+      app.setLoginItemSettings({
+        openAtLogin: on,
+        openAsHidden: false,
+        path: process.execPath,
+        args: [],
+      });
+    } catch (e) {
+      log.warn('setLoginItemSettings', e.message);
     }
   }
   log.info('openAtLogin', on);
@@ -1668,7 +1750,10 @@ async function syncOpenAtLoginFromInstaller() {
 }
 
 async function toggleOpenAtLogin() {
-  const cur = app.getLoginItemSettings?.().openAtLogin ?? store.getOpenAtLogin() ?? false;
+  const cur =
+    store.getOpenAtLogin() ??
+    (process.platform === 'win32' ? false : app.getLoginItemSettings?.().openAtLogin) ??
+    false;
   const next = !cur;
   await applyOpenAtLogin(next);
   dialog.showMessageBox(currentWin() || undefined, {
@@ -1927,7 +2012,9 @@ function buildMenu() {
           },
           {
             label: (() => {
-              const on = store.getOpenAtLogin() ?? app.getLoginItemSettings?.().openAtLogin;
+              const on =
+                store.getOpenAtLogin() ??
+                (process.platform === 'win32' ? false : app.getLoginItemSettings?.().openAtLogin);
               return on ? 'Inicio con Windows: activado' : 'Iniciar con Windows…';
             })(),
             click: () => toggleOpenAtLogin(),
@@ -2088,6 +2175,7 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  if (!gotSingleInstanceLock) return;
   log.configure({
     version: app.getVersion(),
     platform: process.platform,
@@ -2120,6 +2208,8 @@ app.whenReady().then(async () => {
 
   if (process.platform === 'win32') {
     try {
+      // Limpia claves Run / Startup duplicadas de builds anteriores (Electron login item)
+      await clearDuplicatePortalAutostart([app.getName()]);
       await syncOpenAtLoginFromInstaller();
       const pos = await ensurePosAgent({ openAtLogin: store.getOpenAtLogin() !== false });
       log.info('posagent ensure', pos);
@@ -2147,6 +2237,7 @@ app.whenReady().then(async () => {
   // No borrar caché al arrancar: preserva sesión Odoo / recursos del usuario
   app.on('web-contents-created', (_e, wc) => {
     applyZoomFactor(wc);
+    attachEditContextMenu(wc);
     wc.on('dom-ready', () => {
       applyZoomFactor(wc);
       injectWinFrame(wc);
