@@ -222,15 +222,28 @@ function initContactForm() {
 // FINDER WINDOW CONTROLS
 // ═══════════════════════════════════════════════════════════════
 function toggleFileLock(forceState) {
-  const btn = document.querySelector('.finder-lock-btn i');
+  const btn = document.querySelector('.finder-lock-btn');
+  const icon = btn?.querySelector('i');
+  const label = btn?.querySelector('.finder-lock-label');
   const finder = document.querySelector('.finder-window');
   if (!btn || !finder) return finder ? finder.classList.contains('locked') : true;
 
   const current = finder.classList.contains('locked');
   const nextLocked = typeof forceState === 'boolean' ? forceState : !current;
   finder.classList.toggle('locked', nextLocked);
-  btn.classList.toggle('fa-lock', nextLocked);
-  btn.classList.toggle('fa-lock-open', !nextLocked);
+  if (icon) {
+    icon.classList.toggle('fa-lock', nextLocked);
+    icon.classList.toggle('fa-lock-open', !nextLocked);
+  }
+  if (label) label.textContent = nextLocked ? 'Admin' : 'Bloquear';
+  btn.setAttribute('aria-pressed', nextLocked ? 'false' : 'true');
+  btn.setAttribute(
+    'aria-label',
+    nextLocked ? 'Desbloquear administración de archivos' : 'Bloquear administración de archivos'
+  );
+  btn.title = nextLocked
+    ? 'Desbloquear para subir o borrar archivos'
+    : 'Volver a bloquear (solo lectura)';
   return nextLocked;
 }
 
@@ -555,7 +568,7 @@ function initDocumentsUpload() {
   const pinInput = document.getElementById('documents-admin-pin');
   const unlockBtn = document.getElementById('documents-admin-unlock');
   const dropzone = document.getElementById('documents-dropzone');
-  const lockBtn = document.querySelector('.finder-lock-btn');
+  const lockBtn = document.getElementById('documents-lock-toggle') || document.querySelector('.finder-lock-btn');
   const lockBackBtn = document.getElementById('documents-lock-btn');
   const finderWindow = document.querySelector('.finder-window');
   const uploadNavBtn = document.querySelector('.finder-nav-btn[data-view="upload"]');
@@ -581,48 +594,67 @@ function initDocumentsUpload() {
     }
   }
 
+  function tryUnlockWithPin() {
+    const nextCredential = (pinInput?.value || '').trim();
+    if (!nextCredential) {
+      showNotification('Ingresa tu PIN de administrador.', 'error');
+      pinInput?.focus();
+      return;
+    }
+    _adminCredential = nextCredential;
+    setAdminUnlocked(true);
+    if (uploadNavBtn) uploadNavBtn.style.display = 'inline-flex';
+    if (finderWindow) finderWindow.classList.add('documents-admin-visible');
+    setDocumentsView('list');
+    showNotification('Desbloqueado. Puedes eliminar y subir archivos.', 'success');
+  }
+
+  function lockAdmin(notify = true) {
+    _adminCredential = '';
+    setAdminUnlocked(false);
+    if (pinInput) pinInput.value = '';
+    setAdminVisibility(false);
+    if (notify) showNotification('Panel de documentos bloqueado.', 'info');
+  }
+
   setAdminVisibility(false);
   setAdminUnlocked(false);
 
   if (lockBtn) {
     lockBtn.addEventListener('click', (e) => {
       e.preventDefault();
+      e.stopPropagation();
       const isLocked = finderWindow?.classList.contains('locked') ?? true;
       if (isLocked) {
         setAdminVisibility(true);
-        if (pinInput) { pinInput.disabled = false; pinInput.focus(); }
+        if (pinInput) {
+          pinInput.disabled = false;
+          pinInput.focus();
+        }
+        showNotification('Ingresa el PIN y pulsa Desbloquear.', 'info');
       } else {
-        _adminCredential = '';
-        setAdminUnlocked(false);
-        if (pinInput) pinInput.value = '';
-        showNotification('Panel bloqueado.', 'info');
-        setAdminVisibility(false);
+        lockAdmin(true);
       }
     });
   }
 
   if (unlockBtn && pinInput) {
-    unlockBtn.addEventListener('click', () => {
-      const nextCredential = pinInput.value.trim();
-      if (nextCredential) {
-        _adminCredential = nextCredential;
-        setAdminUnlocked(true);
-        if (uploadNavBtn) uploadNavBtn.style.display = 'inline-flex';
-        if (finderWindow) finderWindow.classList.add('documents-admin-visible');
-        setDocumentsView('list');
-        showNotification('Desbloqueado. Puedes eliminar y subir archivos.', 'success');
-      } else {
-        showNotification('Ingresa tu credencial de administrador.', 'error');
+    unlockBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      tryUnlockWithPin();
+    });
+    pinInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        tryUnlockWithPin();
       }
     });
   }
 
   if (lockBackBtn) {
-    lockBackBtn.addEventListener('click', () => {
-      _adminCredential = '';
-      setAdminUnlocked(false);
-      if (pinInput) pinInput.value = '';
-      setAdminVisibility(false);
+    lockBackBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      lockAdmin(false);
     });
   }
 
@@ -654,7 +686,6 @@ function initDocumentsUpload() {
 
   // Upload form submit
   if (form && input) {
-    // Progress bar element
     let progressWrap = document.createElement('div');
     progressWrap.className = 'upload-progress-wrap';
     progressWrap.innerHTML = '<div class="upload-progress-bar"></div><span class="upload-progress-text"></span>';
@@ -697,7 +728,18 @@ function initDocumentsUpload() {
             input.value = '';
             loadDocuments();
           } else {
-            throw new Error(data.error || 'Error al subir');
+            const errMsg = data.error || 'Error al subir';
+            if ((errMsg || '').toLowerCase().includes('no autorizado')) {
+              _adminCredential = '';
+              setAdminUnlocked(false);
+              if (pinInput) {
+                pinInput.value = '';
+                pinInput.disabled = false;
+                pinInput.focus();
+              }
+              setAdminVisibility(true);
+            }
+            throw new Error(errMsg);
           }
         } catch (err) {
           showNotification(err.message || 'Error subiendo archivos.', 'error');

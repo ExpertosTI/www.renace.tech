@@ -859,11 +859,30 @@ a *, button *, [onclick] *, .finder-control *, .control *, .terminal-btn *, .btn
 .finder-search::placeholder { color: var(--text-muted); }
 
 .finder-lock-btn {
-  background: none; border: none; color: var(--text-muted);
-  cursor: pointer; font-size: 0.85rem; padding: 0.3rem;
-  transition: color var(--transition-fast);
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  flex-shrink: 0;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: var(--accent-blue);
+  cursor: pointer; font-size: 0.78rem; font-weight: 600;
+  padding: 0.35rem 0.65rem; border-radius: 8px;
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
 }
-.finder-lock-btn:hover { color: var(--accent-blue); }
+.finder-lock-btn:hover,
+.finder-lock-btn:focus-visible {
+  color: #fff;
+  background: rgba(56, 189, 248, 0.28);
+  border-color: rgba(56, 189, 248, 0.6);
+  outline: none;
+}
+.finder-lock-btn i { font-size: 0.85rem; }
+.finder-lock-label { letter-spacing: 0.02em; }
+.finder-window:not(.locked) .finder-lock-btn,
+.finder-window.documents-admin-unlocked .finder-lock-btn {
+  background: rgba(52, 211, 153, 0.14);
+  border-color: rgba(52, 211, 153, 0.4);
+  color: var(--accent-green);
+}
 
 .finder-body { display: flex; min-height: 350px; }
 
@@ -1012,10 +1031,12 @@ a *, button *, [onclick] *, .finder-control *, .control *, .terminal-btn *, .btn
 }
 .documents-upload-help { font-size: 0.75rem; color: var(--text-muted); }
 
-/* Admin visibility */
+/* Admin visibility — upload/PIN only after candado */
 .finder-window .documents-admin-only { display: none; }
 .finder-window.documents-admin-visible .finder-nav-btn.documents-admin-only { display: inline-flex; }
 .finder-window .documents-view.active { display: block; }
+.finder-window .documents-view.documents-admin-only.active { display: none; }
+.finder-window.documents-admin-visible .documents-view.documents-admin-only.active { display: block; }
 
 @media (max-width: 900px) {
   .finder-window { max-width: 100%; }
@@ -1023,9 +1044,10 @@ a *, button *, [onclick] *, .finder-control *, .control *, .terminal-btn *, .btn
 @media (max-width: 768px) {
   .finder-sidebar { display: none; }
   .finder-body { min-height: 250px; flex-direction: column; }
-  .finder-search { width: 80px; font-size: 0.75rem; }
+  .finder-search { width: 72px; font-size: 0.75rem; }
   .finder-header { padding: 0.5rem 0.75rem; gap: 0.5rem; }
-  .finder-title { font-size: 0.75rem; }
+  .finder-title { font-size: 0.75rem; min-width: 0; }
+  .finder-lock-btn { padding: 0.3rem 0.5rem; font-size: 0.72rem; }
   .finder-nav-btn { padding: 0.5rem 0.75rem; font-size: 0.75rem; }
   .document-item { padding: 0.6rem 0.5rem; gap: 0.5rem; }
   .document-name { font-size: 0.8rem; }
