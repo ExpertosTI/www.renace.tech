@@ -1543,6 +1543,31 @@ async function validateServiceCredentials(url, db, login, password) {
   return await odooValidateCredentials(url, db, login, password);
 }
 
+function getPortalDeviceId(req) {
+  const rawDeviceId = String(req.body?.device_id || req.get('x-renace-device-id') || '').trim();
+  if (!rawDeviceId) return null;
+  if (!/^[a-zA-Z0-9_-]{16,128}$/.test(rawDeviceId)) {
+    return null;
+  }
+  return rawDeviceId;
+}
+
+async function enforcePortalDeviceBinding(userId, instanceId, deviceId) {
+  if (!deviceId) return true;
+
+  const deviceHash = crypto.createHash('sha256').update(deviceId).digest('hex');
+  const result = await pool.query(
+    `INSERT INTO portal_device_bindings (user_id, instance_id, device_hash)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (user_id, instance_id) DO UPDATE
+       SET last_seen_at = CURRENT_TIMESTAMP
+       WHERE portal_device_bindings.device_hash = EXCLUDED.device_hash
+     RETURNING id`,
+    [userId, instanceId, deviceHash]
+  );
+  return result.rows.length > 0;
+}
+
 // ── SSO: Generate Token for Portal Login ──
 app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
   const odoo_login = String(req.body?.odoo_login || req.body?.login || '').trim().slice(0, 254);
@@ -1619,6 +1644,15 @@ app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
         console.warn('[sso generate] Auth error:', e.message);
         return res.status(503).json({ error: 'No se pudo conectar con el servicio. Intenta más tarde.' });
       }
+    }
+
+    const isBoundDevice = await enforcePortalDeviceBinding(
+      user.id,
+      user.instance_id,
+      getPortalDeviceId(req)
+    );
+    if (!isBoundDevice) {
+      return res.status(403).json({ error: 'Ya está vinculada a otro dispositivo' });
     }
 
     // Store encrypted password for Google OAuth (requires PORTAL_ENCRYPTION_KEY)
@@ -2145,6 +2179,15 @@ async function initDB() {
         ip_address VARCHAR(45),
         user_agent TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS portal_device_bindings (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES client_portal_users(id) ON DELETE CASCADE,
+        instance_id INTEGER NOT NULL REFERENCES odoo_instances(id) ON DELETE CASCADE,
+        device_hash CHAR(64) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, instance_id)
       );
     `);
     console.log('✓ Database tables ready');

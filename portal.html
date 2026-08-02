@@ -666,6 +666,26 @@
     const togglePass = document.getElementById('toggle-pass');
     const passInput  = document.getElementById('password');
 
+    function getNativeDeviceId() {
+      const isNative = window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function'
+        && window.Capacitor.isNativePlatform();
+      if (!isNative) return null;
+
+      const storageKey = 'renace_portal_device_id';
+      let deviceId = localStorage.getItem(storageKey);
+      if (!deviceId) {
+        if (typeof crypto.randomUUID === 'function') {
+          deviceId = crypto.randomUUID().replace(/-/g, '');
+        } else {
+          const bytes = new Uint8Array(16);
+          crypto.getRandomValues(bytes);
+          deviceId = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+        }
+        localStorage.setItem(storageKey, deviceId);
+      }
+      return deviceId;
+    }
+
     togglePass.addEventListener('click', () => {
       const isPass = passInput.type === 'password';
       passInput.type = isPass ? 'text' : 'password';
@@ -708,7 +728,7 @@
         const res = await fetch('/api/sso/generate-token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ login, password }),
+          body: JSON.stringify({ login, password, device_id: getNativeDeviceId() }),
         });
 
         const data = await res.json().catch(() => ({ error: 'Respuesta inesperada del servidor.' }));
