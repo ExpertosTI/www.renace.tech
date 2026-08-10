@@ -168,7 +168,9 @@ module.exports = function winFrameScript() {
       #renace-win-chrome button{
         width:46px;border:0;background:transparent;color:#c5d0e0;
         font-size:12px;line-height:var(--renace-top);cursor:pointer;padding:0;
-        -webkit-app      #renace-win-chrome button.renace-zoom-btn{
+        -webkit-app-region:no-drag;
+      }
+      #renace-win-chrome button.renace-zoom-btn{
         font-size:11px;font-weight:600;letter-spacing:-0.02em;width:36px;
       }
       #renace-win-chrome button:hover{background:rgba(255,255,255,.08);color:#fff}
@@ -264,6 +266,11 @@ module.exports = function winFrameScript() {
         if (act === 'zoom-in') window.renaceDesktop.zoomIn?.();
         if (act === 'reload') {
           btn.classList.add('spin');
+          try {
+            if (typeof window.renaceDesktop.checkUpdates === 'function') {
+              window.renaceDesktop.checkUpdates(true).catch(() => {});
+            }
+          } catch (_) {}
           setTimeout(() => {
             if (typeof window.renaceDesktop.winReload === 'function') {
               window.renaceDesktop.winReload();

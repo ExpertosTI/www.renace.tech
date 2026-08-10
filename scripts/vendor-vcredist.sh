@@ -15,6 +15,7 @@ if [[ -f "$OUT" ]] && [[ $(stat -f%z "$OUT" 2>/dev/null || stat -c%s "$OUT") -gt
 fi
 
 echo "→ Descargando VC++ Redistributable x64…"
-curl -fsSL -L --retry 3 -o "$OUT.partial" "$URL"
+DIRECT_URL="https://download.visualstudio.microsoft.com/download/pr/9b0d1fa5-c16d-4ee8-97f0-c2734086ece8/CC0FF0EB1DC3F5188AE6300FAEF32BF5BEEBA4BDD6E8E445A9184072096B713B/VC_redist.x64.exe"
+curl -fsSL -L --max-time 30 --retry 3 -o "$OUT.partial" "$URL" || curl -fsSL --max-time 30 --retry 3 -o "$OUT.partial" "$DIRECT_URL"
 mv -f "$OUT.partial" "$OUT"
 echo "✓ $OUT ($(du -h "$OUT" | awk '{print $1}'))"

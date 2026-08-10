@@ -3,6 +3,7 @@
 # Icono/metadata del EXE vía resedit (signExecutable:false — NO signAndEditExecutable:false).
 # Regenera icons; skip vendor si ya existen.
 set -euo pipefail
+export PATH="/opt/homebrew/bin:/usr/local/bin:/Users/brainiacx/.nvm/versions/node/v24.16.0/bin:$PATH"
 cd "$(dirname "$0")/.."
 
 echo "══ win:pack:fast $(node -p "require('./package.json').version") ══"

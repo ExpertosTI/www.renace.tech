@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Genera docs/portal-desktop-update.json desde package.json + instaladores staged.
 set -euo pipefail
+export PATH="/opt/homebrew/bin:/usr/local/bin:/Users/brainiacx/.nvm/versions/node/v24.16.0/bin:$PATH"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 mkdir -p docs

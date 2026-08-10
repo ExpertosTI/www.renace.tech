@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Copia instaladores a docs/ con nombres estables para /descargas
 set -euo pipefail
+export PATH="/opt/homebrew/bin:/usr/local/bin:/Users/brainiacx/.nvm/versions/node/v24.16.0/bin:$PATH"
 cd "$(dirname "$0")/.."
 mkdir -p docs downloads
 

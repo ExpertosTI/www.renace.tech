@@ -1067,6 +1067,8 @@ function registerIpc() {
     return store.getZoomFactor();
   });
   ipcMain.handle('renace:notify', (_e, payload) => showNativeNotification(payload || {}));
+  ipcMain.handle('renace:check-updates', (_e, silent) => runUpdateCheck(silent));
+  ipcMain.handle('renace:install-update', () => runInstallPendingUpdate());
 }
 
 function isPortalCookieDomain(domain) {

@@ -63,6 +63,8 @@ try {
     openStaffLogin: () => ipcRenderer.invoke('renace:staff-open'),
     notify: (payload) => ipcRenderer.invoke('renace:notify', payload || {}),
     techAction: (action) => ipcRenderer.invoke('renace:tech-action', String(action || '')),
+    checkUpdates: (silent) => ipcRenderer.invoke('renace:check-updates', !!silent),
+    installUpdate: () => ipcRenderer.invoke('renace:install-update'),
   });
 } catch (_) {
   // reload: ya expuesto

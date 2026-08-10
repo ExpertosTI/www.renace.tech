@@ -12,7 +12,10 @@ ARCH=$(uname -m)
 case "$ARCH" in arm64) EARCH=arm64;; *) EARCH=x64;; esac
 ZIP_NAME="electron-v${VERSION}-darwin-${EARCH}.zip"
 
-ZIP=$(find "${HOME}/Library/Caches/electron" /var/folders -name "$ZIP_NAME" 2>/dev/null | head -1)
+ZIP=$(find "${HOME}/Library/Caches/electron" -name "$ZIP_NAME" 2>/dev/null | head -1 || true)
+if [[ -z "$ZIP" ]]; then
+  ZIP=$(find /var/folders -name "$ZIP_NAME" 2>/dev/null | head -1 || true)
+fi
 if [[ -z "$ZIP" || ! -f "$ZIP" ]]; then
   echo "[fix-electron] descargando $ZIP_NAME..."
   node install.js

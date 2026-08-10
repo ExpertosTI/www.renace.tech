@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Descarga POS Agent PRO (dieg0-a/posagentpro) y extrae el payload portable.
 set -euo pipefail
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 cd "$(dirname "$0")/.."
 
 DEST=vendor/posagent
