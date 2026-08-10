@@ -40,6 +40,8 @@ try {
     winClose: () => ipcRenderer.send('renace:win-close'),
     winMin: () => ipcRenderer.send('renace:win-min'),
     winMax: () => ipcRenderer.send('renace:win-max'),
+    winReload: () => ipcRenderer.send('renace:win-reload'),
+    reload: () => ipcRenderer.send('renace:win-reload'),
     zoomGet: () => ipcRenderer.invoke('renace:zoom-get'),
     zoomSet: (f) => ipcRenderer.invoke('renace:zoom-set', f),
     zoomIn: () => ipcRenderer.invoke('renace:zoom-in'),

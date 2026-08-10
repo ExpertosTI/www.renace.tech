@@ -10,7 +10,7 @@
  */
 module.exports = function winFrameScript() {
   return `(() => {
-    const CHROME_W = 240; /* botones izq + zoom */
+    const CHROME_W = 320; /* botones izq + zoom + actualizar */
     const TOP_TALL = 26;  /* ≥1080px alto */
     const TOP_MID = 28;   /* ≥900px */
     const TOP_SHORT = 30; /* ventanas bajas — hit target usable */
@@ -168,13 +168,28 @@ module.exports = function winFrameScript() {
       #renace-win-chrome button{
         width:46px;border:0;background:transparent;color:#c5d0e0;
         font-size:12px;line-height:var(--renace-top);cursor:pointer;padding:0;
-        -webkit-app-region:no-drag;
-      }
-      #renace-win-chrome button.renace-zoom-btn{
-        font-size:11px;font-weight:600;letter-spacing:-0.02em;width:46px;
+        -webkit-app      #renace-win-chrome button.renace-zoom-btn{
+        font-size:11px;font-weight:600;letter-spacing:-0.02em;width:36px;
       }
       #renace-win-chrome button:hover{background:rgba(255,255,255,.08);color:#fff}
       #renace-win-chrome button[data-act="close"]:hover{background:#e81123;color:#fff}
+
+      #renace-win-chrome button.renace-refresh-btn{
+        font-size:11px;font-weight:700;letter-spacing:-0.01em;width:95px;
+        color:#00b4d8;background:rgba(0,180,216,0.14);
+        border:1px solid rgba(0,180,216,0.35);
+        margin:2px 4px;border-radius:999px;
+        height:calc(var(--renace-top) - 4px);
+        display:inline-flex;align-items:center;justify-content:center;gap:4px;
+        line-height:1;transition:all 0.2s ease;
+      }
+      #renace-win-chrome button.renace-refresh-btn:hover{
+        background:#00b4d8;color:#0a0f1a;border-color:#00b4d8;
+      }
+      #renace-win-chrome button.renace-refresh-btn.spin svg{
+        animation:renace-spin 0.8s linear infinite;
+      }
+      @keyframes renace-spin{to{transform:rotate(360deg)}}
 
       #renace-win-drag{
         position:fixed;top:0;left:var(--renace-chrome-w);right:0;
@@ -184,12 +199,12 @@ module.exports = function winFrameScript() {
         border-bottom:1px solid rgba(148,163,184,.08);
       }
 
-      \${posRules}
+      ${posRules}
       html.renace-win-pad:not(.renace-pos-mode) .oe_login_form,
       html.renace-win-pad:not(.renace-pos-mode) .o_database_form{
         margin-top:8px;
       }
-    \`;
+    `;
     }
 
     document.documentElement.classList.add('renace-win-pad');
@@ -220,7 +235,7 @@ module.exports = function winFrameScript() {
     applyTop();
 
     let bar = document.getElementById('renace-win-chrome');
-    if (bar && !bar.querySelector('[data-act="zoom-out"]')) {
+    if (bar && !bar.querySelector('[data-act="reload"]')) {
       bar.remove();
       bar = null;
     }
@@ -228,11 +243,15 @@ module.exports = function winFrameScript() {
       bar = document.createElement('div');
       bar.id = 'renace-win-chrome';
       bar.innerHTML =
-        '<button type="button" data-act="close" title="Minimizar">✕</button>' +
+        '<button type="button" data-act="close" title="Cerrar">✕</button>' +
         '<button type="button" data-act="min" title="Minimizar">─</button>' +
         '<button type="button" data-act="max" title="Pantalla completa">▢</button>' +
         '<button type="button" class="renace-zoom-btn" data-act="zoom-out" title="Zoom −">A−</button>' +
-        '<button type="button" class="renace-zoom-btn" data-act="zoom-in" title="Zoom +">A+</button>';
+        '<button type="button" class="renace-zoom-btn" data-act="zoom-in" title="Zoom +">A+</button>' +
+        '<button type="button" class="renace-refresh-btn" data-act="reload" title="Actualizar datos y recargar página">' +
+          '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>' +
+          '<span>Actualizar</span>' +
+        '</button>';
       document.documentElement.appendChild(bar);
       bar.addEventListener('click', (ev) => {
         const btn = ev.target.closest('button[data-act]');
@@ -243,6 +262,18 @@ module.exports = function winFrameScript() {
         if (act === 'max') window.renaceDesktop.winMax?.();
         if (act === 'zoom-out') window.renaceDesktop.zoomOut?.();
         if (act === 'zoom-in') window.renaceDesktop.zoomIn?.();
+        if (act === 'reload') {
+          btn.classList.add('spin');
+          setTimeout(() => {
+            if (typeof window.renaceDesktop.winReload === 'function') {
+              window.renaceDesktop.winReload();
+            } else if (typeof window.renaceDesktop.reload === 'function') {
+              window.renaceDesktop.reload();
+            } else {
+              window.location.reload();
+            }
+          }, 150);
+        }
       });
     }
 

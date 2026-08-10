@@ -883,6 +883,11 @@ function registerIpc() {
         runUpdateCheck(false);
         return { ok: true };
       }
+      if (act === 'reload' || act === 'refresh') {
+        const win = currentWin();
+        if (win && !win.isDestroyed()) win.webContents.reloadIgnoringCache();
+        return { ok: true };
+      }
       if (act === 'user') {
         revertToUserMode('toolbar');
         return { ok: true };
@@ -1043,6 +1048,10 @@ function registerIpc() {
   ipcMain.on('renace:win-max', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win && !win.isDestroyed()) toggleCoverTaskbar(win);
+  });
+  ipcMain.on('renace:win-reload', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) win.webContents.reloadIgnoringCache();
   });
 
   ipcMain.handle('renace:zoom-get', () => store.getZoomFactor());

@@ -48,6 +48,7 @@ html.renace-tech-pad,html.renace-tech-pad body{scroll-padding-top:44px}
         '<span class="rtb-brand">Técnico</span>' +
         '<button type="button" data-act="instance">Instancia</button>' +
         '<button type="button" data-act="personal">Personal</button>' +
+        '<button type="button" data-act="reload">Actualizar ↻</button>' +
         '<button type="button" data-act="updates">Updates</button>' +
         '<button type="button" data-act="user">Modo usuario</button>' +
         '<button type="button" data-act="quit" class="rtb-danger">Salir</button>';
