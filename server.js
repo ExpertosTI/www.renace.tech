@@ -4179,6 +4179,10 @@ app.use((req, res, next) => {
 
 // ── Static Files ──
 // Explicit download routes (force attachment + verify path)
+app.get('/renasis', (req, res) => {
+  res.sendFile(path.join(__dirname, 'renasis.html'));
+});
+
 app.get('/downloads/:filename', (req, res) => {
   const filename = path.basename(String(req.params.filename || ''));
   if (!filename || filename.includes('..')) return res.status(400).end();
