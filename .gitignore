@@ -52,6 +52,7 @@ vendor/vcredist/*.exe
 !vendor/vcredist/README.md
 www/
 downloads/*.exe
+!downloads/RENASIS-Remote*.exe
 downloads/*.ipa
 docs/*.exe
 docs/*.ipa

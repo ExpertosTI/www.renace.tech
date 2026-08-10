@@ -4183,6 +4183,19 @@ app.get('/renasis', (req, res) => {
   res.sendFile(path.join(__dirname, 'renasis.html'));
 });
 
+app.get('/download/renasis-win', (req, res) => {
+  const filename = 'RENASIS-Remote-host-remote.renace.tech-key=bNhA+mELHKuFYS8XSAzPJom9OovF1mvtvIIbbJyhBic=.exe';
+  const localFile = path.join(__dirname, 'downloads', filename);
+  if (fs.existsSync(localFile)) {
+    return res.download(localFile, filename);
+  }
+  return res.redirect('https://github.com/rustdesk/rustdesk/releases/download/1.3.8/rustdesk-1.3.8-x86_64.exe');
+});
+
+app.get('/download/renasis-mac', (req, res) => {
+  return res.redirect('https://github.com/rustdesk/rustdesk/releases/download/1.3.8/rustdesk-1.3.8-x86_64.dmg');
+});
+
 app.get('/downloads/:filename', (req, res) => {
   const filename = path.basename(String(req.params.filename || ''));
   if (!filename || filename.includes('..')) return res.status(400).end();
