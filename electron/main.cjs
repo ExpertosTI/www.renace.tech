@@ -2596,11 +2596,7 @@ app.whenReady().then(async () => {
 app.on('before-quit', (e) => {
   unregisterTechUnlockGlobalShortcut();
   log.flush().catch(() => {});
-  if (isWorkInstanceLocked()) {
-    e.preventDefault();
-    denyCloseMessage(currentWin());
-    return;
-  }
+  // No bloquear antes-quit del sistema (instalador, shutdown). Solo el evento close de ventana bloquea el X del usuario.
   // Salida autorizada: si hay update descargada, instalarla al cerrar
   const pending = updater.getPendingUpdate();
   if (pending && process.platform === 'win32') {

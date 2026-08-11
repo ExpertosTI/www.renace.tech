@@ -77,7 +77,7 @@ echo "⏳ Waiting for service to become healthy..."
 RETRIES=0
 MAX_RETRIES=30
 while [ $RETRIES -lt $MAX_RETRIES ]; do
-  HEALTH=$(docker inspect --format='{{.Status.Health.Status}}' $(docker ps -q -f name=renace_app) 2>/dev/null || echo "starting")
+  HEALTH=$(docker inspect --format='{{.State.Health.Status}}' $(docker ps -q -f name=renace_app) 2>/dev/null || echo "starting")
   if [ "$HEALTH" = "healthy" ]; then
     break
   fi
