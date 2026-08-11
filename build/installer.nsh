@@ -16,10 +16,12 @@
   DetailPrint "Cerrando RENACE Portal / POS Agent si estan abiertos..."
   ExecWait 'taskkill /F /IM "RENACE Portal.exe" /T' $R0
   ExecWait 'taskkill /F /IM "posagent.exe" /T' $R0
-  ; Builds viejos / Electron genérico (por si el exe aún se llama distinto)
   ExecWait 'taskkill /F /IM "renace-tech.exe" /T' $R0
   ExecWait 'taskkill /F /IM "Electron.exe" /T' $R0
-  Sleep 1200
+  ; Segunda pasada por si el proceso se resistió
+  Sleep 800
+  ExecWait 'taskkill /F /IM "RENACE Portal.exe" /T' $R0
+  Sleep 2500
 !macroend
 
 ; Quita TODO rastro de autostart duplicado (Run + Startup). No toca userData.
