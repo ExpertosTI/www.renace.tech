@@ -1490,9 +1490,13 @@ function applyUserModeGuards(win) {
     const blocked =
       (input.meta || input.control) &&
       ['r', 'R', 'l', 'L', '[', ']', 'ArrowLeft', 'ArrowRight'].includes(key);
+    if (key === 'F5') {
+      event.preventDefault();
+      refreshUiSafe(win).catch(() => {});
+      return;
+    }
     const blockedNav =
       (input.alt && (key === 'ArrowLeft' || key === 'ArrowRight')) ||
-      key === 'F5' ||
       ((input.meta || input.control) && input.shift && (key === 'r' || key === 'R' || key === 'i' || key === 'I'));
     if (blocked || blockedNav) {
       event.preventDefault();
