@@ -286,23 +286,24 @@ async function installDownloadedUpdate(opts = {}) {
   if (process.platform === 'win32') {
     const helper = path.join(updatesDir(), 'apply-update.cmd');
     const exePath = file.replace(/"/g, '');
+    const sysDir = process.env.SystemRoot ? path.join(process.env.SystemRoot, 'System32') : 'C:\\Windows\\System32';
+    const taskkill = path.join(sysDir, 'taskkill.exe');
     const bat = [
       '@echo off',
       'setlocal',
       'rem RENACE Portal — apply silent update',
-      'taskkill /F /IM "RENACE Portal.exe" /T >nul 2>&1',
-      'taskkill /F /IM "posagent.exe" /T >nul 2>&1',
-      'timeout /t 3 /nobreak >nul',
-      'taskkill /F /IM "RENACE Portal.exe" /T >nul 2>&1',
+      `"${taskkill}" /F /IM "RENACE Portal.exe" >nul 2>&1`,
+      `"${taskkill}" /F /IM "posagent.exe" >nul 2>&1`,
+      'timeout /t 2 /nobreak >nul',
+      `"${taskkill}" /F /IM "RENACE Portal.exe" >nul 2>&1`,
       'timeout /t 1 /nobreak >nul',
       `start /wait "" "${exePath}" /S`,
-      'del /f /q "%~f0" >nul 2>&1',
       'endlocal',
       '',
     ].join('\r\n');
     fs.writeFileSync(helper, bat, 'utf8');
     clearPendingMeta();
-    spawn('cmd.exe', ['/c', helper], {
+    spawn('cmd.exe', ['/c', 'start', '/b', 'cmd.exe', '/c', helper], {
       detached: true,
       stdio: 'ignore',
       windowsHide: true,
@@ -314,7 +315,7 @@ async function installDownloadedUpdate(opts = {}) {
       } catch (_) {
         process.exit(0);
       }
-    }, 600);
+    }, 300);
     return;
   }
 

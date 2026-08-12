@@ -14,14 +14,13 @@
 
 !macro RenaceCloseRunningApps
   DetailPrint "Cerrando RENACE Portal / POS Agent si estan abiertos..."
-  ExecWait 'taskkill /F /IM "RENACE Portal.exe" /T' $R0
-  ExecWait 'taskkill /F /IM "posagent.exe" /T' $R0
-  ExecWait 'taskkill /F /IM "renace-tech.exe" /T' $R0
-  ExecWait 'taskkill /F /IM "Electron.exe" /T' $R0
-  ; Segunda pasada por si el proceso se resistió
+  ExecWait '"$SYSDIR\taskkill.exe" /F /IM "RENACE Portal.exe"' $R0
+  ExecWait '"$SYSDIR\taskkill.exe" /F /IM "posagent.exe"' $R0
+  ExecWait '"$SYSDIR\taskkill.exe" /F /IM "renace-tech.exe"' $R0
+  ExecWait '"$SYSDIR\taskkill.exe" /F /IM "Electron.exe"' $R0
   Sleep 800
-  ExecWait 'taskkill /F /IM "RENACE Portal.exe" /T' $R0
-  Sleep 2500
+  ExecWait '"$SYSDIR\taskkill.exe" /F /IM "RENACE Portal.exe"' $R0
+  Sleep 1500
 !macroend
 
 ; Quita TODO rastro de autostart duplicado (Run + Startup). No toca userData.
@@ -42,63 +41,6 @@
   Delete "$SMSTARTUP\Electron.lnk"
 !macroend
 
-; Ejecuta uninstall silencioso de una ruta distinta a $INSTDIR (orphan)
-!macro RenaceRunOrphanUninstall UNEXE INSTPATH
-  ${If} ${FileExists} "${UNEXE}"
-    ${If} "${INSTPATH}" == "$INSTDIR"
-      DetailPrint "Misma carpeta que upgrade — omitiendo uninstall manual (lo hace electron-builder)."
-    ${Else}
-      DetailPrint "Desinstalando copia anterior huerfana: ${INSTPATH}"
-      ; /KEEP_APP_DATA + --updated: no borra userData ni sesiones Odoo
-      ExecWait '"${UNEXE}" /S /KEEP_APP_DATA --updated _?=${INSTPATH}' $R0
-      Sleep 1000
-      ; Si el uninstaller dejó restos, forzar borrado de esa carpeta (nunca $INSTDIR)
-      ${If} ${FileExists} "${INSTPATH}"
-        DetailPrint "Eliminando restos de carpeta huerfana: ${INSTPATH}"
-        RMDir /r "${INSTPATH}"
-      ${EndIf}
-    ${EndIf}
-  ${ElseIf} ${FileExists} "${INSTPATH}\RENACE Portal.exe"
-    ; Carpeta huerfana sin uninstaller — solo si no es INSTDIR
-    ${If} "${INSTPATH}" != "$INSTDIR"
-      DetailPrint "Borrando install huerfana sin uninstaller: ${INSTPATH}"
-      RMDir /r "${INSTPATH}"
-    ${EndIf}
-  ${EndIf}
-!macroend
-
-; Solo restos huérfanos (otra carpeta). NUNCA mismo INSTDIR.
-!macro RenaceUninstallOrphan
-  ; Per-user típico electron-builder oneClick
-  StrCpy $R1 "$LOCALAPPDATA\Programs\RENACE Portal\Uninstall RENACE Portal.exe"
-  StrCpy $R2 "$LOCALAPPDATA\Programs\RENACE Portal"
-  !insertmacro RenaceRunOrphanUninstall "$R1" "$R2"
-
-  ; Nombre package.json antiguo / variante
-  StrCpy $R1 "$LOCALAPPDATA\Programs\renace-tech\Uninstall renace-tech.exe"
-  StrCpy $R2 "$LOCALAPPDATA\Programs\renace-tech"
-  !insertmacro RenaceRunOrphanUninstall "$R1" "$R2"
-
-  ; Variante Program Files (si alguna vez se instaló elevated / all-users)
-  StrCpy $R1 "$PROGRAMFILES\RENACE Portal\Uninstall RENACE Portal.exe"
-  StrCpy $R2 "$PROGRAMFILES\RENACE Portal"
-  !insertmacro RenaceRunOrphanUninstall "$R1" "$R2"
-
-  ${If} ${RunningX64}
-    StrCpy $R1 "$PROGRAMFILES64\RENACE Portal\Uninstall RENACE Portal.exe"
-    StrCpy $R2 "$PROGRAMFILES64\RENACE Portal"
-    !insertmacro RenaceRunOrphanUninstall "$R1" "$R2"
-
-    StrCpy $R1 "$PROGRAMFILES64\renace-tech\Uninstall renace-tech.exe"
-    StrCpy $R2 "$PROGRAMFILES64\renace-tech"
-    !insertmacro RenaceRunOrphanUninstall "$R1" "$R2"
-  ${EndIf}
-
-  StrCpy $R1 "$PROGRAMFILES\renace-tech\Uninstall renace-tech.exe"
-  StrCpy $R2 "$PROGRAMFILES\renace-tech"
-  !insertmacro RenaceRunOrphanUninstall "$R1" "$R2"
-!macroend
-
 !macro RenaceHasVcRedist
   StrCpy $R9 0
   ${If} ${RunningX64}
@@ -116,14 +58,10 @@
 !macroend
 
 !macro customInit
-  ; 1) Cerrar apps
+  ; 1) Cerrar apps activas
   !insertmacro RenaceCloseRunningApps
   ; 2) Autostart basura ANTES de que electron-builder desinstale la versión registrada
   !insertmacro RenaceScrubAutostartDupes
-  ; 3) Limpiar SOLO installs huerfanos en otra ruta
-  ;    La versión registrada (mismo GUID/appId) la desinstala electron-builder
-  ;    en installSection vía uninstallOldVersion + --updated (preserva AppData)
-  !insertmacro RenaceUninstallOrphan
 !macroend
 
 !macro customUnInit
@@ -216,6 +154,7 @@
 !macroend
 
 !macro customUnInstall
+  !insertmacro RenaceCloseRunningApps
   !insertmacro RenaceScrubAutostartDupes
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "RENACE Portal"
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "RENACE POS Agent PRO"
@@ -223,8 +162,15 @@
   Delete "$SMPROGRAMS\Electron.lnk"
   Delete "$DESKTOP\renace-tech.lnk"
   Delete "$SMPROGRAMS\renace-tech.lnk"
+  Delete "$DESKTOP\RENACE Portal.lnk"
+  Delete "$SMPROGRAMS\RENACE Portal.lnk"
+  RMDir /r "$INSTDIR\resources\posagent"
+  RMDir /r "$INSTDIR\resources\vcredist"
+  RMDir /r "$INSTDIR\resources\updates"
+  RMDir /r "$INSTDIR\resources"
   ; En upgrade (${isUpdated}) preservar Software\RENACE\Portal (autostart prefs, etc.)
   ${ifNot} ${isUpdated}
     DeleteRegKey HKCU "Software\RENACE\Portal"
+    RMDir /r "$INSTDIR"
   ${endIf}
 !macroend

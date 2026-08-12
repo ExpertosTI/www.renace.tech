@@ -8,20 +8,31 @@ cd "$(dirname "$0")/.."
 HOST="${RENACE_VPS:-root@45.9.191.18}"
 REMOTE_TMP="/tmp/renace-portal-ship"
 
-need=(
+candidates=(
+  docs/RENACE-Portal-win-x64.exe
   docs/RENACE-Portal-mac-arm64.dmg
   docs/RENACE-Portal-mac-x64.dmg
-  docs/RENACE-Portal-win-x64.exe
-  docs/RENACE-Portal-ios.ipa
   docs/RENACE-Portal-android.apk
+  docs/RENACE-Portal-ios.ipa
+  docs/portal-desktop-update.json
 )
 
-# Manifiesto de updates (opcional pero recomendado)
-if [[ -f docs/portal-desktop-update.json ]]; then
-  need+=(docs/portal-desktop-update.json)
-else
+if [[ ! -f docs/portal-desktop-update.json ]]; then
   ./scripts/publish-desktop-update.sh || true
-  [[ -f docs/portal-desktop-update.json ]] && need+=(docs/portal-desktop-update.json)
+fi
+
+need=()
+for f in "${candidates[@]}"; do
+  if [[ -f "$f" ]]; then
+    need+=("$f")
+  else
+    echo "· omitiendo $f (no presente)"
+  fi
+done
+
+if [[ ${#need[@]} -eq 0 ]]; then
+  echo "❌ No hay ningún instalador en docs/ para subir"
+  exit 1
 fi
 
 echo "═══════════════════════════════════════════"
@@ -29,7 +40,6 @@ echo " Ship Portal → $HOST"
 echo "═══════════════════════════════════════════"
 
 for f in "${need[@]}"; do
-  [[ -f "$f" ]] || { echo "❌ Falta $f — corre stage/build primero"; exit 1; }
   ls -lh "$f"
 done
 
