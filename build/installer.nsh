@@ -14,13 +14,13 @@
 
 !macro RenaceCloseRunningApps
   DetailPrint "Cerrando RENACE Portal / POS Agent si estan abiertos..."
-  ExecWait '"$SYSDIR\taskkill.exe" /F /IM "RENACE Portal.exe"' $R0
-  ExecWait '"$SYSDIR\taskkill.exe" /F /IM "posagent.exe"' $R0
-  ExecWait '"$SYSDIR\taskkill.exe" /F /IM "renace-tech.exe"' $R0
-  ExecWait '"$SYSDIR\taskkill.exe" /F /IM "Electron.exe"' $R0
+  ExecWait '"$SYSDIR\taskkill.exe" /F /T /IM "RENACE Portal.exe"' $R0
+  ExecWait '"$SYSDIR\taskkill.exe" /F /T /IM "posagent.exe"' $R0
+  ExecWait '"$SYSDIR\taskkill.exe" /F /T /IM "renace-tech.exe"' $R0
+  ExecWait '"$SYSDIR\taskkill.exe" /F /T /IM "Electron.exe"' $R0
+  Sleep 500
+  ExecWait '"$SYSDIR\taskkill.exe" /F /T /IM "RENACE Portal.exe"' $R0
   Sleep 800
-  ExecWait '"$SYSDIR\taskkill.exe" /F /IM "RENACE Portal.exe"' $R0
-  Sleep 1500
 !macroend
 
 ; Quita TODO rastro de autostart duplicado (Run + Startup). No toca userData.
