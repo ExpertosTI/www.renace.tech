@@ -23,15 +23,17 @@ copy_one "dist-electron/RENACE Portal-${VER}.dmg" "RENACE-Portal-mac-x64.dmg"
 copy_one "dist-electron/RENACE Portal-${VER}-mac.zip" "RENACE-Portal-mac-x64.zip"
 copy_one "dist-electron/RENACE Portal-${VER}-arm64-mac.zip" "RENACE-Portal-mac-arm64.zip"
 copy_one "dist-electron/RENACE-Portal-${VER}-win-x64.exe" "RENACE-Portal-win-x64.exe"
+copy_one "dist-electron/RENACE-Portal-${VER}-win-x64.exe" "RENACE-Portal-v${VER}-win-x64.exe"
 copy_one "dist-electron/RENACE-Portal-${VER}-win-x64.appx" "RENACE-Portal-win-x64.appx"
 copy_one "android/app/build/outputs/apk/debug/app-debug.apk" "RENACE-Portal-android.apk"
 copy_one "android/app/build/outputs/apk/release/app-release.apk" "RENACE-Portal-android.apk"
 
 # Anuncio en documents.json si existe
-python3 - <<'PY'
-import json
+python3 - <<PY
+import json, os
 from pathlib import Path
 from datetime import datetime, timezone
+ver = os.environ.get("VER", "3.0.31")
 p = Path("data/documents.json")
 p.parent.mkdir(exist_ok=True)
 items = []
@@ -56,6 +58,7 @@ def upsert(name, file, typ, category):
 
 upsert("RENACE Portal — macOS Apple Silicon", "docs/RENACE-Portal-mac-arm64.dmg", "DMG", "apps")
 upsert("RENACE Portal — macOS Intel", "docs/RENACE-Portal-mac-x64.dmg", "DMG", "apps")
+upsert(f"RENACE Portal v{ver} — Windows", f"docs/RENACE-Portal-v{ver}-win-x64.exe", "EXE", "apps")
 upsert("RENACE Portal — Windows", "docs/RENACE-Portal-win-x64.exe", "EXE", "apps")
 upsert("RENACE Portal — Descargas", "descargas.html", "WEB", "apps")
 p.write_text(json.dumps(items, indent=2, ensure_ascii=False), encoding="utf-8")
