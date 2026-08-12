@@ -223,6 +223,14 @@ async function checkForUpdates(opts = {}) {
       }
     } else {
       log.info('updater downloading', { remote, url: asset.url });
+      if (!silent) {
+        dialog.showMessageBox(opts.getWin?.() || undefined, {
+          type: 'info',
+          title: 'Descargando actualización',
+          message: `Descargando RENACE Portal v${remote}...`,
+          detail: 'La descarga ha comenzado. Al finalizar, la aplicación se actualizará y se reiniciará automáticamente.',
+        }).catch(() => {});
+      }
       const ext = path.extname(new URL(asset.url).pathname) || (process.platform === 'win32' ? '.exe' : '.dmg');
       const dest = path.join(updatesDir(), `RENACE-Portal-${remote}${ext}`);
       await downloadFile(asset.url, dest);
@@ -286,27 +294,37 @@ async function installDownloadedUpdate(opts = {}) {
   if (process.platform === 'win32') {
     const helper = path.join(updatesDir(), 'apply-update.cmd');
     const exePath = file.replace(/"/g, '');
+    const currentExe = process.execPath.replace(/"/g, '');
     const sysDir = process.env.SystemRoot ? path.join(process.env.SystemRoot, 'System32') : 'C:\\Windows\\System32';
     const taskkill = path.join(sysDir, 'taskkill.exe');
     const bat = [
       '@echo off',
       'setlocal',
-      'rem RENACE Portal — apply silent update',
+      'title Actualizando RENACE Portal...',
+      'color 0A',
+      'echo ===================================================',
+      'echo   RENACE Portal — Aplicando actualizacion...',
+      'echo   Por favor espere unos segundos mientras se instala.',
+      'echo ===================================================',
+      'echo.',
+      'echo [1/3] Cerrando procesos anteriores...',
       `"${taskkill}" /F /IM "RENACE Portal.exe" >nul 2>&1`,
       `"${taskkill}" /F /IM "posagent.exe" >nul 2>&1`,
       'timeout /t 2 /nobreak >nul',
-      `"${taskkill}" /F /IM "RENACE Portal.exe" >nul 2>&1`,
-      'timeout /t 1 /nobreak >nul',
-      `start /wait "" "${exePath}" /S`,
+      'echo [2/3] Instalando nueva version...',
+      `"${exePath}" /S`,
+      'timeout /t 2 /nobreak >nul',
+      'echo [3/3] Reiniciando RENACE Portal...',
+      `start "" "${currentExe}"`,
       'endlocal',
-      '',
+      'exit',
     ].join('\r\n');
     fs.writeFileSync(helper, bat, 'utf8');
     clearPendingMeta();
-    spawn('cmd.exe', ['/c', 'start', '/b', 'cmd.exe', '/c', helper], {
+    spawn('cmd.exe', ['/c', 'start', 'Actualizando RENACE Portal', 'cmd.exe', '/c', helper], {
       detached: true,
       stdio: 'ignore',
-      windowsHide: true,
+      windowsHide: false,
       cwd: path.dirname(helper),
     }).unref();
     setTimeout(() => {
