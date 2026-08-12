@@ -266,20 +266,15 @@ module.exports = function winFrameScript() {
         if (act === 'zoom-in') window.renaceDesktop.zoomIn?.();
         if (act === 'reload') {
           btn.classList.add('spin');
-          try {
-            if (typeof window.renaceDesktop.checkUpdates === 'function') {
-              window.renaceDesktop.checkUpdates(true).catch(() => {});
-            }
-          } catch (_) {}
           setTimeout(() => {
-            if (typeof window.renaceDesktop.winReload === 'function') {
+            if (typeof window.renaceDesktop?.winReload === 'function') {
               window.renaceDesktop.winReload();
-            } else if (typeof window.renaceDesktop.reload === 'function') {
+            } else if (typeof window.renaceDesktop?.reload === 'function') {
               window.renaceDesktop.reload();
             } else {
               window.location.reload();
             }
-          }, 150);
+          }, 100);
         }
       });
     }

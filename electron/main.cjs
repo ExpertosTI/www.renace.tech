@@ -365,6 +365,10 @@ function runUpdateCheck(silent) {
 }
 
 async function runInstallPendingUpdate() {
+  if (store.getAppMode() === 'user') {
+    const ok = await unlockAdmin();
+    if (!ok) return;
+  }
   const pending = updater.getPendingUpdate();
   if (!pending) {
     dialog.showMessageBox(currentWin() || undefined, {
