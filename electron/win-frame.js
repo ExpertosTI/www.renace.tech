@@ -37,8 +37,7 @@ module.exports = function winFrameScript() {
     }
 
     function cssText(top, posMode) {
-      const posRules = posMode
-        ? \`
+      const posRules = \`
       /* POS: viewport fijo; chrome restado en .o_pos (border-box), no en body */
       html.renace-win-pad.renace-pos-mode,
       html.renace-win-pad.renace-pos-mode body{
@@ -107,8 +106,9 @@ module.exports = function winFrameScript() {
       html.renace-win-pad.renace-pos-mode .o_main_navbar{
         display:none !important;
       }
-      \`
-        : \`
+      \`;
+
+      const nonPosRules = \`
       /*
        * Backend / web: como el navegador — el documento NO crece por el chrome.
        * html/body = 100dvh sin padding extra; la raíz Odoo mide ventana − TOP.
@@ -201,12 +201,12 @@ module.exports = function winFrameScript() {
         border-bottom:1px solid rgba(148,163,184,.08);
       }
 
-      ${posRules}
+      \${posMode ? posRules : nonPosRules}
       html.renace-win-pad:not(.renace-pos-mode) .oe_login_form,
       html.renace-win-pad:not(.renace-pos-mode) .o_database_form{
         margin-top:8px;
       }
-    `;
+    \`;
     }
 
     document.documentElement.classList.add('renace-win-pad');
