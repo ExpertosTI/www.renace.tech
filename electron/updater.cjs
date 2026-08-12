@@ -56,6 +56,12 @@ function loadPendingFromDisk() {
     const raw = fs.readFileSync(pendingMetaPath(), 'utf8');
     const meta = JSON.parse(raw);
     if (meta?.path && fs.existsSync(meta.path)) {
+      if (meta.version && !isNewer(meta.version, app.getVersion())) {
+        clearPendingMeta();
+        try { fs.unlinkSync(meta.path); } catch (_) {}
+        downloadedPath = null;
+        return null;
+      }
       downloadedPath = meta.path;
       if (meta.version) {
         pendingManifest = { ...(pendingManifest || {}), version: meta.version };
