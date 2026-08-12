@@ -6,6 +6,7 @@
 set -euo pipefail
 
 cd /opt/www.renace.tech
+git lfs pull 2>/dev/null || true
 
 SRC_DIR="${1:-}"
 if [ -z "$SRC_DIR" ]; then
