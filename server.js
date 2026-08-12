@@ -3596,11 +3596,6 @@ function resolvePublicDownload(fileRef) {
     path.join(DATA_DIR, basename),
     path.join(DOCS_DIR, basename),
     path.join(DOWNLOADS_DIR, basename),
-  ];
-  if (raw.startsWith('docs/') || raw.startsWith('downloads/')) {
-    candidates.unshift(path.join(__dirname, raw));
-  }
-
   for (const abs of candidates) {
     try {
       if (fs.existsSync(abs) && fs.statSync(abs).isFile()) {
