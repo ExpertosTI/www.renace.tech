@@ -1320,19 +1320,44 @@ app.get('/pollera-scale-agent.html', (req, res) => res.redirect(301, '/pollera-s
 /** Manifiesto de actualizaciones del Portal Desktop (Electron) */
 app.get('/api/portal/desktop-update', apiLimiter, (req, res) => {
   const candidates = [
+    path.join(__dirname, 'docs', 'portal-desktop-update.json'),
+    path.join(DOCS_DIR, 'portal-desktop-update.json'),
     path.join(DATA_DIR, 'portal-desktop-update.json'),
     path.join(DATA_DIR, 'docs', 'portal-desktop-update.json'),
-    path.join(DOCS_DIR, 'portal-desktop-update.json'),
-    path.join(__dirname, 'docs', 'portal-desktop-update.json'),
   ];
+  let bestJson = null;
+  let bestVer = null;
+  const parseVer = (v) => String(v || '0').replace(/^v/i, '').split(/[.+-]/).map((n) => parseInt(n, 10) || 0);
+  const isNewer = (remote, local) => {
+    const a = parseVer(remote);
+    const b = parseVer(local);
+    const len = Math.max(a.length, b.length);
+    for (let i = 0; i < len; i++) {
+      const x = a[i] || 0;
+      const y = b[i] || 0;
+      if (x > y) return true;
+      if (x < y) return false;
+    }
+    return false;
+  };
+
   for (const p of candidates) {
     try {
       if (fs.existsSync(p) && fs.statSync(p).isFile()) {
-        res.setHeader('Cache-Control', 'no-store');
-        res.type('json');
-        return res.send(fs.readFileSync(p, 'utf8'));
+        const raw = fs.readFileSync(p, 'utf8');
+        const parsed = JSON.parse(raw);
+        const v = String(parsed?.version || '0');
+        if (!bestVer || isNewer(v, bestVer)) {
+          bestVer = v;
+          bestJson = raw;
+        }
       }
     } catch { /* next */ }
+  }
+  if (bestJson) {
+    res.setHeader('Cache-Control', 'no-store');
+    res.type('json');
+    return res.send(bestJson);
   }
   return res.status(404).json({ error: 'Sin manifiesto de actualización del Portal' });
 });
