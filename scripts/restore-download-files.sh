@@ -104,6 +104,46 @@ for (const base of files) {
 }
 fs.writeFileSync(path, JSON.stringify(list, null, 2) + '\n');
 console.log('documents.json actualizado:', list.length, 'entradas');
+
+// Sincronizar manifiesto de updates con el hash y tamaño real del binario servido
+const version = (require('/app/package.json') || {}).version || '3.0.26';
+const platforms = {};
+const winExe = '/app/data/docs/RENACE-Portal-win-x64.exe';
+if (fs.existsSync(winExe)) {
+  const buf = fs.readFileSync(winExe);
+  platforms['win32-x64'] = {
+    url: 'https://renace.tech/docs/RENACE-Portal-win-x64.exe',
+    size: buf.length,
+    sha256: crypto.createHash('sha256').update(buf).digest('hex'),
+  };
+}
+const macArm = '/app/data/docs/RENACE-Portal-mac-arm64.dmg';
+if (fs.existsSync(macArm)) {
+  const buf = fs.readFileSync(macArm);
+  platforms['darwin-arm64'] = {
+    url: 'https://renace.tech/docs/RENACE-Portal-mac-arm64.dmg',
+    size: buf.length,
+    sha256: crypto.createHash('sha256').update(buf).digest('hex'),
+  };
+}
+const macX64 = '/app/data/docs/RENACE-Portal-mac-x64.dmg';
+if (fs.existsSync(macX64)) {
+  const buf = fs.readFileSync(macX64);
+  platforms['darwin-x64'] = {
+    url: 'https://renace.tech/docs/RENACE-Portal-mac-x64.dmg',
+    size: buf.length,
+    sha256: crypto.createHash('sha256').update(buf).digest('hex'),
+  };
+}
+const manifest = {
+  version,
+  releasedAt: new Date().toISOString(),
+  notes: 'RENACE Portal ' + version,
+  platforms,
+};
+fs.writeFileSync('/app/data/portal-desktop-update.json', JSON.stringify(manifest, null, 2) + '\n');
+fs.writeFileSync('/app/data/docs/portal-desktop-update.json', JSON.stringify(manifest, null, 2) + '\n');
+console.log('✓ Manifiesto portal-desktop-update.json sincronizado:', Object.keys(platforms).join(', '));
 " || true
 
 echo "✅ $copied archivo(s) en volumen persistente /app/data/docs"
