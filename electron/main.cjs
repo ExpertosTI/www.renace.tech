@@ -356,8 +356,7 @@ function updaterOpts() {
   return {
     getWin: () => currentWin(),
     requestQuit: requestQuitForUpdate,
-    // Manual "Instalar ahora" requiere modo técnico (o PIN vía runInstallPendingUpdate)
-    canInstall: () => store.getAppMode() !== 'user',
+    canInstall: () => true,
   };
 }
 
@@ -366,10 +365,6 @@ function runUpdateCheck(silent) {
 }
 
 async function runInstallPendingUpdate() {
-  if (store.getAppMode() === 'user') {
-    const ok = await unlockAdmin();
-    if (!ok) return;
-  }
   const pending = updater.getPendingUpdate();
   if (!pending) {
     dialog.showMessageBox(currentWin() || undefined, {
@@ -1536,22 +1531,6 @@ function injectDrag(wc) {
 
 function injectWinFrame(wc) {
   if (process.platform !== 'win32' || !wc || wc.isDestroyed()) return;
-  const owner = BrowserWindow.fromWebContents(wc);
-  // Modo técnico con frame nativo: quitar chrome custom (menú Archivo va arriba)
-  if (owner && owner.__renaceNativeFrame) {
-    wc.executeJavaScript(
-      `(() => {
-        try {
-          document.documentElement.classList.remove('renace-win-pad', 'renace-pos-mode');
-          document.getElementById('renace-win-chrome')?.remove();
-          document.getElementById('renace-win-drag')?.remove();
-          document.getElementById('renace-win-chrome-style')?.remove();
-        } catch (_) {}
-      })()`,
-      true
-    ).catch(() => {});
-    return;
-  }
   wc.executeJavaScript(winFrameScript(), true).catch((e) => log.warn('injectWinFrame', e.message));
 }
 
