@@ -86,12 +86,13 @@ const known = {
   'rufus-4.11.exe': { name: 'Rufus 4.11', type: 'EXE' },
   'VC_redist.x64.exe': { name: 'VC_redist.x64.exe', type: 'EXE' },
   'initPos.zip': { name: 'initPos.zip', type: 'ZIP' },
-  'RENACE-Portal-mac-arm64.dmg': { name: 'RENACE Portal — macOS Apple Silicon', type: 'DMG', category: 'apps' },
-  'RENACE-Portal-mac-x64.dmg': { name: 'RENACE Portal — macOS Intel', type: 'DMG', category: 'apps' },
-  'RENACE-Portal-win-x64.exe': { name: 'RENACE Portal — Windows', type: 'EXE', category: 'apps' },
-  'RENACE-Portal-ios.ipa': { name: 'RENACE Portal — iOS', type: 'IPA', category: 'apps' },
-  'RENACE-Portal-android.apk': { name: 'RENACE Portal — Android', type: 'APK', category: 'apps' },
-  'RenacePolleraScaleAgentSetup.exe': { name: 'RENACE Pollera Scale Agent — Windows', type: 'EXE', category: 'apps' },
+  'RENACE-Portal-mac-arm64.dmg': { name: 'RENACE Portal v3.0.31 — macOS Apple Silicon', type: 'DMG', category: 'apps' },
+  'RENACE-Portal-mac-x64.dmg': { name: 'RENACE Portal v3.0.31 — macOS Intel', type: 'DMG', category: 'apps' },
+  'RENACE-Portal-win-x64.exe': { name: 'RENACE Portal v3.0.31 — Windows (64-bits)', type: 'EXE', category: 'apps' },
+  'RENACE-Portal-v3.0.31-win-x64.exe': { name: 'RENACE Portal v3.0.31 — Windows (Setup v3.0.31)', type: 'EXE', category: 'apps' },
+  'RENACE-Portal-ios.ipa': { name: 'RENACE Portal v3.0.31 — iOS', type: 'IPA', category: 'apps' },
+  'RENACE-Portal-android.apk': { name: 'RENACE Portal v3.0.31 — Android', type: 'APK', category: 'apps' },
+  'RenacePolleraScaleAgentSetup.exe': { name: 'RENACE Pollera Scale Agent v1.0.0 — Windows', type: 'EXE', category: 'apps' },
 };
 const files = fs.readdirSync('/app/data/docs');
 for (const base of files) {

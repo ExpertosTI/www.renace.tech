@@ -176,6 +176,19 @@ module.exports = function winFrameScript() {
       #renace-win-chrome button:hover{background:rgba(255,255,255,.08);color:#fff}
       #renace-win-chrome button[data-act="close"]:hover{background:#e81123;color:#fff}
 
+      #renace-win-chrome button.renace-sales2-btn{
+        font-size:11px;font-weight:700;letter-spacing:-0.01em;padding:0 8px;
+        color:#2dd4bf;background:rgba(45,212,191,0.12);
+        border:1px solid rgba(45,212,191,0.35);
+        margin:2px 3px;border-radius:999px;
+        height:calc(var(--renace-top) - 4px);
+        display:inline-flex;align-items:center;justify-content:center;gap:3px;
+        line-height:1;transition:all 0.2s ease;
+      }
+      #renace-win-chrome button.renace-sales2-btn:hover{
+        background:#2dd4bf;color:#0a0f1a;border-color:#2dd4bf;
+      }
+
       #renace-win-chrome button.renace-refresh-btn{
         font-size:11px;font-weight:700;letter-spacing:-0.01em;width:95px;
         color:#00b4d8;background:rgba(0,180,216,0.14);
@@ -201,12 +214,12 @@ module.exports = function winFrameScript() {
         border-bottom:1px solid rgba(148,163,184,.08);
       }
 
-      \${posMode ? posRules : nonPosRules}
+      ${posMode ? posRules : nonPosRules}
       html.renace-win-pad:not(.renace-pos-mode) .oe_login_form,
       html.renace-win-pad:not(.renace-pos-mode) .o_database_form{
         margin-top:8px;
       }
-    \`;
+      \`;
     }
 
     document.documentElement.classList.add('renace-win-pad');
@@ -250,6 +263,7 @@ module.exports = function winFrameScript() {
         '<button type="button" data-act="max" title="Pantalla completa">▢</button>' +
         '<button type="button" class="renace-zoom-btn" data-act="zoom-out" title="Zoom −">A−</button>' +
         '<button type="button" class="renace-zoom-btn" data-act="zoom-in" title="Zoom +">A+</button>' +
+        '<button type="button" class="renace-sales2-btn" data-act="open-sales-2" title="Abrir 2ª ventana para procesar ventas simultáneas en paralelo">+ 2ª Venta</button>' +
         '<button type="button" class="renace-refresh-btn" data-act="reload" title="Actualizar datos y recargar página">' +
           '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>' +
           '<span>Actualizar</span>' +
@@ -264,6 +278,7 @@ module.exports = function winFrameScript() {
         if (act === 'max') window.renaceDesktop.winMax?.();
         if (act === 'zoom-out') window.renaceDesktop.zoomOut?.();
         if (act === 'zoom-in') window.renaceDesktop.zoomIn?.();
+        if (act === 'open-sales-2') window.renaceDesktop.openSecondSalesWindow?.();
         if (act === 'reload') {
           btn.classList.add('spin');
           setTimeout(() => {

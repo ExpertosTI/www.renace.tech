@@ -65,6 +65,8 @@ try {
     techAction: (action) => ipcRenderer.invoke('renace:tech-action', String(action || '')),
     checkUpdates: (silent) => ipcRenderer.invoke('renace:check-updates', !!silent),
     installUpdate: () => ipcRenderer.invoke('renace:install-update'),
+    openSecondSalesWindow: (opts) => ipcRenderer.invoke('renace:open-second-sales-window', opts || {}),
+    openInstanceWindow: (url, title) => ipcRenderer.invoke('renace:open-instance-window', { url, title }),
   });
 } catch (_) {
   // reload: ya expuesto

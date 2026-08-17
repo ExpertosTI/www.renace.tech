@@ -954,7 +954,11 @@
           <div class="instance-meta">
             <strong>${escapeHtml(name)}</strong>
             <span>${escapeHtml(subtitle)}</span>
-          </div>`;
+          </div>
+          <button type="button" class="btn-open-new-win" title="Abrir esta empresa en una ventana nueva independiente" style="background:rgba(0,180,216,0.15);border:1px solid rgba(0,180,216,0.3);color:var(--accent);border-radius:6px;padding:4px 8px;font-size:11px;font-weight:600;cursor:pointer;margin-left:auto;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            Nueva Ventana
+          </button>`;
         const img = btn.querySelector('.instance-logo');
         const fallback = btn.querySelector('.instance-logo-fallback');
         if (img) {
@@ -973,7 +977,14 @@
             }
           });
         }
-        btn.addEventListener('click', () => completeWithInstance(inst.id));
+        const btnNewWin = btn.querySelector('.btn-open-new-win');
+        if (btnNewWin) {
+          btnNewWin.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            completeWithInstance(inst.id, { openNewWindow: true });
+          });
+        }
+        btn.addEventListener('click', () => completeWithInstance(inst.id, { openNewWindow: false }));
         instanceList.appendChild(btn);
       });
       instancePicker.classList.add('show');
@@ -997,7 +1008,7 @@
       return { res, data };
     }
 
-    function finishRedirect(data, credentials) {
+    function finishRedirect(data, credentials, opts = {}) {
       if (data.token) {
         localStorage.setItem('renace_sso_token', data.token);
         localStorage.setItem('renace_client_name', data.client_name || '');
@@ -1012,6 +1023,14 @@
         if (window.renaceDesktop?.recordVisit) {
           window.renaceDesktop.recordVisit(data.redirect_url).catch(() => {});
         }
+        if (opts.openNewWindow) {
+          if (window.renaceDesktop?.openInstanceWindow) {
+            window.renaceDesktop.openInstanceWindow(data.redirect_url, data.client_name || 'Empresa');
+          } else {
+            window.open(data.redirect_url, '_blank');
+          }
+          return true;
+        }
         window.location.href = data.redirect_url;
         return true;
       }
@@ -1022,7 +1041,7 @@
       return (serviceCodeInput.value || '').trim().toLowerCase();
     }
 
-    async function completeWithInstance(instanceId) {
+    async function completeWithInstance(instanceId, opts = {}) {
       if (!pendingCredentials) return;
       hideError();
       setLoading(true);
@@ -1042,7 +1061,7 @@
           showError(data.error || 'Error al iniciar sesión. Intenta de nuevo.');
           return;
         }
-        if (!finishRedirect(data, pendingCredentials)) {
+        if (!finishRedirect(data, pendingCredentials, opts)) {
           showError('No se recibió URL de redirección.');
         }
       } catch (e) {

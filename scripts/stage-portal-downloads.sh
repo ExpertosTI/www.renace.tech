@@ -56,10 +56,10 @@ def upsert(name, file, typ, category):
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
 
-upsert("RENACE Portal — macOS Apple Silicon", "docs/RENACE-Portal-mac-arm64.dmg", "DMG", "apps")
-upsert("RENACE Portal — macOS Intel", "docs/RENACE-Portal-mac-x64.dmg", "DMG", "apps")
-upsert(f"RENACE Portal v{ver} — Windows", f"docs/RENACE-Portal-v{ver}-win-x64.exe", "EXE", "apps")
-upsert("RENACE Portal — Windows", "docs/RENACE-Portal-win-x64.exe", "EXE", "apps")
+upsert(f"RENACE Portal v{ver} — macOS Apple Silicon", "docs/RENACE-Portal-mac-arm64.dmg", "DMG", "apps")
+upsert(f"RENACE Portal v{ver} — macOS Intel", "docs/RENACE-Portal-mac-x64.dmg", "DMG", "apps")
+upsert(f"RENACE Portal v{ver} — Windows (Setup v{ver}.exe)", f"docs/RENACE-Portal-v{ver}-win-x64.exe", "EXE", "apps")
+upsert(f"RENACE Portal v{ver} — Windows (64-bits)", "docs/RENACE-Portal-win-x64.exe", "EXE", "apps")
 upsert("RENACE Portal — Descargas", "descargas.html", "WEB", "apps")
 p.write_text(json.dumps(items, indent=2, ensure_ascii=False), encoding="utf-8")
 print("✓ data/documents.json actualizado")

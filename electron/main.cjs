@@ -655,6 +655,91 @@ async function openHome(win) {
   });
 }
 
+let secondSalesWin = null;
+
+function createSecondSalesWindow(opts = {}) {
+  if (secondSalesWin && !secondSalesWin.isDestroyed()) {
+    secondSalesWin.focus();
+    return secondSalesWin;
+  }
+  const inst = store.getInstance();
+  const primary = screen.getPrimaryDisplay();
+  const width = Math.min(1280, primary.workAreaSize.width);
+  const height = Math.min(860, primary.workAreaSize.height);
+
+  secondSalesWin = new BrowserWindow({
+    width,
+    height,
+    minWidth: 900,
+    minHeight: 600,
+    show: true,
+    backgroundColor: '#0a0f1a',
+    title: `${inst?.name || 'RENACE'} — Ventas 2 (Proceso Paralelo)`,
+    icon: resolveAppIcon(),
+    ...windowChromeOptions(),
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      partition: PARTITION,
+      preload: PRELOAD,
+      backgroundThrottling: false,
+    },
+  });
+
+  attachWindowChrome(secondSalesWin);
+  attachWindowGuards(secondSalesWin);
+  applyUserModeGuards(secondSalesWin);
+  applyZoomFactor(secondSalesWin.webContents);
+
+  const targetPath = opts.url || (inst?.url ? `${inst.url}/web#action=pos.ui` : PORTAL_URL);
+  secondSalesWin.loadURL(targetPath).catch((e) => log.error('secondSalesWin load', e.message));
+  secondSalesWin.on('closed', () => { secondSalesWin = null; });
+  return secondSalesWin;
+}
+
+function createInstanceWindow({ url, title }) {
+  if (!url) return null;
+  const safeTitle = String(title || 'Empresa — RENACE').trim();
+  const primary = screen.getPrimaryDisplay();
+  const width = Math.min(1280, primary.workAreaSize.width);
+  const height = Math.min(860, primary.workAreaSize.height);
+
+  let hostPart = PARTITION;
+  try {
+    const uKey = new URL(url).hostname.replace(/[^a-z0-9]/gi, '_');
+    hostPart = `persist:renace-portal-${uKey}`;
+  } catch (_) {}
+
+  const win = new BrowserWindow({
+    width,
+    height,
+    minWidth: 900,
+    minHeight: 600,
+    show: true,
+    backgroundColor: '#0a0f1a',
+    title: safeTitle,
+    icon: resolveAppIcon(),
+    ...windowChromeOptions(),
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      partition: hostPart,
+      preload: PRELOAD,
+      backgroundThrottling: false,
+    },
+  });
+
+  attachWindowChrome(win);
+  attachWindowGuards(win);
+  applyUserModeGuards(win);
+  applyZoomFactor(win.webContents);
+
+  win.loadURL(url).catch((e) => log.error('instanceWindow load', e.message));
+  return win;
+}
+
 /**
  * Actualiza la interfaz (caché HTTP) sin tocar instancia, cookies ni secretos.
  * En POS online: NO clearCache / reloadIgnoringCache — Odoo POS usa su propia
@@ -854,6 +939,15 @@ function registerIpc() {
     proxy: posProxy.getSettings(),
     brand: process.platform === 'win32' ? 'POS Agent PRO (bundled)' : 'RENACE POS',
   }));
+  ipcMain.handle('renace:open-second-sales-window', (_event, opts) => {
+    createSecondSalesWindow(opts || {});
+    return true;
+  });
+  ipcMain.handle('renace:open-instance-window', (_event, payload) => {
+    if (!payload?.url) return false;
+    createInstanceWindow(payload);
+    return true;
+  });
   ipcMain.handle('renace:mode-get', () => store.getAppMode());
   ipcMain.handle('renace:mode-set', async (_e, mode) => {
     if (mode === 'admin') {
@@ -2199,6 +2293,23 @@ function buildMenu() {
         {
           label: 'Archivo',
           submenu: [
+            {
+              label: 'Nueva 2ª Venta (Proceso en Paralelo)',
+              accelerator: 'CmdOrCtrl+Shift+N',
+              click: () => createSecondSalesWindow(),
+            },
+            {
+              label: 'Abrir Otra Empresa / Instancia…',
+              click: async () => {
+                const inst = store.getInstance();
+                if (inst?.url) {
+                  createInstanceWindow({ url: `${inst.url}/web/login`, title: `${inst.name} — Otra Sesión` });
+                } else {
+                  currentWin()?.loadURL(PORTAL_URL);
+                }
+              },
+            },
+            { type: 'separator' },
             {
               label: 'Cambiar de personal…',
               click: async () => {

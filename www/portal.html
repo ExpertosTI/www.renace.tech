@@ -5,8 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=0.3, maximum-scale=5.0, user-scalable=yes">
   <title>Portal de Clientes — RENACE.TECH</title>
   <meta name="description" content="Accede a tu plataforma Odoo gestionada por RENACE.TECH">
-  <link rel="icon" href="/images/logo.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
@@ -466,6 +465,112 @@
     .error-msg.show { display: flex; }
     .error-msg svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; color: #f87171; }
 
+    .field-hint {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .instance-picker {
+      display: none;
+      margin-top: 8px;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .instance-picker.show { display: flex; }
+
+    .instance-picker-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .instance-picker-desc {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .instance-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .instance-option {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-align: left;
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-family: inherit;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s, transform 0.15s;
+    }
+
+    .instance-option:hover {
+      border-color: var(--border-focus);
+      background: var(--accent-glow);
+      transform: translateY(-1px);
+    }
+
+    .instance-logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      object-fit: contain;
+      background: #fff;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      flex-shrink: 0;
+      padding: 4px;
+    }
+
+    .instance-logo-fallback {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 15px;
+      color: #fff;
+      letter-spacing: -0.02em;
+    }
+
+    .instance-meta {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .instance-option strong {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .instance-option span {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     .login-footer {
       text-align: center;
       margin-top: 20px;
@@ -572,13 +677,13 @@
 
     <button class="btn-hero" id="btn-go-login" type="button">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-      Iniciar Sesion
+      Iniciar sesión
     </button>
 
     <div class="landing-features">
       <div class="landing-feature">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        Conexion segura
+        Conexión segura
       </div>
       <div class="landing-feature">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -604,7 +709,7 @@
           <svg viewBox="0 0 200 200" fill="none"><path d="M165.2,78.1v81.2h-37.5v-55.1L83,159.4H34.8l68.9-85H48.8V40.6h82.7c14,0,26,8.5,31.1,20.6c0,0,0,0,0,0.1c1.7,4,2.6,8.4,2.6,13C165.2,74.3,165.2,76.9,165.2,78.1z" fill="#2dd4bf"/></svg>
         </div>
         <div>
-          <div class="login-title">Iniciar sesion</div>
+          <div class="login-title">Iniciar sesión</div>
         </div>
       </div>
       <div class="login-subtitle">Ingresa tus credenciales o usa tu cuenta de Google para acceder.</div>
@@ -622,16 +727,27 @@
           </div>
 
           <div class="field">
-            <label for="password">Contrasena</label>
+            <label for="password">Contraseña</label>
             <div class="input-wrap">
               <span class="input-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
               </span>
-              <input id="password" name="password" type="password" placeholder="Tu contrasena" autocomplete="current-password" required>
-              <button type="button" class="toggle-pass" id="toggle-pass" aria-label="Mostrar contrasena">
+              <input id="password" name="password" type="password" placeholder="Tu contraseña" autocomplete="current-password" required>
+              <button type="button" class="toggle-pass" id="toggle-pass" aria-label="Mostrar contraseña">
                 <svg id="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               </button>
             </div>
+          </div>
+
+          <div class="field" id="service-code-field">
+            <label for="service-code">Código de empresa</label>
+            <div class="input-wrap">
+              <span class="input-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+              </span>
+              <input id="service-code" name="serviceCode" type="text" placeholder="Ej. 101" autocomplete="organization" inputmode="text">
+            </div>
+            <p class="field-hint" id="service-code-hint">Obligatorio la primera vez. Si ya entraste antes, puedes dejarlo vacío.</p>
           </div>
 
           <button type="submit" class="btn-submit" id="btn-submit">
@@ -642,7 +758,13 @@
           </button>
         </form>
 
-        <div class="divider"><span>o continua con</span></div>
+        <div class="instance-picker" id="instance-picker" aria-live="polite">
+          <div class="instance-picker-title">Elige la instancia</div>
+          <p class="instance-picker-desc">Tu cuenta tiene acceso a varias empresas. Selecciona a cuál quieres entrar.</p>
+          <div class="instance-list" id="instance-list"></div>
+        </div>
+
+        <div class="divider" id="login-divider"><span>o continúa con</span></div>
 
         <a href="/api/portal/google" class="btn-google" id="btn-google">
           <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
@@ -656,7 +778,7 @@
       </div>
 
       <div class="login-footer">
-        Problemas para acceder? Contacta a <a href="mailto:info@renace.tech">info@renace.tech</a>
+        ¿Problemas para acceder? Contacta a <a href="mailto:info@renace.tech">info@renace.tech</a>
       </div>
 
       <div class="page-footer">
@@ -670,6 +792,22 @@
     const viewLogin   = document.getElementById('view-login');
     const btnGoLogin  = document.getElementById('btn-go-login');
     const btnBack     = document.getElementById('btn-back');
+    const form        = document.getElementById('portal-form');
+    const btnSubmit   = document.getElementById('btn-submit');
+    const spinner     = document.getElementById('spinner');
+    const btnText     = document.getElementById('btn-text');
+    const errorMsg    = document.getElementById('error-msg');
+    const errorTxt    = document.getElementById('error-text');
+    const togglePass  = document.getElementById('toggle-pass');
+    const passInput   = document.getElementById('password');
+    const serviceCodeInput = document.getElementById('service-code');
+    const serviceCodeHint  = document.getElementById('service-code-hint');
+    const instancePicker   = document.getElementById('instance-picker');
+    const instanceList     = document.getElementById('instance-list');
+    const loginDivider     = document.getElementById('login-divider');
+    const btnGoogle        = document.getElementById('btn-google');
+
+    let pendingCredentials = null;
 
     function showView(view) {
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -677,9 +815,11 @@
     }
 
     btnGoLogin.addEventListener('click', () => showView(viewLogin));
-    btnBack.addEventListener('click', () => showView(viewLanding));
+    btnBack.addEventListener('click', () => {
+      hideInstancePicker();
+      showView(viewLanding);
+    });
 
-    // Check URL params for errors from Google OAuth callback
     const urlParams = new URLSearchParams(window.location.search);
     const oauthError = urlParams.get('error');
     if (oauthError) {
@@ -688,14 +828,36 @@
       history.replaceState(null, '', '/portal');
     }
 
-    const form      = document.getElementById('portal-form');
-    const btnSubmit = document.getElementById('btn-submit');
-    const spinner   = document.getElementById('spinner');
-    const btnText   = document.getElementById('btn-text');
-    const errorMsg  = document.getElementById('error-msg');
-    const errorTxt  = document.getElementById('error-text');
-    const togglePass = document.getElementById('toggle-pass');
-    const passInput  = document.getElementById('password');
+    const rememberedCode = localStorage.getItem('renace_service_code') || '';
+    if (rememberedCode) serviceCodeInput.value = rememberedCode;
+
+    // Desktop (Electron): autofill desde Llavero / safeStorage
+    (async () => {
+      if (!window.renaceDesktop?.isDesktop) return;
+      try {
+        const loginEl = document.getElementById('login');
+        const savedLogin = await window.renaceDesktop.getSecret('portal.login');
+        const savedPass = await window.renaceDesktop.getSecret('portal.password');
+        const savedCode = await window.renaceDesktop.getSecret('portal.serviceCode');
+        if (savedLogin && loginEl && !loginEl.value) loginEl.value = savedLogin;
+        if (savedPass && passInput && !passInput.value) passInput.value = savedPass;
+        if (savedCode && serviceCodeInput && !serviceCodeInput.value) serviceCodeInput.value = savedCode;
+      } catch (e) {
+        console.warn('[portal keychain]', e);
+      }
+    })();
+
+    async function saveDesktopCredentials(login, password, serviceCode) {
+      if (!window.renaceDesktop?.isDesktop) return;
+      try {
+        await window.renaceDesktop.saveSecret('portal.login', login);
+        await window.renaceDesktop.saveSecret('portal.password', password);
+        if (serviceCode) await window.renaceDesktop.saveSecret('portal.serviceCode', serviceCode);
+        else await window.renaceDesktop.saveSecret('portal.serviceCode', '');
+      } catch (e) {
+        console.warn('[portal keychain save]', e);
+      }
+    }
 
     function getNativeDeviceId() {
       const isNative = window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function'
@@ -740,69 +902,223 @@
       errorMsg.classList.remove('show');
     }
 
+    function requireServiceCode(msg) {
+      serviceCodeInput.required = true;
+      serviceCodeInput.focus();
+      serviceCodeHint.textContent = 'Ingresa el código de empresa que te asignó RENACE.TECH.';
+      showError(msg || 'Código de empresa requerido para el primer acceso.');
+    }
+
+    function hideInstancePicker() {
+      instancePicker.classList.remove('show');
+      instanceList.innerHTML = '';
+      form.style.display = '';
+      loginDivider.style.display = '';
+      btnGoogle.style.display = '';
+      pendingCredentials = null;
+    }
+
+    function companyInitials(name) {
+      const parts = String(name || 'E').trim().split(/\s+/).filter(Boolean);
+      if (!parts.length) return 'E';
+      if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+
+    function companyColor(name) {
+      let hash = 0;
+      const s = String(name || 'empresa');
+      for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
+      const hue = hash % 360;
+      return `linear-gradient(135deg, hsl(${hue} 62% 42%), hsl(${(hue + 28) % 360} 58% 32%))`;
+    }
+
+    function showInstancePicker(instances, credentials) {
+      pendingCredentials = credentials;
+      form.style.display = 'none';
+      loginDivider.style.display = 'none';
+      btnGoogle.style.display = 'none';
+      hideError();
+      instanceList.innerHTML = '';
+      (instances || []).forEach((inst) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'instance-option';
+        const name = inst.client_name || 'Instancia';
+        const subtitle = inst.subtitle || inst.service_code || inst.public_url || 'Empresa';
+        const initials = companyInitials(name);
+        const logo = inst.logo_url || '';
+        btn.innerHTML = `
+          <img class="instance-logo" alt="" loading="lazy" referrerpolicy="no-referrer" src="${escapeHtml(logo)}" ${logo ? '' : 'hidden'}>
+          <div class="instance-logo-fallback" style="background:${companyColor(name)};${logo ? '' : 'display:flex'}">${escapeHtml(initials)}</div>
+          <div class="instance-meta">
+            <strong>${escapeHtml(name)}</strong>
+            <span>${escapeHtml(subtitle)}</span>
+          </div>
+          <button type="button" class="btn-open-new-win" title="Abrir esta empresa en una ventana nueva independiente" style="background:rgba(0,180,216,0.15);border:1px solid rgba(0,180,216,0.3);color:var(--accent);border-radius:6px;padding:4px 8px;font-size:11px;font-weight:600;cursor:pointer;margin-left:auto;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            Nueva Ventana
+          </button>`;
+        const img = btn.querySelector('.instance-logo');
+        const fallback = btn.querySelector('.instance-logo-fallback');
+        if (img) {
+          img.addEventListener('error', () => {
+            img.hidden = true;
+            fallback.style.display = 'flex';
+          });
+          img.addEventListener('load', () => {
+            // Hide empty/broken 1x1 placeholders
+            if (img.naturalWidth < 8 || img.naturalHeight < 8) {
+              img.hidden = true;
+              fallback.style.display = 'flex';
+            } else {
+              fallback.style.display = 'none';
+              img.hidden = false;
+            }
+          });
+        }
+        const btnNewWin = btn.querySelector('.btn-open-new-win');
+        if (btnNewWin) {
+          btnNewWin.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            completeWithInstance(inst.id, { openNewWindow: true });
+          });
+        }
+        btn.addEventListener('click', () => completeWithInstance(inst.id, { openNewWindow: false }));
+        instanceList.appendChild(btn);
+      });
+      instancePicker.classList.add('show');
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    async function requestSsoToken(payload) {
+      const res = await fetch('/api/sso/generate-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({ error: 'Respuesta inesperada del servidor.' }));
+      return { res, data };
+    }
+
+    function finishRedirect(data, credentials, opts = {}) {
+      if (data.token) {
+        localStorage.setItem('renace_sso_token', data.token);
+        localStorage.setItem('renace_client_name', data.client_name || '');
+      }
+      if (payloadServiceCode()) {
+        localStorage.setItem('renace_service_code', payloadServiceCode());
+      }
+      if (credentials?.login && credentials?.password) {
+        saveDesktopCredentials(credentials.login, credentials.password, credentials.serviceCode || payloadServiceCode());
+      }
+      if (data.redirect_url) {
+        if (window.renaceDesktop?.recordVisit) {
+          window.renaceDesktop.recordVisit(data.redirect_url).catch(() => {});
+        }
+        if (opts.openNewWindow) {
+          if (window.renaceDesktop?.openInstanceWindow) {
+            window.renaceDesktop.openInstanceWindow(data.redirect_url, data.client_name || 'Empresa');
+          } else {
+            window.open(data.redirect_url, '_blank');
+          }
+          return true;
+        }
+        window.location.href = data.redirect_url;
+        return true;
+      }
+      return false;
+    }
+
+    function payloadServiceCode() {
+      return (serviceCodeInput.value || '').trim().toLowerCase();
+    }
+
+    async function completeWithInstance(instanceId, opts = {}) {
+      if (!pendingCredentials) return;
+      hideError();
+      setLoading(true);
+      try {
+        const { res, data } = await requestSsoToken({
+          login: pendingCredentials.login,
+          password: pendingCredentials.password,
+          serviceCode: pendingCredentials.serviceCode || undefined,
+          instanceId,
+        });
+        if (data.needs_instance_selection) {
+          showInstancePicker(data.instances || [], pendingCredentials);
+          showError(data.message || 'Selecciona una instancia.');
+          return;
+        }
+        if (!res.ok || !data.success) {
+          showError(data.error || 'Error al iniciar sesión. Intenta de nuevo.');
+          return;
+        }
+        if (!finishRedirect(data, pendingCredentials, opts)) {
+          showError('No se recibió URL de redirección.');
+        }
+      } catch (e) {
+        console.error('[portal instance pick]', e);
+        showError('No se pudo conectar con el servidor. Verifica tu conexión.');
+      } finally {
+        setLoading(false);
+      }
+    }
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       hideError();
+      hideInstancePicker();
 
-      const login    = document.getElementById('login').value.trim();
+      const login = document.getElementById('login').value.trim();
       const password = passInput.value;
+      const serviceCode = payloadServiceCode();
 
       if (!login || !password) {
-        showError('Por favor completa usuario y contrasena.');
+        showError('Por favor completa usuario y contraseña.');
         return;
       }
 
       setLoading(true);
 
       try {
-        // Usar el nuevo endpoint SSO para generar token
-        const res = await fetch('/api/sso/generate-token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ login, password, device_id: getNativeDeviceId() }),
-        });
+        const payload = { login, password, device_id: typeof getNativeDeviceId === 'function' ? getNativeDeviceId() : null };
+        if (serviceCode) payload.serviceCode = serviceCode;
 
-        const data = await res.json().catch(() => ({ error: 'Respuesta inesperada del servidor.' }));
+        const { res, data } = await requestSsoToken(payload);
+
+        if (data.needs_service_code || data.code === 'service_code_required') {
+          requireServiceCode(data.error);
+          return;
+        }
+
+        if (data.needs_instance_selection) {
+          showInstancePicker(data.instances || [], { login, password, serviceCode });
+          return;
+        }
 
         if (!res.ok || !data.success) {
-          showError(data.error || 'Error al iniciar sesion. Intenta de nuevo.');
+          if (res.status === 400 && /código de empresa/i.test(data.error || '')) {
+            requireServiceCode(data.error);
+            return;
+          }
+          showError(data.error || 'Error al iniciar sesión. Intenta de nuevo.');
           return;
         }
 
-        // Guardar token en localStorage para futuros logins automáticos
-        if (data.token) {
-          localStorage.setItem('renace_sso_token', data.token);
-          localStorage.setItem('renace_client_name', data.client_name);
+        if (!finishRedirect(data, { login, password, serviceCode })) {
+          showError('No se recibió URL de redirección.');
         }
-
-        // Redirigir al SSO de Odoo o servicio del cliente
-        if (data.redirect_url) {
-          window.location.href = data.redirect_url;
-          return;
-        }
-
-        // Fallback: usar el método tradicional con redirect HTML
-        const legacyRes = await fetch('/api/portal/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ login, password }),
-        });
-
-        const contentType = legacyRes.headers.get('content-type') || '';
-        if (legacyRes.ok && contentType.includes('text/html')) {
-          const html = await legacyRes.text();
-          document.open();
-          document.write(html);
-          document.close();
-          return;
-        }
-
-        const legacyData = await legacyRes.json().catch(() => ({ error: 'Respuesta inesperada.' }));
-        showError(legacyData.error || 'Error al iniciar sesion.');
-
       } catch (e) {
         console.error('[portal login]', e);
-        showError('No se pudo conectar con el servidor. Verifica tu conexion.');
+        showError('No se pudo conectar con el servidor. Verifica tu conexión.');
       } finally {
         setLoading(false);
       }
