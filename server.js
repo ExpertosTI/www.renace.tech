@@ -2608,12 +2608,19 @@ app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
       const instRes = await pool.query(
         `SELECT id AS instance_id, odoo_url, public_url, odoo_db, client_name, service_code
          FROM odoo_instances
-         WHERE LOWER(service_code) = $1 AND active = TRUE
+         WHERE (
+           LOWER(service_code) = $1
+           OR LOWER(client_name) = $1
+           OR LOWER(client_name) LIKE '%' || $1 || '%'
+           OR LOWER(odoo_url) LIKE '%' || $1 || '%'
+           OR LOWER(public_url) LIKE '%' || $1 || '%'
+         ) AND active = TRUE
+         ORDER BY (CASE WHEN LOWER(service_code) = $1 THEN 1 WHEN LOWER(client_name) = $1 THEN 2 ELSE 3 END) ASC
          LIMIT 1`,
         [serviceCode]
       );
       if (!instRes.rows.length) {
-        return res.status(401).json({ error: 'Código de empresa incorrecto o empresa no registrada' });
+        return res.status(401).json({ error: 'Empresa o dirección no encontrada. Verifica el nombre, dirección (URL) o código.' });
       }
       targetInstance = instRes.rows[0];
     } else if (linked.length === 1 && !canPickInstances) {
@@ -2623,7 +2630,7 @@ app.post('/api/sso/generate-token', portalLimiter, async (req, res) => {
       targetInstance = linked[0];
     } else {
       return res.status(400).json({
-        error: 'Código de empresa requerido',
+        error: 'Nombre de empresa, dirección (URL) o código de empresa requerido',
         code: 'service_code_required',
         needs_service_code: true,
       });
