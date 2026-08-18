@@ -1987,22 +1987,8 @@ function attachWindowGuards(win) {
   });
 
   wc.on('did-fail-load', (_e, code, desc, url, isMainFrame) => {
-    if (!isMainFrame || code === -3) return;
+    if (!isMainFrame || code === -3 || code === -27 || code === 0) return;
     log.error('did-fail-load', { code, desc, url: String(url || '').slice(0, 200) });
-    // Sin popups ni “Abrir log” — reintento silencioso una vez en usuario
-    if (store.getAppMode() === 'admin') {
-      dialog
-        .showMessageBox(win, {
-          type: 'error',
-          title: 'Error de carga',
-          message: 'No se pudo cargar la página.',
-          detail: String(desc || ''),
-          buttons: ['Reintentar', 'Cerrar'],
-        })
-        .then(({ response }) => {
-          if (response === 0) openHome(win);
-        });
-    }
   });
 }
 
