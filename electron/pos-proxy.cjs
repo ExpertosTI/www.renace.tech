@@ -231,25 +231,6 @@ function sendTestPrint() {
     return Promise.resolve({ ok: false, error: e.message });
   }
 }
-    fs.writeFileSync(tmp, content);
-    const args = [];
-    if (settings.printer) args.push('-d', settings.printer);
-    args.push(tmp);
-    const child = spawn('lp', args, { stdio: 'ignore' });
-    return new Promise((resolve) => {
-      child.on('close', (code) => {
-        try { fs.unlinkSync(tmp); } catch (_) {}
-        resolve({ ok: code === 0, code });
-      });
-      child.on('error', (err) => {
-        try { fs.unlinkSync(tmp); } catch (_) {}
-        resolve({ ok: false, error: err.message });
-      });
-    });
-  } catch (e) {
-    return Promise.resolve({ ok: false, error: e.message });
-  }
-}
 
 function createHandler() {
   return async (req, res) => {
