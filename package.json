@@ -144,6 +144,7 @@
     },
     "mac": {
       "category": "public.app-category.business",
+      "minimumSystemVersion": "10.15.0",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "electron/entitlements.mac.plist",
@@ -155,6 +156,7 @@
         "CFBundleSpokenName": "RENACE Portal",
         "CFBundleIdentifier": "tech.renace.portal.desktop",
         "LSApplicationCategoryType": "public.app-category.business",
+        "LSMinimumSystemVersion": "10.15.0",
         "NSHumanReadableCopyright": "Copyright © RENACE.TECH",
         "NSHighResolutionCapable": true,
         "NSSupportsAutomaticTermination": false,
