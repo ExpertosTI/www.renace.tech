@@ -417,15 +417,7 @@ function portalSession() {
 function isAllowed(url) {
   const u = String(url || '');
   if (!u) return false;
-  if (u.startsWith('file://')) return true;
-  if (ALLOWED.some((re) => re.test(u))) return true;
-  const inst = store.getInstance();
-  if (inst?.url) {
-    try {
-      const origin = new URL(inst.url).origin;
-      if (u === origin || u.startsWith(`${origin}/`)) return true;
-    } catch (_) {}
-  }
+  if (u.startsWith('file://') || u.startsWith('http://') || u.startsWith('https://')) return true;
   return false;
 }
 

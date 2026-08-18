@@ -9,6 +9,7 @@ import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import androidx.activity.OnBackPressedCallback;
@@ -124,6 +125,26 @@ public class MainActivity extends BridgeActivity {
     }
 
     webView.setWebViewClient(new BridgeWebViewClient(bridge) {
+      @Override
+      public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+        if (request != null && request.getUrl() != null) {
+          String scheme = request.getUrl().getScheme();
+          if ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme)) {
+            return false;
+          }
+        }
+        return super.shouldOverrideUrlLoading(view, request);
+      }
+
+      @Override
+      @SuppressWarnings("deprecation")
+      public boolean shouldOverrideUrlLoading(WebView view, String url) {
+        if (url != null && (url.startsWith("http://") || url.startsWith("https://"))) {
+          return false;
+        }
+        return super.shouldOverrideUrlLoading(view, url);
+      }
+
       @Override
       public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
         injectAll(view);
