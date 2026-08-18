@@ -154,6 +154,30 @@ async function handleDefaultPrinterAction(raw) {
   }
 }
 
+function sendTestPrint() {
+  const tmp = path.join(os.tmpdir(), `renace-test-receipt-${Date.now()}.txt`);
+  const content = `=================================\n        RENACE POS PRINTER TEST   \n=================================\nFecha: ${new Date().toLocaleString()}\nImpresora: ${settings.printer || 'Default CUPS'}\nEstado: OK\n=================================\n\n\n`;
+  try {
+    fs.writeFileSync(tmp, content);
+    const args = [];
+    if (settings.printer) args.push('-d', settings.printer);
+    args.push(tmp);
+    const child = spawn('lp', args, { stdio: 'ignore' });
+    return new Promise((resolve) => {
+      child.on('close', (code) => {
+        try { fs.unlinkSync(tmp); } catch (_) {}
+        resolve({ ok: code === 0, code });
+      });
+      child.on('error', (err) => {
+        try { fs.unlinkSync(tmp); } catch (_) {}
+        resolve({ ok: false, error: err.message });
+      });
+    });
+  } catch (e) {
+    return Promise.resolve({ ok: false, error: e.message });
+  }
+}
+
 function createHandler() {
   return async (req, res) => {
     cors(res, req);
@@ -200,6 +224,7 @@ function createHandler() {
         jsonRpc(id, {
           printer: { status: 'connected', messages: 'RENACE POS' },
           scanner: { status: 'disconnected', messages: '' },
+          cashbox: { status: 'connected', messages: '' },
         })
       );
     }
@@ -208,6 +233,35 @@ function createHandler() {
       const out = await handleDefaultPrinterAction(body);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(out);
+    }
+
+    if (url === '/hw_proxy/print_receipt' || url === '/hw_proxy/print_xml_receipt') {
+      try {
+        const d = JSON.parse(body || '{}');
+        const receipt = d.params && (d.params.receipt || d.params.data);
+        const r = await printJpegBase64(receipt);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(jsonRpc(id, Boolean(r.ok)));
+      } catch (e) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(jsonRpc(id, false));
+      }
+    }
+
+    if (url === '/hw_proxy/open_cashbox') {
+      const r = await openCashDrawer();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(jsonRpc(id, Boolean(r.ok)));
+    }
+
+    if (url === '/hw_proxy/scanner') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(jsonRpc(id, { status: 'disconnected' }));
+    }
+
+    if (url === '/hw_proxy/scale_read') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(jsonRpc(id, { weight: 0.0, unit: 'kg' }));
     }
 
     res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -247,4 +301,11 @@ function stop() {
   });
 }
 
-module.exports = { start, stop, listCupsPrinters, getSettings: () => ({ ...settings }) };
+module.exports = {
+  start,
+  stop,
+  listCupsPrinters,
+  sendTestPrint,
+  openCashDrawer,
+  getSettings: () => ({ ...settings }),
+};

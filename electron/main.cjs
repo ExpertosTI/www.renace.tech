@@ -933,12 +933,39 @@ function registerIpc() {
     openSetup(currentWin());
     return true;
   });
-  ipcMain.handle('renace:pos-status', () => ({
+  ipcMain.handle('renace:pos-status', async () => ({
     platform: process.platform,
     windowsAgent: process.platform === 'win32',
     proxy: posProxy.getSettings(),
+    printers: process.platform === 'darwin' || process.platform === 'linux' ? await posProxy.listCupsPrinters() : [],
     brand: process.platform === 'win32' ? 'POS Agent PRO (bundled)' : 'RENACE POS',
   }));
+  ipcMain.handle('renace:pos-list-printers', async () => {
+    if (process.platform === 'darwin' || process.platform === 'linux') {
+      return await posProxy.listCupsPrinters();
+    }
+    return [];
+  });
+  ipcMain.handle('renace:pos-set-settings', async (_event, partial) => {
+    const newCfg = store.setPosSettings(partial || {});
+    if (process.platform !== 'win32') {
+      await posProxy.stop();
+      await posProxy.start(newCfg);
+    }
+    return newCfg;
+  });
+  ipcMain.handle('renace:pos-test-print', async () => {
+    if (process.platform === 'darwin' || process.platform === 'linux') {
+      return await posProxy.sendTestPrint();
+    }
+    return { ok: false, reason: 'Windows usa POS Agent PRO' };
+  });
+  ipcMain.handle('renace:pos-test-cashbox', async () => {
+    if (process.platform === 'darwin' || process.platform === 'linux') {
+      return await posProxy.openCashDrawer();
+    }
+    return { ok: false, reason: 'Windows usa POS Agent PRO' };
+  });
   ipcMain.handle('renace:open-second-sales-window', (_event, opts) => {
     createSecondSalesWindow(opts || {});
     return true;
