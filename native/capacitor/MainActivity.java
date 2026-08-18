@@ -8,6 +8,8 @@ import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
+import android.webkit.CookieManager;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
 import androidx.activity.OnBackPressedCallback;
 import com.getcapacitor.Bridge;
@@ -18,12 +20,45 @@ import java.io.InputStream;
 
 /**
  * Modo Usuario / Kiosk Lockdown:
- * Bloquea botón Atrás del sistema, Inicio (Home), Recientes, gestos y cierre de la app.
- * Inyecta push-stub + atajos Eleventa en cada navegación.
+ * - Inyecta renaceDesktop API idéntica a PC Desktop (instancias, autologin, cookies, secrets).
+ * - Habilita persistencia total de sesión (CookieManager + DOM Storage).
+ * - Bloquea botón Atrás del sistema, Inicio (Home), Recientes, gestos y cierre de la app.
  */
 public class MainActivity extends BridgeActivity {
   private static final String PREFS = "renace_portal";
   private static final String KEY_MODE = "app_mode";
+
+  private static final String DESKTOP_BRIDGE =
+      "(function(){"
+          + "if(window.renaceDesktop) return;"
+          + "window.renaceDesktop = {"
+          + "  isDesktop: true,"
+          + "  isAndroid: true,"
+          + "  getInstance: function(){"
+          + "    try { return JSON.parse(localStorage.getItem('renace_instance') || 'null'); } catch(e){ return null; }"
+          + "  },"
+          + "  saveInstance: function(payload){"
+          + "    try { localStorage.setItem('renace_instance', JSON.stringify(payload)); } catch(e){}"
+          + "    return Promise.resolve(true);"
+          + "  },"
+          + "  saveAndOpenInstance: function(payload){"
+          + "    try { localStorage.setItem('renace_instance', JSON.stringify(payload)); } catch(e){}"
+          + "    if (payload && payload.url) { window.location.href = payload.url; }"
+          + "    return Promise.resolve(true);"
+          + "  },"
+          + "  openInstanceWindow: function(payload){"
+          + "    var target = (typeof payload === 'string') ? payload : (payload && payload.url);"
+          + "    if (target) { window.location.href = target; }"
+          + "    return Promise.resolve(true);"
+          + "  },"
+          + "  openPortal: function(){ window.location.href = 'https://renace.tech/portal'; return Promise.resolve(true); },"
+          + "  saveSecret: function(k, v){ try { localStorage.setItem('sec_'+k, v); } catch(e){} return Promise.resolve(true); },"
+          + "  getSecret: function(k){ try { return Promise.resolve(localStorage.getItem('sec_'+k)); } catch(e){ return Promise.resolve(null); } },"
+          + "  getMode: function(){ return Promise.resolve('user'); },"
+          + "  winReload: function(){ window.location.reload(); },"
+          + "  reload: function(){ window.location.reload(); }"
+          + "};"
+          + "})();";
 
   private static final String PUSH_STUB =
       "(function(){if(window.__renacePushStub)return;window.__renacePushStub=true;"
@@ -74,6 +109,20 @@ public class MainActivity extends BridgeActivity {
     if (bridge == null) return;
     WebView webView = bridge.getWebView();
     if (webView == null) return;
+
+    WebSettings settings = webView.getSettings();
+    settings.setJavaScriptEnabled(true);
+    settings.setDomStorageEnabled(true);
+    settings.setDatabaseEnabled(true);
+    settings.setAllowFileAccess(true);
+    settings.setAllowContentAccess(true);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+      settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+      CookieManager cookieManager = CookieManager.getInstance();
+      cookieManager.setAcceptCookie(true);
+      cookieManager.setAcceptThirdPartyCookies(webView, true);
+    }
+
     webView.setWebViewClient(new BridgeWebViewClient(bridge) {
       @Override
       public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
@@ -84,6 +133,9 @@ public class MainActivity extends BridgeActivity {
       @Override
       public void onPageFinished(WebView view, String url) {
         injectAll(view);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+          CookieManager.getInstance().flush();
+        }
         super.onPageFinished(view, url);
       }
     });
@@ -159,6 +211,7 @@ public class MainActivity extends BridgeActivity {
         "window.__renaceShellCfg=Object.assign(window.__renaceShellCfg||{},{mode:'"
             + mode
             + "',keymap:{enabled:true,profile:'eleventa',sales:'F1',pay:'F12',payPrint:'F1',payNoPrint:'F2',cancel:'Escape',priceCheck:'F9',wholesale:'F11'}});";
+    view.evaluateJavascript(DESKTOP_BRIDGE, null);
     view.evaluateJavascript(PUSH_STUB, null);
     view.evaluateJavascript(boot, null);
     if (userShellJs != null && !userShellJs.isEmpty()) {
