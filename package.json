@@ -29,7 +29,9 @@
     "android:open": "npm run android:sync && npx cap open android",
     "ios:open": "npm run ios:sync && npx cap open ios",
     "stage:downloads": "./scripts/stage-portal-downloads.sh",
-    "desktop:update-manifest": "./scripts/publish-desktop-update.sh"
+    "desktop:update-manifest": "./scripts/publish-desktop-update.sh",
+    "ship": "./scripts/ship-portal-downloads.sh",
+    "deploy": "./scripts/ship-portal-downloads.sh"
   },
   "dependencies": {
     "@capacitor/android": "8.2.0",
