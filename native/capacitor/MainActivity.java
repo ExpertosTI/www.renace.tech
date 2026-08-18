@@ -1,7 +1,13 @@
 package tech.renace.portal;
 
 import android.content.SharedPreferences;
+import android.os.Build;
 import android.os.Bundle;
+import android.view.KeyEvent;
+import android.view.View;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
+import android.view.WindowManager;
 import android.webkit.WebView;
 import androidx.activity.OnBackPressedCallback;
 import com.getcapacitor.Bridge;
@@ -11,8 +17,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 
 /**
- * Modo Usuario: bloquea botón Atrás del sistema.
- * Inyecta push-stub + atajos Eleventa en cada navegación (también a Odoo remoto).
+ * Modo Usuario / Kiosk Lockdown:
+ * Bloquea botón Atrás del sistema, Inicio (Home), Recientes, gestos y cierre de la app.
+ * Inyecta push-stub + atajos Eleventa en cada navegación.
  */
 public class MainActivity extends BridgeActivity {
   private static final String PREFS = "renace_portal";
@@ -44,11 +51,17 @@ public class MainActivity extends BridgeActivity {
     userMode = !"admin".equals(prefs.getString(KEY_MODE, "user"));
     userShellJs = loadAsset("renace-user-shell.js");
 
+    if (userMode) {
+      getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+      hideSystemUI();
+      enableKioskLock();
+    }
+
     getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
       @Override
       public void handleOnBackPressed() {
         if (userMode) {
-          // Modo Usuario: no salir / no historial atrás
+          // Modo Usuario: no salir / no historial atrás / no cerrar app
           return;
         }
         setEnabled(false);
@@ -75,6 +88,68 @@ public class MainActivity extends BridgeActivity {
       }
     });
     injectAll(webView);
+  }
+
+  @Override
+  public void onWindowFocusChanged(boolean hasFocus) {
+    super.onWindowFocusChanged(hasFocus);
+    if (hasFocus && userMode) {
+      hideSystemUI();
+      enableKioskLock();
+    }
+  }
+
+  @Override
+  public boolean dispatchKeyEvent(KeyEvent event) {
+    if (userMode) {
+      int code = event.getKeyCode();
+      if (code == KeyEvent.KEYCODE_BACK
+          || code == KeyEvent.KEYCODE_HOME
+          || code == KeyEvent.KEYCODE_APP_SWITCH
+          || code == KeyEvent.KEYCODE_MENU) {
+        return true;
+      }
+    }
+    return super.dispatchKeyEvent(event);
+  }
+
+  @Override
+  public boolean onKeyDown(int keyCode, KeyEvent event) {
+    if (userMode) {
+      if (keyCode == KeyEvent.KEYCODE_BACK
+          || keyCode == KeyEvent.KEYCODE_HOME
+          || keyCode == KeyEvent.KEYCODE_APP_SWITCH
+          || keyCode == KeyEvent.KEYCODE_MENU) {
+        return true;
+      }
+    }
+    return super.onKeyDown(keyCode, event);
+  }
+
+  private void enableKioskLock() {
+    try {
+      if (userMode) {
+        startLockTask();
+      }
+    } catch (Exception ignored) {}
+  }
+
+  private void hideSystemUI() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+      WindowInsetsController controller = getWindow().getInsetsController();
+      if (controller != null) {
+        controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+        controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+      }
+    } else {
+      getWindow().getDecorView().setSystemUiVisibility(
+          View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+              | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+              | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+              | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+              | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+              | View.SYSTEM_UI_FLAG_FULLSCREEN);
+    }
   }
 
   private void injectAll(WebView view) {
