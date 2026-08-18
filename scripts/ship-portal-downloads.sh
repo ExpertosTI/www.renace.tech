@@ -44,9 +44,13 @@ for f in "${need[@]}"; do
   ls -lh "$f"
 done
 
-echo "📤 Subiendo a $HOST:$REMOTE_TMP ..."
-ssh -o ConnectTimeout=20 "$HOST" "mkdir -p '$REMOTE_TMP' && rm -f '$REMOTE_TMP'/RENACE-Portal-*"
-scp -o ConnectTimeout=20 "${need[@]}" "$HOST:$REMOTE_TMP/"
+echo "📤 Sincronizando archivos modificados con $HOST:$REMOTE_TMP ..."
+ssh -o ConnectTimeout=20 "$HOST" "mkdir -p '$REMOTE_TMP'"
+if command -v rsync >/dev/null 2>&1; then
+  rsync -avz -e "ssh -o ConnectTimeout=20" --update --checksum "${need[@]}" "$HOST:$REMOTE_TMP/"
+else
+  scp -o ConnectTimeout=20 "${need[@]}" "$HOST:$REMOTE_TMP/"
+fi
 
 echo "🚀 Deploy código + restaurar archivos..."
 ssh -o ConnectTimeout=20 "$HOST" bash -s <<EOF
