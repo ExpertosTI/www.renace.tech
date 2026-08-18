@@ -11,8 +11,7 @@ rm -rf www
 mkdir -p www/images
 cp portal.html www/index.html
 cp -r images www/
-cp manifest.json www/ 2>/dev/null || true
-cp electron/push-stub.js www/renace-push-stub.js
+cp electron/push-stub.js www/renace-push-stub.js 2>/dev/null || cp electron/push-bridge.js www/renace-push-stub.js
 cp electron/user-shell.js www/renace-user-shell.js
 mkdir -p android/app/src/main/assets
 cp electron/user-shell.js android/app/src/main/assets/renace-user-shell.js

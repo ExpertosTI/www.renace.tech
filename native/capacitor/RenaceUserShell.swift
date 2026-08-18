@@ -109,10 +109,8 @@ enum RenaceUserShell {
     return k === want || k === 'Key' + want;
   }
 
-  // Modo usuario: bloquear menú contextual de “atrás/recargar” del sistema web
-  document.addEventListener('contextmenu', function (e) {
-    if (isUser()) e.preventDefault();
-  }, true);
+  // Menú contextual: lo gestiona Electron (Copiar/Pegar/Cortar) — no preventDefault aquí
+  // (bloquear contextmenu impedía el evento context-menu del shell y el pegado en inputs).
 
   // Atajos Eleventa → Odoo POS (solo dentro del POS; no capturan teclas globales)
   window.addEventListener('keydown', function (e) {

@@ -10,6 +10,7 @@ REMOTE_TMP="/tmp/renace-portal-ship"
 
 candidates=(
   docs/RENACE-Portal-win-x64.exe
+  docs/RENACE-Portal-v3.0.31-win-x64.exe
   docs/RENACE-Portal-mac-arm64.dmg
   docs/RENACE-Portal-mac-x64.dmg
   docs/RENACE-Portal-android.apk
@@ -57,10 +58,9 @@ chmod +x scripts/*.sh
 ./scripts/update-app-only.sh
 ./scripts/restore-download-files.sh '$REMOTE_TMP'
 echo "── Verificación ──"
-curl -sSI https://renace.tech/docs/RENACE-Portal-mac-arm64.dmg | head -5
-curl -sSI https://renace.tech/docs/RENACE-Portal-win-x64.exe | head -5
-curl -sSI https://renace.tech/docs/RENACE-Portal-ios.ipa | head -5
-curl -sSI https://renace.tech/docs/RENACE-Portal-android.apk | head -5
+curl -sSI https://renace.tech/docs/RENACE-Portal-win-x64.exe 2>/dev/null | head -5 || true
+curl -sSI https://renace.tech/docs/RENACE-Portal-android.apk 2>/dev/null | head -5 || true
+curl -sSI https://renace.tech/docs/RENACE-Portal-mac-arm64.dmg 2>/dev/null | head -5 || true
 EOF
 
 echo "✅ Ship completo → https://renace.tech/descargas"

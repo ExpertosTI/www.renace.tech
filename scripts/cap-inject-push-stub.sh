@@ -4,6 +4,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 STUB_SRC=electron/push-stub.js
+if [[ ! -f "$STUB_SRC" ]]; then
+  STUB_SRC=electron/push-bridge.js
+fi
 [[ -f "$STUB_SRC" ]] || { echo "❌ Falta $STUB_SRC"; exit 1; }
 
 SHELL_SRC=electron/user-shell.js
