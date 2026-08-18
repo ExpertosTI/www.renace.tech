@@ -717,12 +717,32 @@
       <div class="card">
         <form id="portal-form" novalidate>
           <div class="field">
+            <label for="company-name">Empresa</label>
+            <div class="input-wrap">
+              <span class="input-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9v.01"/><path d="M9 12v.01"/><path d="M9 15v.01"/><path d="M9 18v.01"/></svg>
+              </span>
+              <input id="company-name" name="companyName" type="text" placeholder="Ej. Mi Empresa" autocomplete="organization">
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="company-url">Dirección Odoo (URL)</label>
+            <div class="input-wrap">
+              <span class="input-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              </span>
+              <input id="company-url" name="companyUrl" type="url" placeholder="Ej. https://miempresa.renace.tech" autocomplete="url">
+            </div>
+          </div>
+
+          <div class="field">
             <label for="login">Usuario o correo</label>
             <div class="input-wrap">
               <span class="input-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               </span>
-              <input id="login" name="login" type="text" placeholder="tu@correo.com" autocomplete="username" required>
+              <input id="login" name="login" type="text" placeholder="tu@correo.com" autocomplete="username">
             </div>
           </div>
 
@@ -732,28 +752,17 @@
               <span class="input-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
               </span>
-              <input id="password" name="password" type="password" placeholder="Tu contraseña" autocomplete="current-password" required>
+              <input id="password" name="password" type="password" placeholder="Tu contraseña" autocomplete="current-password">
               <button type="button" class="toggle-pass" id="toggle-pass" aria-label="Mostrar contraseña">
                 <svg id="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               </button>
             </div>
           </div>
 
-          <div class="field" id="service-code-field">
-            <label for="service-code">Empresa, Dirección (URL) o Código</label>
-            <div class="input-wrap">
-              <span class="input-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
-              </span>
-              <input id="service-code" name="serviceCode" type="text" placeholder="Ej. Nombre de empresa, https://... o 101" autocomplete="organization" inputmode="text">
-            </div>
-            <p class="field-hint" id="service-code-hint">Escribe el nombre de tu empresa, dirección web de Odoo (URL) o código.</p>
-          </div>
-
           <button type="submit" class="btn-submit" id="btn-submit">
             <span class="btn-inner">
               <div class="spinner" id="spinner"></div>
-              <span id="btn-text">Acceder a mi plataforma</span>
+              <span id="btn-text">Conectar a mi empresa</span>
             </span>
           </button>
         </form>
@@ -1077,44 +1086,57 @@
       hideError();
       hideInstancePicker();
 
-      const login = document.getElementById('login').value.trim();
+      const companyName = (document.getElementById('company-name')?.value || '').trim();
+      let companyUrl = (document.getElementById('company-url')?.value || '').trim();
+      const login = (document.getElementById('login')?.value || '').trim();
       const password = passInput.value;
-      const serviceCode = payloadServiceCode();
 
-      if (!login || !password) {
-        showError('Por favor completa usuario y contraseña.');
+      if (companyUrl && !/^https?:\/\//i.test(companyUrl)) {
+        companyUrl = 'https://' + companyUrl;
+      }
+
+      // Si se proporcionó una URL directa de Odoo
+      if (companyUrl) {
+        setLoading(true);
+        const instData = { name: companyName || 'Empresa', url: companyUrl };
+        if (window.renaceDesktop?.saveAndOpenInstance) {
+          window.renaceDesktop.saveAndOpenInstance(instData);
+        } else {
+          try { localStorage.setItem('renace_instance', JSON.stringify(instData)); } catch (_) {}
+          window.location.href = companyUrl + '/web';
+        }
+        return;
+      }
+
+      if (!login && !companyName) {
+        showError('Ingresa el nombre de empresa o la dirección URL de Odoo.');
         return;
       }
 
       setLoading(true);
 
       try {
-        const payload = { login, password, device_id: typeof getNativeDeviceId === 'function' ? getNativeDeviceId() : null };
-        if (serviceCode) payload.serviceCode = serviceCode;
+        const payload = {
+          login,
+          password,
+          serviceCode: companyName || undefined,
+          device_id: typeof getNativeDeviceId === 'function' ? getNativeDeviceId() : null,
+        };
 
         const { res, data } = await requestSsoToken(payload);
 
-        if (data.needs_service_code || data.code === 'service_code_required') {
-          requireServiceCode(data.error);
-          return;
-        }
-
         if (data.needs_instance_selection) {
-          showInstancePicker(data.instances || [], { login, password, serviceCode });
+          showInstancePicker(data.instances || [], { login, password, serviceCode: companyName });
           return;
         }
 
         if (!res.ok || !data.success) {
-          if (res.status === 400 && /código de empresa/i.test(data.error || '')) {
-            requireServiceCode(data.error);
-            return;
-          }
-          showError(data.error || 'Error al iniciar sesión. Intenta de nuevo.');
+          showError(data.error || 'No se pudo conectar a la empresa. Revisa el nombre o dirección URL.');
           return;
         }
 
-        if (!finishRedirect(data, { login, password, serviceCode })) {
-          showError('No se recibió URL de redirección.');
+        if (!finishRedirect(data, { login, password, serviceCode: companyName })) {
+          showError('No se recibió URL de la empresa.');
         }
       } catch (e) {
         console.error('[portal login]', e);
