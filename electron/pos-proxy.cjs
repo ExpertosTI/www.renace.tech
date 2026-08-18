@@ -67,14 +67,30 @@ function parseId(raw) {
 
 function listCupsPrinters() {
   return new Promise((resolve) => {
-    execFile('lpstat', ['-a'], { timeout: 5000 }, (err, stdout) => {
-      if (err) return resolve([]);
-      const names = String(stdout || '')
-        .split('\n')
-        .map((l) => l.trim().split(/\s+/)[0])
-        .filter(Boolean);
-      resolve(names);
-    });
+    if (process.platform === 'win32') {
+      execFile(
+        'powershell',
+        ['-NoProfile', '-Command', 'Get-CimInstance Win32_Printer | Select-Object -ExpandProperty Name'],
+        { timeout: 5000, windowsHide: true },
+        (err, stdout) => {
+          if (err) return resolve([]);
+          const names = String(stdout || '')
+            .split(/\r?\n/)
+            .map((l) => l.trim())
+            .filter(Boolean);
+          resolve(names);
+        }
+      );
+    } else {
+      execFile('lpstat', ['-a'], { timeout: 5000 }, (err, stdout) => {
+        if (err) return resolve([]);
+        const names = String(stdout || '')
+          .split('\n')
+          .map((l) => l.trim().split(/\s+/)[0])
+          .filter(Boolean);
+        resolve(names);
+      });
+    }
   });
 }
 
@@ -85,21 +101,36 @@ function printJpegBase64(b64) {
       if (buf.length < 32) return resolve({ ok: false, error: 'recibo vacío' });
       const tmp = path.join(os.tmpdir(), `renace-pos-receipt-${Date.now()}.jpg`);
       fs.writeFileSync(tmp, buf);
-      const args = [];
-      if (settings.printer) {
-        args.push('-d', settings.printer);
+
+      if (process.platform === 'win32') {
+        const psCmd = settings.printer
+          ? `Start-Process -FilePath "${tmp}" -Verb PrintTo -ArgumentList "${settings.printer.replace(/"/g, '`"')}"`
+          : `Start-Process -FilePath "${tmp}" -Verb Print`;
+        execFile('powershell', ['-NoProfile', '-Command', psCmd], { windowsHide: true }, (err) => {
+          setTimeout(() => { try { fs.unlinkSync(tmp); } catch (_) {} }, 10000);
+          if (err) {
+            log.warn('pos-proxy win print error', err.message);
+            return resolve({ ok: false, error: err.message });
+          }
+          resolve({ ok: true });
+        });
+      } else {
+        const args = [];
+        if (settings.printer) {
+          args.push('-d', settings.printer);
+        }
+        args.push('-o', 'fit-to-page', tmp);
+        const child = spawn('lp', args, { stdio: 'ignore' });
+        child.on('error', (e) => {
+          log.warn('pos-proxy lp error', e.message);
+          try { fs.unlinkSync(tmp); } catch (_) {}
+          resolve({ ok: false, error: e.message });
+        });
+        child.on('close', (code) => {
+          setTimeout(() => { try { fs.unlinkSync(tmp); } catch (_) {} }, 15000);
+          resolve({ ok: code === 0, code });
+        });
       }
-      args.push('-o', 'fit-to-page', tmp);
-      const child = spawn('lp', args, { stdio: 'ignore' });
-      child.on('error', (e) => {
-        log.warn('pos-proxy lp error', e.message);
-        try { fs.unlinkSync(tmp); } catch (_) {}
-        resolve({ ok: false, error: e.message });
-      });
-      child.on('close', (code) => {
-        setTimeout(() => { try { fs.unlinkSync(tmp); } catch (_) {} }, 15000);
-        resolve({ ok: code === 0, code });
-      });
     } catch (e) {
       resolve({ ok: false, error: e.message });
     }
@@ -112,18 +143,29 @@ function openCashDrawer() {
     const tmp = path.join(os.tmpdir(), `renace-cash-${Date.now()}.bin`);
     try {
       fs.writeFileSync(tmp, Buffer.from([0x1b, 0x70, 0x00, 0x19, 0xfa]));
-      const args = [];
-      if (settings.printer) args.push('-d', settings.printer);
-      args.push('-o', 'raw', tmp);
-      const child = spawn('lp', args, { stdio: 'ignore' });
-      child.on('close', (code) => {
-        try { fs.unlinkSync(tmp); } catch (_) {}
-        resolve({ ok: code === 0 });
-      });
-      child.on('error', () => {
-        try { fs.unlinkSync(tmp); } catch (_) {}
-        resolve({ ok: false });
-      });
+      if (process.platform === 'win32') {
+        const pName = settings.printer ? settings.printer.replace(/"/g, '`"') : '';
+        const psCmd = pName
+          ? `[System.IO.File]::ReadAllBytes('${tmp}') | Out-Printer -Name "${pName}"`
+          : `[System.IO.File]::ReadAllBytes('${tmp}') | Out-Printer`;
+        execFile('powershell', ['-NoProfile', '-Command', psCmd], { windowsHide: true }, (err) => {
+          try { fs.unlinkSync(tmp); } catch (_) {}
+          resolve({ ok: !err });
+        });
+      } else {
+        const args = [];
+        if (settings.printer) args.push('-d', settings.printer);
+        args.push('-o', 'raw', tmp);
+        const child = spawn('lp', args, { stdio: 'ignore' });
+        child.on('close', (code) => {
+          try { fs.unlinkSync(tmp); } catch (_) {}
+          resolve({ ok: code === 0 });
+        });
+        child.on('error', () => {
+          try { fs.unlinkSync(tmp); } catch (_) {}
+          resolve({ ok: false });
+        });
+      }
     } catch (e) {
       resolve({ ok: false, error: e.message });
     }
@@ -156,8 +198,39 @@ async function handleDefaultPrinterAction(raw) {
 
 function sendTestPrint() {
   const tmp = path.join(os.tmpdir(), `renace-test-receipt-${Date.now()}.txt`);
-  const content = `=================================\n        RENACE POS PRINTER TEST   \n=================================\nFecha: ${new Date().toLocaleString()}\nImpresora: ${settings.printer || 'Default CUPS'}\nEstado: OK\n=================================\n\n\n`;
+  const content = `=================================\n        RENACE POS PRINTER TEST   \n=================================\nFecha: ${new Date().toLocaleString()}\nImpresora: ${settings.printer || 'Predeterminada de Sistema'}\nEstado: OK\n=================================\n\n\n`;
   try {
+    fs.writeFileSync(tmp, content);
+    if (process.platform === 'win32') {
+      const psCmd = settings.printer
+        ? `Start-Process -FilePath "${tmp}" -Verb PrintTo -ArgumentList "${settings.printer.replace(/"/g, '`"')}"`
+        : `Start-Process -FilePath "${tmp}" -Verb Print`;
+      return new Promise((resolve) => {
+        execFile('powershell', ['-NoProfile', '-Command', psCmd], { windowsHide: true }, (err) => {
+          setTimeout(() => { try { fs.unlinkSync(tmp); } catch (_) {} }, 5000);
+          resolve({ ok: !err, error: err ? err.message : null });
+        });
+      });
+    } else {
+      const args = [];
+      if (settings.printer) args.push('-d', settings.printer);
+      args.push(tmp);
+      const child = spawn('lp', args, { stdio: 'ignore' });
+      return new Promise((resolve) => {
+        child.on('close', (code) => {
+          try { fs.unlinkSync(tmp); } catch (_) {}
+          resolve({ ok: code === 0, code });
+        });
+        child.on('error', (err) => {
+          try { fs.unlinkSync(tmp); } catch (_) {}
+          resolve({ ok: false, error: err.message });
+        });
+      });
+    }
+  } catch (e) {
+    return Promise.resolve({ ok: false, error: e.message });
+  }
+}
     fs.writeFileSync(tmp, content);
     const args = [];
     if (settings.printer) args.push('-d', settings.printer);

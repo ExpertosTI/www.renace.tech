@@ -319,10 +319,10 @@
         {
           id: 'macos',
           title: 'macOS',
-          hint: 'macOS 12+',
+          hint: 'macOS 10.15+ (Big Sur, Monterey, Ventura, Sonoma, Sequoia)',
           builds: [
-            { href: '/docs/RENACE-Portal-mac-arm64.dmg', label: 'Apple Silicon', chip: 'Arm64', primary: true },
-            { href: '/docs/RENACE-Portal-mac-x64.dmg', label: 'Intel', chip: 'x64' },
+            { href: '/docs/RENACE-Portal-mac-arm64.dmg', label: 'Apple Silicon (M1/M2/M3/M4)', chip: 'Arm64', primary: true },
+            { href: '/docs/RENACE-Portal-mac-x64.dmg', label: 'Intel Mac (Legacy)', chip: 'x64' },
           ],
         },
         {
@@ -350,6 +350,30 @@
       var isWin = /Windows/i.test(ua);
       var isMac = (/Mac/i.test(platform) || /Macintosh/i.test(ua)) && !isIOS;
       var preferred = isWin ? 'windows' : isAndroid ? 'android' : isIOS ? 'ios' : isMac ? 'macos' : 'windows';
+
+      function detectMacArch() {
+        try {
+          var canvas = document.createElement('canvas');
+          var gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+          if (gl) {
+            var debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            if (debugInfo) {
+              var renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '';
+              if (/Apple M|Apple GPU/i.test(renderer)) return 'arm64';
+              if (/Intel|AMD/i.test(renderer)) return 'x64';
+            }
+          }
+        } catch (_) {}
+        return 'arm64';
+      }
+
+      if (isMac) {
+        var macArch = detectMacArch();
+        var macCol = CATALOG.find(function (c) { return c.id === 'macos'; });
+        if (macCol && macArch === 'x64') {
+          macCol.builds.forEach(function (b) { b.primary = (b.chip === 'x64'); });
+        }
+      }
 
       function render() {
         var root = document.getElementById('platforms');

@@ -2654,14 +2654,27 @@ app.whenReady().then(async () => {
   updater.loadPendingFromDisk();
 
   if (process.platform === 'win32') {
+    let winAgentOk = false;
     try {
       // Limpia claves Run / Startup duplicadas de builds anteriores (Electron login item)
       await clearDuplicatePortalAutostart([app.getName()]);
       await syncOpenAtLoginFromInstaller();
       const pos = await ensurePosAgent({ openAtLogin: store.getOpenAtLogin() !== false });
       log.info('posagent ensure', pos);
+      winAgentOk = !!(pos && pos.ok && pos.running);
     } catch (e) {
       log.warn('posagent ensure failed', e.message);
+    }
+
+    // Hub integrado nativo para Windows si posagent.exe no está presente o en ejecución
+    if (!winAgentOk) {
+      try {
+        const posCfg = store.getPosSettings();
+        const started = await posProxy.start(posCfg);
+        log.info('renace pos proxy (win embedded)', started);
+      } catch (e) {
+        log.warn('win pos proxy fallback failed', e.message);
+      }
     }
   } else {
     // Mac / Linux: proxy propio con identidad RENACE (POS Agent PRO no tiene build Mac)
