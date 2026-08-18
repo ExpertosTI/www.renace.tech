@@ -40,6 +40,10 @@ Thumbs.db
 *.tar.gz
 *.zip
 *.dmg
+*.exe
+*.apk
+*.appx
+*.ipa
 *.bak
 *.old
 _legacy_archives/
