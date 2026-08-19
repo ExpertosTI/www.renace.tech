@@ -19,18 +19,25 @@ ROOT=native/capacitor
 
 bash scripts/cap-inject-push-stub.sh
 
-# Android MainActivity
+# Android MainActivity & BootReceiver
 ANDROID_MAIN=$(find android -path '*/tech/renace/*/MainActivity.java' 2>/dev/null | head -1 || find android/app/src/main/java -name 'MainActivity.java' 2>/dev/null | head -1 || true)
 if [[ -n "${ANDROID_MAIN:-}" ]]; then
   cp "$ROOT/MainActivity.java" "$ANDROID_MAIN"
+  BOOT_RECEIVER="$(dirname "$ANDROID_MAIN")/BootReceiver.java"
+  if [[ -f "$ROOT/BootReceiver.java" ]]; then
+    cp "$ROOT/BootReceiver.java" "$BOOT_RECEIVER"
+  fi
+
   if [[ "$ANDROID_MAIN" == *"tech/renace/app/"* ]]; then
     sed -i '' 's/package tech.renace.portal;/package tech.renace.app;/g' "$ANDROID_MAIN"
+    [[ -f "$BOOT_RECEIVER" ]] && sed -i '' 's/package tech.renace.portal;/package tech.renace.app;/g' "$BOOT_RECEIVER"
   elif [[ "$ANDROID_MAIN" == *"tech/renace/portal/"* ]]; then
     sed -i '' 's/package tech.renace.app;/package tech.renace.portal;/g' "$ANDROID_MAIN"
+    [[ -f "$BOOT_RECEIVER" ]] && sed -i '' 's/package tech.renace.portal;/package tech.renace.portal;/g' "$BOOT_RECEIVER"
   fi
   mkdir -p android/app/src/main/assets
   cp electron/user-shell.js android/app/src/main/assets/renace-user-shell.js
-  echo "✓ Android MainActivity ($ANDROID_MAIN) + assets/renace-user-shell.js"
+  echo "✓ Android MainActivity & BootReceiver ($ANDROID_MAIN) + assets/renace-user-shell.js"
 else
   echo "· Android no presente (ok si aún no corriste cap add android)"
 fi

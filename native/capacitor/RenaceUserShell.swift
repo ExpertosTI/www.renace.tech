@@ -33,10 +33,140 @@ enum RenaceUserShell {
 
   function isPos() {
     return !!(
-      document.querySelector('.pos, .o_pos, .point-of-sale') ||
-      /\/pos\b|action=pos|point_of_sale/i.test(location.href + location.hash)
+      document.querySelector('.pos, .o_pos, .point-of-sale, .pos-content, .pos-topheader, #pos') ||
+      /\/pos\b|action=pos|point_of_sale|model=pos\./i.test(location.href + location.hash)
     );
   }
+
+  function ensurePosReloadButton() {
+    var inPos = isPos();
+    var btn = document.getElementById('renace-pos-reload-btn');
+
+    if (!inPos) {
+      if (btn) btn.style.display = 'none';
+      return;
+    }
+
+    if (btn) {
+      btn.style.display = 'flex';
+      return;
+    }
+
+    if (!document.getElementById('renace-pos-reload-style')) {
+      var style = document.createElement('style');
+      style.id = 'renace-pos-reload-style';
+      style.textContent = [
+        '#renace-pos-reload-btn {',
+        '  position: fixed;',
+        '  top: 10px;',
+        '  right: 14px;',
+        '  z-index: 2147483647;',
+        '  display: flex;',
+        '  align-items: center;',
+        '  justify-content: center;',
+        '  gap: 6px;',
+        '  padding: 6px 14px;',
+        '  height: 38px;',
+        '  background: rgba(15, 23, 42, 0.88);',
+        '  backdrop-filter: blur(8px);',
+        '  -webkit-backdrop-filter: blur(8px);',
+        '  color: #ffffff;',
+        '  border: 1px solid rgba(255, 255, 255, 0.3);',
+        '  border-radius: 20px;',
+        '  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;',
+        '  font-size: 13px;',
+        '  font-weight: 600;',
+        '  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);',
+        '  cursor: pointer;',
+        '  user-select: none;',
+        '  -webkit-user-select: none;',
+        '  touch-action: none;',
+        '  transition: transform 0.12s ease, background 0.2s ease;',
+        '}',
+        '#renace-pos-reload-btn:active {',
+        '  transform: scale(0.93);',
+        '  background: rgba(30, 41, 59, 0.95);',
+        '}',
+        '#renace-pos-reload-btn .renace-icon {',
+        '  display: inline-block;',
+        '  font-size: 15px;',
+        '  line-height: 1;',
+        '}',
+        '#renace-pos-reload-btn.spinning .renace-icon {',
+        '  animation: renace-spin-anim 0.8s linear infinite;',
+        '}',
+        '@keyframes renace-spin-anim {',
+        '  0% { transform: rotate(0deg); }',
+        '  100% { transform: rotate(360deg); }',
+        '}'
+      ].join('\n');
+      (document.head || document.documentElement).appendChild(style);
+    }
+
+    btn = document.createElement('button');
+    btn.id = 'renace-pos-reload-btn';
+    btn.type = 'button';
+    btn.setAttribute('aria-label', 'Actualizar POS');
+    btn.innerHTML = '<span class="renace-icon">↻</span><span>Actualizar</span>';
+
+    var isDragging = false;
+    btn.addEventListener('click', function (e) {
+      if (isDragging) return;
+      btn.classList.add('spinning');
+      if (window.renaceDesktop && typeof window.renaceDesktop.reload === 'function') {
+        window.renaceDesktop.reload();
+      } else if (window.renaceDesktop && typeof window.renaceDesktop.winReload === 'function') {
+        window.renaceDesktop.winReload();
+      } else {
+        window.location.reload();
+      }
+    });
+
+    var startX = 0, startY = 0, origX = 0, origY = 0, moved = false;
+    btn.addEventListener('touchstart', function (e) {
+      if (e.touches.length !== 1) return;
+      var touch = e.touches[0];
+      startX = touch.clientX;
+      startY = touch.clientY;
+      var rect = btn.getBoundingClientRect();
+      origX = rect.left;
+      origY = rect.top;
+      moved = false;
+    }, { passive: true });
+
+    btn.addEventListener('touchmove', function (e) {
+      if (e.touches.length !== 1) return;
+      var touch = e.touches[0];
+      var dx = touch.clientX - startX;
+      var dy = touch.clientY - startY;
+      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+        moved = true;
+        isDragging = true;
+        btn.style.left = (origX + dx) + 'px';
+        btn.style.top = (origY + dy) + 'px';
+        btn.style.right = 'auto';
+      }
+    }, { passive: true });
+
+    btn.addEventListener('touchend', function () {
+      if (moved) {
+        setTimeout(function () { isDragging = false; }, 120);
+      }
+    });
+
+    (document.body || document.documentElement).appendChild(btn);
+  }
+
+  // Inicialización y verificación continua del botón Actualizar en POS
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ensurePosReloadButton);
+  } else {
+    ensurePosReloadButton();
+  }
+  window.addEventListener('load', ensurePosReloadButton);
+  window.addEventListener('hashchange', ensurePosReloadButton);
+  window.addEventListener('popstate', ensurePosReloadButton);
+  setInterval(ensurePosReloadButton, 1000);
 
   function isPaymentScreen() {
     return !!(
@@ -165,6 +295,7 @@ enum RenaceUserShell {
     getKeymap: function () { return Object.assign({}, keys); },
     isUser: isUser,
     isPos: isPos,
+    ensurePosReloadButton: ensurePosReloadButton,
   };
 })();
 
