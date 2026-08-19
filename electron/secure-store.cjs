@@ -390,8 +390,8 @@ function setActiveStaffId(id) {
 /** Zoom de webContents (0.8–1.5). Persistido; no CSS.
  *  En POS, main.cjs aplica un piso ≥1.0 (1.1 en pantallas ≥1920px)
  *  para no dejar la UI demasiado alejada en monitores grandes. */
-const ZOOM_MIN = 0.8;
-const ZOOM_MAX = 1.5;
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 2.0;
 const ZOOM_DEFAULT = 1.0;
 
 function clampZoomFactor(z) {

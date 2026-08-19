@@ -64,10 +64,8 @@ const TECH_PIN = String(process.env.RENACE_TECH_PIN || '101284');
 /** Modo técnico caduca solo; siempre se arranca en usuario */
 const ADMIN_TTL_MS = 20 * 60 * 1000;
 const ZOOM_STEP = 0.1;
-/** En POS no permitir zoom “alejado” (UI chica / botón pagar difícil). */
-const POS_ZOOM_FLOOR = 1.0;
-/** Monitores anchos: piso ligeramente por encima de 100%. */
-const POS_ZOOM_FLOOR_LARGE = 1.1;
+/** En POS no permitir zoom “alejado” (UI chica / botón pagar const POS_ZOOM_FLOOR = 0.5;
+const POS_ZOOM_FLOOR_LARGE = 0.5;
 
 function resolveAppIcon() {
   try {
@@ -79,17 +77,7 @@ function resolveAppIcon() {
   return undefined;
 }
 
-/** Piso de zoom en POS: 100% normal, 110% en pantallas ≥1920px de ancho útil. */
 function posZoomFloor(wc) {
-  try {
-    const win = wc && !wc.isDestroyed() ? BrowserWindow.fromWebContents(wc) : BrowserWindow.getFocusedWindow();
-    const bounds = win && !win.isDestroyed() ? win.getBounds() : null;
-    const display = bounds
-      ? screen.getDisplayMatching(bounds)
-      : screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
-    const w = display?.workAreaSize?.width || display?.size?.width || 0;
-    if (w >= 1920) return POS_ZOOM_FLOOR_LARGE;
-  } catch (_) {}
   return POS_ZOOM_FLOOR;
 }
 
@@ -102,11 +90,7 @@ function isPosContext(wc) {
 }
 
 function resolveZoomForWc(wc, factor) {
-  let z = store.clampZoomFactor(factor != null ? factor : store.getZoomFactor());
-  if (isPosContext(wc)) {
-    z = Math.max(z, posZoomFloor(wc));
-  }
-  return z;
+  return store.clampZoomFactor(factor != null ? factor : store.getZoomFactor());
 }
 
 function applyZoomFactor(wc, factor) {
@@ -133,30 +117,16 @@ function setAppZoom(factor) {
 }
 
 function adjustAppZoom(delta) {
-  const win = BrowserWindow.getFocusedWindow();
-  const wc = win && !win.isDestroyed() ? win.webContents : null;
-  if (wc && isPosContext(wc)) {
-    const floor = posZoomFloor(wc);
-    const effective = Math.max(store.getZoomFactor(), floor);
-    const next = store.clampZoomFactor(effective + delta);
-    return setAppZoom(Math.max(next, floor));
-  }
   return setAppZoom(store.getZoomFactor() + delta);
 }
 
-/**
- * Al entrar al POS: si el zoom guardado quedó muy lejos (p.ej. 80%),
- * sube al piso POS (y persiste) para que Pagar sea usable en pantallas grandes.
- */
 function ensurePosZoom(wc) {
   const target = wc && !wc.isDestroyed() ? wc : BrowserWindow.getFocusedWindow()?.webContents;
   if (target && !target.isDestroyed()) {
     target.__renacePosUi = true;
   }
-  const floor = posZoomFloor(target);
-  const current = store.getZoomFactor();
-  if (current < floor) {
-    return setAppZoom(floor);
+  applyZoomFactor(target);
+}pZoom(floor);
   }
   if (target) applyZoomFactor(target);
   else applyZoomToAll();
