@@ -100,10 +100,14 @@ public class MainActivity extends BridgeActivity {
 
   private boolean userMode = true;
   private String userShellJs = "";
+  private AndroidPosAgentServer posAgentServer;
 
   @Override
   public void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
+
+    posAgentServer = new AndroidPosAgentServer(this, 9069);
+    posAgentServer.start();
 
     SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
     userMode = !"admin".equals(prefs.getString(KEY_MODE, "user"));
@@ -327,5 +331,13 @@ public class MainActivity extends BridgeActivity {
     } catch (Exception e) {
       return "";
     }
+  }
+
+  @Override
+  public void onDestroy() {
+    if (posAgentServer != null) {
+      posAgentServer.stop();
+    }
+    super.onDestroy();
   }
 }
