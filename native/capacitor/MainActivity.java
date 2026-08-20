@@ -1,14 +1,21 @@
 package tech.renace.portal;
 
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Bundle;
+import android.print.PrintAttributes;
+import android.print.PrintDocumentAdapter;
+import android.print.PrintManager;
+import android.util.Base64;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -22,6 +29,7 @@ import java.io.InputStream;
 /**
  * Modo Usuario / Kiosk Lockdown:
  * - Inyecta renaceDesktop API idéntica a PC Desktop (instancias, autologin, cookies, secrets).
+ * - Soporte nativo para impresoras térmicas POS 2connet (USB, Bluetooth, Red ESC/POS y Android WebPrint).
  * - Habilita persistencia total de sesión (CookieManager + DOM Storage).
  * - Bloquea botón Atrás del sistema, Inicio (Home), Recientes, gestos y cierre de la app.
  */
@@ -57,7 +65,21 @@ public class MainActivity extends BridgeActivity {
           + "  getSecret: function(k){ try { return Promise.resolve(localStorage.getItem('sec_'+k)); } catch(e){ return Promise.resolve(null); } },"
           + "  getMode: function(){ return Promise.resolve('user'); },"
           + "  winReload: function(){ window.location.reload(); },"
-          + "  reload: function(){ window.location.reload(); }"
+          + "  reload: function(){ window.location.reload(); },"
+          + "  print: function(){"
+          + "    if (window.AndroidPrinter && typeof window.AndroidPrinter.printPage === 'function') {"
+          + "      window.AndroidPrinter.printPage();"
+          + "    } else {"
+          + "      window.print();"
+          + "    }"
+          + "    return Promise.resolve(true);"
+          + "  },"
+          + "  printNetworkPOS: function(host, port, base64Data){"
+          + "    if (window.AndroidPrinter && typeof window.AndroidPrinter.printNet === 'function') {"
+          + "      return Promise.resolve(window.AndroidPrinter.printNet(host, port, base64Data));"
+          + "    }"
+          + "    return Promise.resolve(false);"
+          + "  }"
           + "};"
           + "})();";
 
@@ -160,7 +182,62 @@ public class MainActivity extends BridgeActivity {
         super.onPageFinished(view, url);
       }
     });
+    webView.addJavascriptInterface(new AndroidPrinterInterface(), "AndroidPrinter");
     injectAll(webView);
+  }
+
+  public class AndroidPrinterInterface {
+    @JavascriptInterface
+    public void printPage() {
+      MainActivity.this.printWebViewPage();
+    }
+
+    @JavascriptInterface
+    public boolean printNet(String host, int port, String base64Data) {
+      return MainActivity.this.printNetworkPOS(host, port, base64Data);
+    }
+  }
+
+  public void printWebViewPage() {
+    runOnUiThread(() -> {
+      try {
+        Bridge b = this.bridge;
+        WebView webView = b != null ? b.getWebView() : null;
+        if (webView != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+          PrintManager printManager = (PrintManager) getSystemService(Context.PRINT_SERVICE);
+          if (printManager != null) {
+            String jobName = "RENACE_POS_Ticket_" + System.currentTimeMillis();
+            PrintDocumentAdapter printAdapter;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+              printAdapter = webView.createPrintDocumentAdapter(jobName);
+            } else {
+              printAdapter = webView.createPrintDocumentAdapter();
+            }
+            printManager.print(jobName, printAdapter, new PrintAttributes.Builder().build());
+          }
+        }
+      } catch (Exception e) {
+        Log.e("RenacePrint", "Error imprimiendo ticket: " + e.getMessage(), e);
+      }
+    });
+  }
+
+  public boolean printNetworkPOS(String host, int port, String base64Data) {
+    try {
+      if (host == null || host.isEmpty()) return false;
+      byte[] escposBytes = Base64.decode(base64Data, Base64.DEFAULT);
+      int targetPort = port > 0 ? port : 9100;
+      try (java.net.Socket socket = new java.net.Socket()) {
+        socket.connect(new java.net.InetSocketAddress(host, targetPort), 4000);
+        java.io.OutputStream out = socket.getOutputStream();
+        out.write(escposBytes);
+        out.flush();
+        return true;
+      }
+    } catch (Exception e) {
+      Log.e("RenacePrint", "Error imprimiendo en impresoras 2connet (" + host + "): " + e.getMessage(), e);
+      return false;
+    }
   }
 
   @Override
